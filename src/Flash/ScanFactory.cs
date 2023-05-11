@@ -13,6 +13,7 @@ namespace Flash
     /// </summary>
     /// <remarks>
     /// Names for the parameters are matching API representation and should not be changed
+    /// Underscores are exchanged for spaces
     /// </remarks>
     public struct ScanParameters
     {
@@ -40,6 +41,8 @@ namespace Flash
         public double[] ReactionTime;
         public double[] ReagentMaxIT;
         public int[] ReagentAGCTarget;
+        public int FAIMS_CV;
+        public string FAIMS_Voltages;
     }
 
     /// <summary>
@@ -131,7 +134,7 @@ namespace Flash
                              //This casts `object` to `object[]` and joins it into string
                              String.Join(";", (field.GetValue(parameters) as IEnumerable).Cast<object>().ToArray()));
                     else
-                        scan.Values.Add(field.Name, field.GetValue(parameters).ToString());
+                        scan.Values.Add(field.Name.Replace("_", " "), field.GetValue(parameters).ToString());
             }
         }
 
