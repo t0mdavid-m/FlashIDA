@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
 using log4net;
