@@ -17,6 +17,7 @@ using Thermo.Interfaces.FusionAccess_V1.Control;
 using log4net;
 using log4net.Config;
 using Mono.Options;
+using Thermo.TNG.Client.API.Control.Scans.Parameters;
 
 namespace Flash
 {
@@ -47,7 +48,7 @@ namespace Flash
         static ScanFactory scanFactory;
 
         //flashIDA 
-        static IDAScanProcessor flashIDAProcessor;
+        static IScanProcessor flashIDAProcessor;
 
         //DataPipe
         static DataPipe dataPipe;
@@ -256,11 +257,11 @@ namespace Flash
             {
                 log.Error(String.Format("Error loading method file: {0}\n{1}", ex.Message, ex.StackTrace));
                 Environment.Exit(1);
-            }
+            } 
 
             IFusionCustomScan agcScan = null;
             IFusionCustomScan defaultScan = null;
-
+            
             try
             {
                 //default AGC scan, scan parameters match the vendor implementation
@@ -316,10 +317,66 @@ namespace Flash
                 log.Error(String.Format("ScanScheduler failed: {0}\n{1}", ex.Message, ex.StackTrace));
             }
 
+            // Stores the faims scans for first test
+            List<IFusionCustomScan> faimsScans = new List<IFusionCustomScan>();
+            // Parameters to vary
+            int[] cvs = new int[] {-20, 0, 20};
+            string[] voltages = new string[] { "on", "off" };
+
+            // Create FAIMS test scans
+            try
+            {
+                foreach (var cv in cvs)
+                {
+                    foreach (var voltage in voltages) 
+                    {
+                        // Create faims scnas
+                        faimsScans.Add(scanFactory.CreateFusionCustomScan(
+                            new ScanParameters
+                            {
+                                Analyzer = methodParams.MS1.Analyzer,
+                                FirstMass = new double[] { methodParams.MS1.FirstMass },
+                                LastMass = new double[] { methodParams.MS1.LastMass },
+                                OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
+                                AGCTarget = methodParams.MS1.AGCTarget,
+                                MaxIT = methodParams.MS1.MaxIT,
+                                Microscans = methodParams.MS1.Microscans,
+                                SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                DataType = methodParams.MS1.DataType,
+                                ScanType = "Full",
+                                FAIMS_CV = cv,
+                                FAIMS_Voltages = voltage
+                            }, id: 42, delay: 3));
+                    }
+                }
+
+                log.Info("Created FAIMS scans");
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("Cannot create FAIMS scans: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+
+            // Add FAIMS scans to queue
+            try
+            {
+                foreach (var faimsScan in faimsScans) 
+                {
+                    scanScheduler.AddScan(faimsScan, 1);
+                }
+
+                log.Info("Added FAIMS scans to queue");
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("Cannot add faims scans to queue: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+
             //Initialize FLASHIDA Processor
             try
             {
-                flashIDAProcessor = new IDAScanProcessor(methodParams, scanFactory, scanScheduler);
+                flashIDAProcessor = new FAIMSTestScanProcessor(methodParams, scanFactory, scanScheduler);
                 log.Info("Created FLASHIDA processor");
             }
             catch (Exception ex)
