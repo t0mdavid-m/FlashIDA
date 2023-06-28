@@ -347,7 +347,7 @@ namespace Flash
                                 ScanType = "Full",
                                 FAIMS_CV = cv,
                                 FAIMS_Voltages = voltage
-                            }, id: 42, delay: 3));
+                            }, delay: 3));
                     }
                 }
 
