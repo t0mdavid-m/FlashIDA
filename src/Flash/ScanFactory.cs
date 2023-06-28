@@ -130,7 +130,7 @@ namespace Flash
             {
                 if (field.GetValue(parameters) != null)
                     if (field.FieldType.IsArray) //arrays has to be provided as "elemnt1;element2;element3..."
-                         scan.Values.Add(field.Name,
+                         scan.Values.Add(field.Name.Replace("_", " "),
                              //This casts `object` to `object[]` and joins it into string
                              String.Join(";", (field.GetValue(parameters) as IEnumerable).Cast<object>().ToArray()));
                     else
