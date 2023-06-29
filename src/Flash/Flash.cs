@@ -363,6 +363,7 @@ namespace Flash
             {
                 foreach (var faimsScan in faimsScans) 
                 {
+                    scanScheduler.AddScan(agcScan, 0);
                     scanScheduler.AddScan(faimsScan, 1);
                 }
 
