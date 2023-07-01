@@ -328,9 +328,28 @@ namespace Flash
             {
                 foreach (var cv in cvs)
                 {
-                    foreach (var voltage in voltages) 
+                    foreach (var voltage in voltages)
                     {
-                        // Create faims scnas
+                        // Create agc scan (with FAIMS parameters)
+                        faimsScans.Add(scanFactory.CreateFusionCustomScan(
+                            new ScanParameters
+                            {
+                                Analyzer = "IonTrap",
+                                FirstMass = new double[] { methodParams.MS1.FirstMass },
+                                LastMass = new double[] { methodParams.MS1.LastMass },
+                                ScanRate = "Turbo",
+                                AGCTarget = 30000,
+                                MaxIT = 1,
+                                Microscans = 1,
+                                SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                DataType = "Profile",
+                                ScanType = "Full",
+                                FAIMS_CV = cv,
+                                FAIMS_Voltages = voltage
+
+                            }, id: 41, IsAGC: true, delay: 3));
+                        // Create faims scan
                         faimsScans.Add(scanFactory.CreateFusionCustomScan(
                             new ScanParameters
                             {
@@ -361,10 +380,18 @@ namespace Flash
             // Add FAIMS scans to queue
             try
             {
+                int scanType = 0;
                 foreach (var faimsScan in faimsScans) 
                 {
-                    scanScheduler.AddScan(agcScan, 0);
-                    scanScheduler.AddScan(faimsScan, 1);
+                    scanScheduler.AddScan(faimsScan, scanType);
+                    if (scanType == 0)
+                    {
+                        scanType = 1;
+                    }
+                    else
+                    {
+                        scanType = 0;
+                    }
                 }
 
                 log.Info("Added FAIMS scans to queue");
