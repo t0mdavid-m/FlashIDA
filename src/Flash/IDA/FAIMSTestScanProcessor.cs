@@ -44,8 +44,7 @@ namespace Flash.IDA
         /// </summary>
         /// <param name="scan">Definition of new custom scan <see cref="IFusionCustomScan"/></param>
         public void OutputMS(IFusionCustomScan scan)
-        {
-            scanScheduler.AddDefault();            
+        {      
         }
 
         /// <summary>
