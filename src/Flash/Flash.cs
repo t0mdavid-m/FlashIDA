@@ -305,7 +305,115 @@ namespace Flash
             {
                 log.Error(String.Format("Cannot create default scans: {0}\n{1}", ex.Message, ex.StackTrace));
             }
-            
+
+            // Stores all repeated tests
+            List<IFusionCustomScan> allTests = new List<IFusionCustomScan>();
+
+            try
+                {
+                // Voltage differences to test
+                int?[] diffs = new int?[] { 10, 20, 40, 100 };
+
+                // Build test run, for each CV run AGC-AGC-MS1-MS1
+                foreach (var diff in diffs)
+                {
+                    for (int? cv = -100; cv <= 100; cv += diff)
+                    {
+                        IFusionCustomScan testAGC = scanFactory.CreateFusionCustomScan(
+                            new ScanParameters
+                            {
+                                Analyzer = "IonTrap",
+                                FirstMass = new double[] { methodParams.MS1.FirstMass },
+                                LastMass = new double[] { methodParams.MS1.LastMass },
+                                ScanRate = "Turbo",
+                                AGCTarget = 30000,
+                                MaxIT = 1,
+                                Microscans = 1,
+                                SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                DataType = "Profile",
+                                ScanType = "Full",
+                                FAIMS_CV = cv,
+                                FAIMS_Voltages = "on"
+
+                            }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
+                        IFusionCustomScan testMS1 = scanFactory.CreateFusionCustomScan(
+                                new ScanParameters
+                                {
+                                    Analyzer = methodParams.MS1.Analyzer,
+                                    FirstMass = new double[] { methodParams.MS1.FirstMass },
+                                    LastMass = new double[] { methodParams.MS1.LastMass },
+                                    OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
+                                    AGCTarget = methodParams.MS1.AGCTarget,
+                                    MaxIT = methodParams.MS1.MaxIT,
+                                    Microscans = methodParams.MS1.Microscans,
+                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                    DataType = methodParams.MS1.DataType,
+                                    ScanType = "Full",
+                                    FAIMS_CV = cv,
+                                    FAIMS_Voltages = "on"
+                                }, delay: 3);
+                        allTests.Add(testAGC);
+                        allTests.Add(testAGC);
+                        allTests.Add(testMS1);
+                        allTests.Add(testMS1);
+                    }
+                }
+
+                // Build decharging test
+                for (int? cv = -100; cv <= 100; cv += 10)
+                {
+                    foreach (var voltage in new string[] { "on", "off" })
+                    {
+                        IFusionCustomScan testAGC = scanFactory.CreateFusionCustomScan(
+                                new ScanParameters
+                                {
+                                    Analyzer = "IonTrap",
+                                    FirstMass = new double[] { methodParams.MS1.FirstMass },
+                                    LastMass = new double[] { methodParams.MS1.LastMass },
+                                    ScanRate = "Turbo",
+                                    AGCTarget = 30000,
+                                    MaxIT = 1,
+                                    Microscans = 1,
+                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                    DataType = "Profile",
+                                    ScanType = "Full",
+                                    FAIMS_CV = cv,
+                                    FAIMS_Voltages = voltage
+
+                                }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
+                        IFusionCustomScan testMS1 = scanFactory.CreateFusionCustomScan(
+                                new ScanParameters
+                                {
+                                    Analyzer = methodParams.MS1.Analyzer,
+                                    FirstMass = new double[] { methodParams.MS1.FirstMass },
+                                    LastMass = new double[] { methodParams.MS1.LastMass },
+                                    OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
+                                    AGCTarget = methodParams.MS1.AGCTarget,
+                                    MaxIT = methodParams.MS1.MaxIT,
+                                    Microscans = methodParams.MS1.Microscans,
+                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                    DataType = methodParams.MS1.DataType,
+                                    ScanType = "Full",
+                                    FAIMS_CV = cv,
+                                    FAIMS_Voltages = voltage
+                                }, delay: 3);
+                        allTests.Add(testAGC);
+                        allTests.Add(testAGC);
+                        allTests.Add(testMS1);
+                        allTests.Add(testMS1);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("Creation of repeated test series failed.: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+
+
             //create instance of custom scan queue and scheduler
             try
             {
