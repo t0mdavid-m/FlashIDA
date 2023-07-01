@@ -417,7 +417,7 @@ namespace Flash
             //create instance of custom scan queue and scheduler
             try
             {
-                scanScheduler = new ScanScheduler(defaultScan, agcScan);
+                scanScheduler = new ScanScheduler(defaultScan, agcScan, allTests);
                 log.Info("ScanScheduler created");
             }
             catch (Exception ex)
