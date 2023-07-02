@@ -77,7 +77,15 @@ namespace Flash.IDA
                 {
                     foreach (var key in msScan.Header.Keys)
                     {
-                        IDAlog.Info(String.Format("Scan# {0} ~ Header - {1} : {2}", msScan.Header["Scan"], key, msScan.Header[key]));
+                        if (key != null)
+                        {
+                            string val = msScan.Header[key];
+                            if (val == null)
+                            {
+                                val = "null";
+                            }
+                            IDAlog.Info(String.Format("Scan# {0} ~ Header - {1} : {2}", msScan.Header["Scan"], key, val));
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -91,6 +99,10 @@ namespace Flash.IDA
                     foreach (var name in msScan.Trailer.ItemNames)
                     {
                         msScan.Trailer.TryGetValue(name, out var value);
+                        if (value == null)
+                        {
+                            value = "null";
+                        }
                         IDAlog.Info(String.Format("Scan# {0} ~ Trailer - {0} : {1}", msScan.Header["Scan"], name, value));
                     }
                 }
