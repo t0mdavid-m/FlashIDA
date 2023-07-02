@@ -407,7 +407,13 @@ namespace Flash
                         allTests.Add(testMS1);
                     }
                 }
+                // Add tests without setting any FAIMS related values
+                allTests.Add(agcScan);
+                allTests.Add(agcScan);
+                allTests.Add(defaultScan);
+                allTests.Add(defaultScan);
             }
+
             catch (Exception ex)
             {
                 log.Error(String.Format("Creation of repeated test series failed.: {0}\n{1}", ex.Message, ex.StackTrace));
