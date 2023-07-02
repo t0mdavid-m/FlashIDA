@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using log4net;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 using System.Linq;
@@ -25,6 +26,8 @@ namespace Flash
         private IFusionCustomScan defaultScan; //type of scan that will be requested when nothing is in the queue
         private IFusionCustomScan agcScan;
 
+        private List<IFusionCustomScan> testSeries;
+
         private ILog log;
 
         /// <summary>
@@ -33,7 +36,7 @@ namespace Flash
         /// </summary>
         /// <param name="scan">API definition of a default "regular" scan</param>
         /// <param name="AGCScan">API definition of a default "regular" AGC scan</param>
-        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan)
+        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, List<IFusionCustomScan> series)
         {
             defaultScan = scan;
             agcScan = AGCScan;
@@ -43,6 +46,8 @@ namespace Flash
             MS1Count = 0;
             MS2Count = 0;
             AGCCount = 0;
+
+            testSeries = series;
         }
 
         /// <summary>
@@ -97,11 +102,24 @@ namespace Flash
 
             if (customScans.IsEmpty) //No scans in the queue => send AGC scan and put default scan in the queue to be next
             {
-                log.Debug("Empty queue - gonna send AGC scan");
-                customScans.Enqueue(defaultScan);
-                MS1Count++;
-                log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
-                return agcScan;
+                log.Debug("Empty queue - gonna start test series");
+                try
+                {
+                    foreach (IFusionCustomScan seriesScan in testSeries.Skip(1))
+                    {
+                        customScans.Enqueue(seriesScan);
+                    }
+                    int runs = testSeries.Count / 2;
+                    MS1Count += runs;
+                    AGCCount += (runs - 1);
+                    return testSeries.First();
+                }
+                catch (Exception ex)
+                {
+                    log.Error(String.Format("Couldnt queue test series: {0}\n{1}", ex.Message, ex.StackTrace));
+                    return agcScan;
+                }
+
             }
             else //something is in the queue
             {

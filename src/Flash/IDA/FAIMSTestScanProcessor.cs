@@ -44,8 +44,7 @@ namespace Flash.IDA
         /// </summary>
         /// <param name="scan">Definition of new custom scan <see cref="IFusionCustomScan"/></param>
         public void OutputMS(IFusionCustomScan scan)
-        {
-            scanScheduler.AddDefault();            
+        {      
         }
 
         /// <summary>
@@ -58,7 +57,7 @@ namespace Flash.IDA
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
 
             //for FTMS MS1 scans search for precursors (exclude IT scans)
-            if (msScan.Header["MSOrder"] == "1" && msScan.Header["MassAnalyzer"] == "FTMS")
+            if (msScan.Header["MSOrder"] == "1")
             {
                 //get ScanID for logging purposes
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
@@ -78,7 +77,7 @@ namespace Flash.IDA
                 {
                     foreach (var key in msScan.Header.Keys)
                     {
-                        IDAlog.Info(String.Format("Header - {0} : {1}", key, msScan.Header[key]));
+                        IDAlog.Info(String.Format("Scan# {0} ~ Header - {1} : {2}", msScan.Header["Scan"], key, msScan.Header[key]));
                     }
                 }
                 catch (Exception ex)
@@ -92,7 +91,7 @@ namespace Flash.IDA
                     foreach (var name in msScan.Trailer.ItemNames)
                     {
                         msScan.Trailer.TryGetValue(name, out var value);
-                        IDAlog.Info(String.Format("Trailer - {0} : {1}", name, value));
+                        IDAlog.Info(String.Format("Scan# {0} ~ Trailer - {0} : {1}", msScan.Header["Scan"], name, value));
                     }
                 }
                 catch (Exception ex)
