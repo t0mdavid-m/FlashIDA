@@ -76,10 +76,13 @@ namespace Flash.IDA
                 {
                     msScan.Trailer.TryGetValue("FAIMS CV", out var cv_string);
                     msScan.Trailer.TryGetValue("FAIMS Voltage On", out var faims_status);
+                    int scanIDInt = Int32.Parse(scanId);
                     double cv = double.Parse(cv_string);
                     int pos = Array.IndexOf(scanScheduler.cvs, cv);
 
-                    if (scanId == "43")
+                    IDAlog.Info(String.Format("Get Scan {0}-{1}, looking for {2}", scanId, scanIDInt, string.Join(" ", scanScheduler.planScanIDs)));
+
+                    if (scanScheduler.planScanIDs.Contains(scanIDInt))
                     {
                         int precursors = flashIdaWrapper.GetAllPeakGroupSize();
 

@@ -31,10 +31,13 @@ namespace Flash
         public int currentCV;
         public int[] maxScansPerCV;
         public int[] scansPerCV;
+        public int[] planScanIDs;
         public int[] noPrecursors;
         public int[] noPrecursorsTruncated;
         public bool planMode;
         public bool planningComplete;
+
+        public int planScanCounter;
 
         // TODO : find nicer solution
         ScanFactory scanFactory;
@@ -75,16 +78,22 @@ namespace Flash
             scansPerCV = new int[cvs.Length];
             noPrecursors = new int[cvs.Length];
             noPrecursorsTruncated = new int[cvs.Length];
+            planScanCounter = 100000;
             for (int i = 0; i < maxScansPerCV.Length; i++)
             {
                 maxScansPerCV[i] = -1;
                 scansPerCV[i] = 0;
                 noPrecursors[i] = 0;
                 noPrecursorsTruncated[i] = 0;
+                planScanIDs[i] = planScanCounter;
+                planScanCounter++;
+                
             }
 
             planMode = true;
             planningComplete = false;
+
+            
         }
 
         /// <summary>
@@ -136,113 +145,119 @@ namespace Flash
         public IFusionCustomScan getNextScan()
         {
             log.Info(String.Format("Queue length: {0}", customScans.Count));
-
-            if (customScans.IsEmpty) //No scans in the queue => send AGC scan and put default scan in the queue to be next
+            try
             {
-                log.Info("Empty queue - Handle Scans Appropiately");
-                if (planMode)
+                if (customScans.IsEmpty) //No scans in the queue => send AGC scan and put default scan in the queue to be next
                 {
-                    log.Info("Starting Plan Mode");
-                    foreach (var cv in cvs)
+                    log.Info("Empty queue - Handle Scans Appropiately");
+                    if (planMode)
                     {
+                        log.Info("Starting Plan Mode");
+
+                        for (int i = 0; i < maxScansPerCV.Length; i++)
+                        {
+                            maxScansPerCV[i] = -1;
+                            scansPerCV[i] = 0;
+                            noPrecursors[i] = 0;
+                            noPrecursorsTruncated[i] = 0;
+                            planScanIDs[i] = planScanCounter;
+                            planScanCounter++;
+                            customScans.Enqueue(createAGCScan(cvs[i]));
+                            customScans.Enqueue(createMS1Scan(cvs[i], planScanCounter));
+                            MS1Count++;
+                            AGCCount++;
+                            log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", cvs[i], customScans.Count));
+                        }
+
+                        planMode = false;
+                        planningComplete = false;
+                        currentCV = cvs.Length - 1;
+                    }
+
+                    else if (!planningComplete)
+                    {
+                        double cv = cvs[currentCV];
+                        scansPerCV[currentCV]++;
                         customScans.Enqueue(createAGCScan(cv));
-                        customScans.Enqueue(createMS1Scan(cv, 43));
+                        customScans.Enqueue(createMS1Scan(cv, 42));
                         MS1Count++;
                         AGCCount++;
-                        log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", cv, customScans.Count));
+                        log.Info(String.Format("Ran out of scans but planning is not complete - Send default MS1 scan with CV={0} as #{1}", cv, customScans.Count));
                     }
-                    currentCV = cvs.Length - 1;
-
-                    for (int i = 0; i < maxScansPerCV.Length; i++)
+                    else
                     {
-                        maxScansPerCV[i] = -1;
-                        scansPerCV[i] = 0;
-                        noPrecursors[i] = 0;
-                        noPrecursorsTruncated[i] = 0;
-                    }
-
-                    planMode = false;
-                    planningComplete = false;
-                }
-
-                else if (!planningComplete)
-                {
-                    double cv = cvs[currentCV];
-                    scansPerCV[currentCV]++;
-                    customScans.Enqueue(createAGCScan(cv));
-                    customScans.Enqueue(createMS1Scan(cv, 42));
-                    MS1Count++;
-                    AGCCount++;
-                    log.Info(String.Format("Ran out of scans but planning is not complete - Send default MS1 scan with CV={0} as #{1}", cv, customScans.Count));
-                }
-                else
-                {
-                    if (maxScansPerCV[currentCV] >= scansPerCV[currentCV])
-                    {
-                        if (currentCV == 0)
+                        if (maxScansPerCV[currentCV] >= scansPerCV[currentCV])
                         {
-                            planMode = true;
-                            Array.Sort(noPrecursors, cvs);
-                            log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
-                            return getNextScan();
+                            if (currentCV == 0)
+                            {
+                                planMode = true;
+                                Array.Sort(noPrecursors, cvs);
+                                log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
+                                return getNextScan();
+                            }
+                            log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
+                            currentCV--;
                         }
-                        log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
-                        currentCV--;
-                    }
 
-                    while (maxScansPerCV[currentCV] <= 0)
-                    {
-                        if (currentCV == 0)
+                        while (maxScansPerCV[currentCV] <= 0)
                         {
-                            planMode = true;
-                            Array.Sort(noPrecursors, cvs);
-                            log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
-                            return getNextScan();
+                            if (currentCV == 0)
+                            {
+                                planMode = true;
+                                Array.Sort(noPrecursors, cvs);
+                                log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
+                                return getNextScan();
+                            }
+                            log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
+                            currentCV--;
                         }
-                        log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
-                        currentCV--;
+
+                        double cv = cvs[currentCV];
+                        scansPerCV[currentCV]++;
+                        customScans.Enqueue(createAGCScan(cv));
+                        customScans.Enqueue(createMS1Scan(cv, 42));
+                        MS1Count++;
+                        AGCCount++;
+
                     }
 
-                    double cv = cvs[currentCV];
-                    scansPerCV[currentCV]++;
-                    customScans.Enqueue(createAGCScan(cv));
-                    customScans.Enqueue(createMS1Scan(cv, 42));
+                }
+
+                customScans.TryDequeue(out var nextScan);
+                if (nextScan != null)
+                {
+                    if (nextScan.Values["ScanType"] == "Full")
+                    {
+                        //we assume that we never use IonTrap for anything except AGC, if it ever going to change more sofisticated check is necessary
+                        if (nextScan.Values["Analyzer"] == "IonTrap") AGCCount--;
+                        else MS1Count--;
+
+                        log.Debug(String.Format("POP Full {0} scan [{1} - {2}] // AGC: {3}, MS1: {4}, MS2: {5}",
+                            nextScan.Values["Analyzer"], nextScan.Values["FirstMass"], nextScan.Values["LastMass"],
+                            AGCCount, MS1Count, MS2Count));
+                    }
+                    else if (nextScan.Values["ScanType"] == "MSn") //all MSn considered MS2 (i.e. no check for the actual MS level), should be added if necessary
+                    {
+                        MS2Count--;
+                        log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} // AGC: {2}, MS1: {3}, MS2: {4}",
+                            nextScan.Values["PrecursorMass"], nextScan.Values["ChargeStates"],
+                            AGCCount, MS1Count, MS2Count));
+                    }
+
+                    return nextScan;
+                }
+                else //cannot get the scan out for some reason (hopefully never happens)
+                {
+                    log.Debug("Cannot receive next scan - gonna send AGC scan");
+                    customScans.Enqueue(defaultScan);
                     MS1Count++;
-                    AGCCount++;
-
+                    log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
+                    return agcScan;
                 }
-
             }
-                
-            customScans.TryDequeue(out var nextScan);
-            if (nextScan != null)
+            catch (Exception ex)
             {
-                if (nextScan.Values["ScanType"] == "Full")
-                {
-                    //we assume that we never use IonTrap for anything except AGC, if it ever going to change more sofisticated check is necessary
-                    if (nextScan.Values["Analyzer"] == "IonTrap") AGCCount--;
-                    else MS1Count--;
-
-                    log.Debug(String.Format("POP Full {0} scan [{1} - {2}] // AGC: {3}, MS1: {4}, MS2: {5}", 
-                        nextScan.Values["Analyzer"], nextScan.Values["FirstMass"], nextScan.Values["LastMass"],
-                        AGCCount, MS1Count, MS2Count));
-                }
-                else if (nextScan.Values["ScanType"] == "MSn") //all MSn considered MS2 (i.e. no check for the actual MS level), should be added if necessary
-                {
-                    MS2Count--;
-                    log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} // AGC: {2}, MS1: {3}, MS2: {4}",
-                        nextScan.Values["PrecursorMass"], nextScan.Values["ChargeStates"],
-                        AGCCount, MS1Count, MS2Count));
-                }
-                    
-                return nextScan;
-            }
-            else //cannot get the scan out for some reason (hopefully never happens)
-            {
-                log.Debug("Cannot receive next scan - gonna send AGC scan");
-                customScans.Enqueue(defaultScan);
-                MS1Count++;
-                log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
+                log.Error(String.Format("Schedule Error: {0}\n{1}", ex.Message, ex.StackTrace));
                 return agcScan;
             }
         }
