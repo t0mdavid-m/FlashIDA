@@ -53,10 +53,6 @@ namespace Flash.IDA
             {
                 scanScheduler.AddScan(scan, 2);
             }
-            else
-            {
-                scanScheduler.AddDefault(); //add MS1 and AGC scans to the end of queue
-            }
             
         }
 
@@ -77,51 +73,144 @@ namespace Flash.IDA
 
                 try
                 {
-                    List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
-                    List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
-                    //logging of targets
-                    IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} (Access ID {2}) - {3} targets",
-                        msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count));
-                    if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
-                    if (monoMasses.Count > 0)                   
-                        IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
-                     
-                    //schedule TopN fragmentation scans with highest qScore
-                    foreach (PrecursorTarget precursor in targets.OrderByDescending(t => t.Score).Take(methodParams.TopN))
+                    double cv = double.Parse(msScan.Header["CV"]);
+                    int pos = Array.IndexOf(scanScheduler.cvs, cv);
+
+                    if (scanId == "43")
                     {
-                        double center = precursor.Window.Center;
-                        double isolation = precursor.Window.Width;
-                        int z = precursor.Charge;
+                        int precursors = flashIdaWrapper.GetAllPeakGroupSize();
+                        
+                        scanScheduler.noPrecursors[pos] = precursors;
+                        scanScheduler.noPrecursorsTruncated[pos] = precursors - (precursors % methodParams.TopN);
 
-                        IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
-                            new ScanParameters
+                        if (pos == (scanScheduler.cvs.Length - 1))
+                        {
+                            if (scanScheduler.noPrecursorsTruncated.Sum() >= (23* methodParams.TopN))
                             {
-                                Analyzer = methodParams.MS2.Analyzer,
-                                IsolationMode = methodParams.MS2.IsolationMode,
-                                FirstMass = new double[] { methodParams.MS2.FirstMass },
-                                LastMass = new double[] { Math.Min(z * center + 10, 2000) },
-                                OrbitrapResolution = methodParams.MS2.OrbitrapResolution,
-                                AGCTarget = methodParams.MS2.AGCTarget,
-                                PrecursorMass = new double[] { center },
-                                IsolationWidth = new double[] { isolation },
-                                ActivationType = new string[] { methodParams.MS2.Activation },
-                                CollisionEnergy = methodParams.MS2.CollisionEnergy != 0 ? new int[] { methodParams.MS2.CollisionEnergy } : null,
-                                ScanType = "MSn",
-                                Microscans = methodParams.MS2.Microscans,
-                                ChargeStates = new int[] { Math.Min(z, 25) },
-                                MaxIT = methodParams.MS2.MaxIT,
-                                ReactionTime = methodParams.MS2.ReactionTime != 0 ? new double[] { methodParams.MS2.ReactionTime } : null,
-                                ReagentMaxIT = methodParams.MS2.ReagentMaxIT != 0 ? new double[] { methodParams.MS2.ReagentMaxIT } : null,
-                                ReagentAGCTarget = methodParams.MS2.ReagentAGCTarget != 0 ? new int[] { methodParams.MS2.ReagentAGCTarget } : null,
-                                SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                                SourceCIDEnergy = methodParams.MS1.SourceCID,
-                                DataType = methodParams.MS2.DataType
-                            }, delay: 3);
+                                scanScheduler.noPrecursors = scanScheduler.noPrecursorsTruncated;
+                            }
 
-                        scans.Add(repScan);
+                            for (int i = 0; i < scanScheduler.cvs.Length; i++)
+                            {
+                                scanScheduler.maxScansPerCV[i] = Convert.ToInt32(Convert.ToDouble((scanScheduler.noPrecursors[i]) / Convert.ToDouble(scanScheduler.noPrecursors.Sum())) * Convert.ToDouble(methodParams.TopN));   
+                            }
 
-                        log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
-                            center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count));
+                            scanScheduler.planningComplete = true;
+
+                            List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
+                            List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
+                            //logging of targets
+                            IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} (Access ID {2}) - {3} targets",
+                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count));
+                            if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
+                            if (monoMasses.Count > 0)
+                                IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
+
+                            if (targets.Count == 0)
+                            {
+                                scanScheduler.maxScansPerCV[pos] = -1;
+                            }
+
+                            //schedule TopN fragmentation scans with highest qScore
+                            foreach (PrecursorTarget precursor in targets.OrderByDescending(t => t.Score).Take(methodParams.TopN))
+                            {
+                                double center = precursor.Window.Center;
+                                double isolation = precursor.Window.Width;
+                                int z = precursor.Charge;
+
+                                IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
+                                    new ScanParameters
+                                    {
+                                        Analyzer = methodParams.MS2.Analyzer,
+                                        IsolationMode = methodParams.MS2.IsolationMode,
+                                        FirstMass = new double[] { methodParams.MS2.FirstMass },
+                                        LastMass = new double[] { Math.Min(z * center + 10, 2000) },
+                                        OrbitrapResolution = methodParams.MS2.OrbitrapResolution,
+                                        AGCTarget = methodParams.MS2.AGCTarget,
+                                        PrecursorMass = new double[] { center },
+                                        IsolationWidth = new double[] { isolation },
+                                        ActivationType = new string[] { methodParams.MS2.Activation },
+                                        CollisionEnergy = methodParams.MS2.CollisionEnergy != 0 ? new int[] { methodParams.MS2.CollisionEnergy } : null,
+                                        ScanType = "MSn",
+                                        Microscans = methodParams.MS2.Microscans,
+                                        ChargeStates = new int[] { Math.Min(z, 25) },
+                                        MaxIT = methodParams.MS2.MaxIT,
+                                        ReactionTime = methodParams.MS2.ReactionTime != 0 ? new double[] { methodParams.MS2.ReactionTime } : null,
+                                        ReagentMaxIT = methodParams.MS2.ReagentMaxIT != 0 ? new double[] { methodParams.MS2.ReagentMaxIT } : null,
+                                        ReagentAGCTarget = methodParams.MS2.ReagentAGCTarget != 0 ? new int[] { methodParams.MS2.ReagentAGCTarget } : null,
+                                        SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                        SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                        DataType = methodParams.MS2.DataType
+                                    }, delay: 3);
+
+                                scans.Add(repScan);
+
+                                log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
+                                    center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count));
+
+                            }
+
+
+                        }
+
+                        
+                    }
+
+                    else
+                    {
+
+                        List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
+                        List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
+                        //logging of targets
+                        IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} (Access ID {2}) - {3} targets",
+                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count));
+                        if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
+                        if (monoMasses.Count > 0)                   
+                            IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
+
+                        if (targets.Count == 0)
+                        {
+                            scanScheduler.maxScansPerCV[pos] = -1;
+                        }
+                     
+                        //schedule TopN fragmentation scans with highest qScore
+                        foreach (PrecursorTarget precursor in targets.OrderByDescending(t => t.Score).Take(methodParams.TopN))
+                        {
+                            double center = precursor.Window.Center;
+                            double isolation = precursor.Window.Width;
+                            int z = precursor.Charge;
+
+                            IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
+                                new ScanParameters
+                                {
+                                    Analyzer = methodParams.MS2.Analyzer,
+                                    IsolationMode = methodParams.MS2.IsolationMode,
+                                    FirstMass = new double[] { methodParams.MS2.FirstMass },
+                                    LastMass = new double[] { Math.Min(z * center + 10, 2000) },
+                                    OrbitrapResolution = methodParams.MS2.OrbitrapResolution,
+                                    AGCTarget = methodParams.MS2.AGCTarget,
+                                    PrecursorMass = new double[] { center },
+                                    IsolationWidth = new double[] { isolation },
+                                    ActivationType = new string[] { methodParams.MS2.Activation },
+                                    CollisionEnergy = methodParams.MS2.CollisionEnergy != 0 ? new int[] { methodParams.MS2.CollisionEnergy } : null,
+                                    ScanType = "MSn",
+                                    Microscans = methodParams.MS2.Microscans,
+                                    ChargeStates = new int[] { Math.Min(z, 25) },
+                                    MaxIT = methodParams.MS2.MaxIT,
+                                    ReactionTime = methodParams.MS2.ReactionTime != 0 ? new double[] { methodParams.MS2.ReactionTime } : null,
+                                    ReagentMaxIT = methodParams.MS2.ReagentMaxIT != 0 ? new double[] { methodParams.MS2.ReagentMaxIT } : null,
+                                    ReagentAGCTarget = methodParams.MS2.ReagentAGCTarget != 0 ? new int[] { methodParams.MS2.ReagentAGCTarget } : null,
+                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                    DataType = methodParams.MS2.DataType
+                                }, delay: 3);
+
+                            scans.Add(repScan);
+
+                            log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
+                                center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count));
+
+                        }
 
                     }
                 }
