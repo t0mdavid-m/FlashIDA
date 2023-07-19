@@ -362,7 +362,7 @@ namespace Flash
                 }
 
                 // Build decharging test
-                for (int? cv = -100; cv <= 100; cv += 10)
+                for (double? cv = -100.0; cv <= 100.0; cv += 10.0)
                 {
                     foreach (var voltage in new string[] { "on", "off" })
                     {
@@ -434,7 +434,7 @@ namespace Flash
             // Stores the faims scans for first test
             List<IFusionCustomScan> faimsScans = new List<IFusionCustomScan>();
             // Parameters to vary
-            int?[] cvs = new int?[] {-20, 0, 20};
+            double?[] cvs = new double?[] {-20.0, 0.0, 20.0};
             string[] voltages = new string[] {"on", "off" };
 
             // Create FAIMS test scans
