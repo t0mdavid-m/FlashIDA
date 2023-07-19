@@ -181,6 +181,11 @@ namespace Flash.IDA
             return null;
         }
 
+        public int GetAllPeakGroupSize()
+        {
+            return GetAllPeakGroupSize(m_pNativeObject);
+        }
+
 
         /// <summary>
         /// Obtain the the list of targets for fragmentation from the current spectrum.

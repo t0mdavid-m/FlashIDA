@@ -41,7 +41,7 @@ namespace Flash
         public double[] ReactionTime;
         public double[] ReagentMaxIT;
         public int[] ReagentAGCTarget;
-        public int? FAIMS_CV;
+        public double? FAIMS_CV;
         public string FAIMS_Voltages;
     }
 
