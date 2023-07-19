@@ -75,6 +75,7 @@ namespace Flash.IDA
                 try
                 {
                     msScan.Trailer.TryGetValue("FAIMS CV", out var cv_string);
+                    msScan.Trailer.TryGetValue("FAIMS Voltage On", out var faims_status);
                     double cv = double.Parse(cv_string);
                     int pos = Array.IndexOf(scanScheduler.cvs, cv);
 
@@ -105,8 +106,8 @@ namespace Flash.IDA
                             List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
                             List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                             //logging of targets
-                            IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} (Access ID {2}) - {3} targets",
-                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, cv_string));
+                            IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets",
+                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, cv_string, faims_status));
                             if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
                             if (monoMasses.Count > 0)
                                 IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
@@ -167,8 +168,8 @@ namespace Flash.IDA
                         List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
                         List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                         //logging of targets
-                        IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} (Access ID {2}) - {3} targets",
-                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, cv_string));
+                        IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets",
+                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, cv_string, faims_status));
                         if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
                         if (monoMasses.Count > 0)                   
                             IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
