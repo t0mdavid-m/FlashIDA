@@ -4,6 +4,7 @@ using System.Linq;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
 using log4net;
+using log4net.Core;
 
 namespace Flash.IDA
 {
@@ -73,13 +74,16 @@ namespace Flash.IDA
 
                 try
                 {
-                    double cv = double.Parse(msScan.Header["CV"]);
+                    msScan.Trailer.TryGetValue("FAIMS CV", out var cv_string);
+                    double cv = double.Parse(cv_string);
                     int pos = Array.IndexOf(scanScheduler.cvs, cv);
 
                     if (scanId == "43")
                     {
                         int precursors = flashIdaWrapper.GetAllPeakGroupSize();
-                        
+
+                        IDAlog.Info(String.Format("{0} precursors at cv={1}", precursors, cv));
+
                         scanScheduler.noPrecursors[pos] = precursors;
                         scanScheduler.noPrecursorsTruncated[pos] = precursors - (precursors % methodParams.TopN);
 
@@ -96,12 +100,13 @@ namespace Flash.IDA
                             }
 
                             scanScheduler.planningComplete = true;
+                            IDAlog.Info(String.Format("Planning is complete. CVs={0}, precursors={1}, precursors_truncated={2}, maxScansPerCV={3}", string.Join(" ", scanScheduler.cvs), string.Join(" ", scanScheduler.noPrecursors), string.Join(" ", scanScheduler.noPrecursorsTruncated), string.Join(" ", scanScheduler.maxScansPerCV)));
 
                             List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
                             List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                             //logging of targets
-                            IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} (Access ID {2}) - {3} targets",
-                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count));
+                            IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} (Access ID {2}) - {3} targets",
+                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, cv_string));
                             if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
                             if (monoMasses.Count > 0)
                                 IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
@@ -162,8 +167,8 @@ namespace Flash.IDA
                         List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
                         List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                         //logging of targets
-                        IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} (Access ID {2}) - {3} targets",
-                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count));
+                        IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} (Access ID {2}) - {3} targets",
+                                msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, cv_string));
                         if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
                         if (monoMasses.Count > 0)                   
                             IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));

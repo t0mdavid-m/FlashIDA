@@ -139,16 +139,17 @@ namespace Flash
 
             if (customScans.IsEmpty) //No scans in the queue => send AGC scan and put default scan in the queue to be next
             {
+                log.Info("Empty queue - Handle Scans Appropiately");
                 if (planMode)
                 {
+                    log.Info("Starting Plan Mode");
                     foreach (var cv in cvs)
                     {
-                        log.Debug("Empty queue - gonna send AGC scan");
                         customScans.Enqueue(createAGCScan(cv));
                         customScans.Enqueue(createMS1Scan(cv, 43));
                         MS1Count++;
                         AGCCount++;
-                        log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
+                        log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", cv, customScans.Count));
                     }
                     currentCV = cvs.Length - 1;
 
@@ -172,6 +173,7 @@ namespace Flash
                     customScans.Enqueue(createMS1Scan(cv, 42));
                     MS1Count++;
                     AGCCount++;
+                    log.Info(String.Format("Ran out of scans but planning is not complete - Send default MS1 scan with CV={0} as #{1}", cv, customScans.Count));
                 }
                 else
                 {
@@ -181,8 +183,10 @@ namespace Flash
                         {
                             planMode = true;
                             Array.Sort(noPrecursors, cvs);
+                            log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
                             return getNextScan();
                         }
+                        log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
                         currentCV--;
                     }
 
@@ -192,8 +196,10 @@ namespace Flash
                         {
                             planMode = true;
                             Array.Sort(noPrecursors, cvs);
+                            log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
                             return getNextScan();
                         }
+                        log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
                         currentCV--;
                     }
 
