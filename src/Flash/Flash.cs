@@ -47,7 +47,7 @@ namespace Flash
         static ScanFactory scanFactory;
 
         //flashIDA 
-        static IDAScanProcessor flashIDAProcessor;
+        static IScanProcessor flashIDAProcessor;
 
         //DataPipe
         static DataPipe dataPipe;
@@ -319,7 +319,7 @@ namespace Flash
             //Initialize FLASHIDA Processor
             try
             {
-                flashIDAProcessor = new IDAScanProcessor(methodParams, scanFactory, scanScheduler);
+                flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
                 log.Info("Created FLASHIDA processor");
             }
             catch (Exception ex)
