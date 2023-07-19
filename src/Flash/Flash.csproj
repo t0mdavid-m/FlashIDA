@@ -108,6 +108,7 @@
     <Compile Include="DataPipe.cs" />
     <Compile Include="Flash.cs" />
     <Compile Include="IDA\FLASHIdaWrapper.cs" />
+    <Compile Include="IDA\FAIMSScanProcessor.cs" />
     <Compile Include="IDA\IDAScanProcessor.cs" />
     <Compile Include="IDA\PrecursorTarget.cs" />
     <Compile Include="DataObjects\MassIntensityPair.cs" />
