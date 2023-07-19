@@ -78,6 +78,7 @@ namespace Flash
             scansPerCV = new int[cvs.Length];
             noPrecursors = new int[cvs.Length];
             noPrecursorsTruncated = new int[cvs.Length];
+            planScanIDs = new int[cvs.Length];
             planScanCounter = 100000;
             for (int i = 0; i < maxScansPerCV.Length; i++)
             {
