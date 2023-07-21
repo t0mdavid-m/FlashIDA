@@ -79,10 +79,13 @@ namespace Flash.IDA
                     int scanIDInt = Int32.Parse(scanId);
                     double cv = double.Parse(cv_string);
                     int pos = Array.IndexOf(scanScheduler.cvs, cv);
+                    if (pos == -1)
+                    {
+                        return scans;
+                    }
+                    IDAlog.Info(String.Format("Get Scan {0}-{1}", scanId, scanIDInt));
 
-                    IDAlog.Info(String.Format("Get Scan {0}-{1}, looking for {2}", scanId, scanIDInt, string.Join(" ", scanScheduler.planScanIDs)));
-
-                    if (scanScheduler.planScanIDs.Contains(scanIDInt))
+                    if (!scanScheduler.planningComplete && !scanScheduler.planned[pos])
                     {
                         int precursors = flashIdaWrapper.GetAllPeakGroupSize();
 
@@ -90,8 +93,9 @@ namespace Flash.IDA
 
                         scanScheduler.noPrecursors[pos] = precursors;
                         scanScheduler.noPrecursorsTruncated[pos] = precursors - (precursors % methodParams.TopN);
+                        scanScheduler.planned[pos] = true;
 
-                        if (pos == (scanScheduler.cvs.Length - 1))
+                        if (scanScheduler.planned.All(a => a))
                         {
                             if (scanScheduler.noPrecursorsTruncated.Sum() >= (23* methodParams.TopN))
                             {

@@ -31,13 +31,11 @@ namespace Flash
         public int currentCV;
         public int[] maxScansPerCV;
         public int[] scansPerCV;
-        public int[] planScanIDs;
         public int[] noPrecursors;
         public int[] noPrecursorsTruncated;
+        public bool[] planned;
         public bool planMode;
         public bool planningComplete;
-
-        public int planScanCounter;
 
         // TODO : find nicer solution
         ScanFactory scanFactory;
@@ -67,28 +65,21 @@ namespace Flash
             AGCCount = 0;
 
             // TODO : Move to methodParams
-            cvs = new double[4];
-            cvs[0] = 0.0;
-            cvs[1] = -40.0;
-            cvs[2] = -50.0;
-            cvs[3] = -60.0;
+            cvs = new double[] { 0.0, -40.0, -50.0, -60.0};
             currentCV = cvs.Length - 1;
 
             maxScansPerCV = new int[cvs.Length];
             scansPerCV = new int[cvs.Length];
             noPrecursors = new int[cvs.Length];
             noPrecursorsTruncated = new int[cvs.Length];
-            planScanIDs = new int[cvs.Length];
-            planScanCounter = 100000;
+            planned = new bool[cvs.Length];
             for (int i = 0; i < maxScansPerCV.Length; i++)
             {
                 maxScansPerCV[i] = -1;
                 scansPerCV[i] = 0;
                 noPrecursors[i] = 0;
                 noPrecursorsTruncated[i] = 0;
-                planScanIDs[i] = planScanCounter;
-                planScanCounter++;
-                
+                planned[i] = false;
             }
 
             planMode = true;
@@ -161,10 +152,9 @@ namespace Flash
                             scansPerCV[i] = 0;
                             noPrecursors[i] = 0;
                             noPrecursorsTruncated[i] = 0;
-                            planScanIDs[i] = planScanCounter;
+                            planned[i] = false;
                             customScans.Enqueue(createAGCScan(cvs[i]));
-                            customScans.Enqueue(createMS1Scan(cvs[i], planScanCounter));
-                            planScanCounter++;
+                            customScans.Enqueue(createMS1Scan(cvs[i]));
                             MS1Count++;
                             AGCCount++;
                             log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", cvs[i], customScans.Count));
@@ -180,7 +170,7 @@ namespace Flash
                         double cv = cvs[currentCV];
                         scansPerCV[currentCV]++;
                         customScans.Enqueue(createAGCScan(cv));
-                        customScans.Enqueue(createMS1Scan(cv, 42));
+                        customScans.Enqueue(createMS1Scan(cv));
                         MS1Count++;
                         AGCCount++;
                         log.Info(String.Format("Ran out of scans but planning is not complete - Send default MS1 scan with CV={0} as #{1}", cv, customScans.Count));
@@ -216,7 +206,7 @@ namespace Flash
                         double cv = cvs[currentCV];
                         scansPerCV[currentCV]++;
                         customScans.Enqueue(createAGCScan(cv));
-                        customScans.Enqueue(createMS1Scan(cv, 42));
+                        customScans.Enqueue(createMS1Scan(cv));
                         MS1Count++;
                         AGCCount++;
 
@@ -317,7 +307,7 @@ namespace Flash
             return cvAgcScan;
         }
 
-        public IFusionCustomScan createMS1Scan(double cv, int ms1Id)
+        public IFusionCustomScan createMS1Scan(double cv)
         {
             IFusionCustomScan cvMS1Scan;
             try
@@ -339,7 +329,7 @@ namespace Flash
                     ScanType = "Full",
                     FAIMS_CV = cv,
                     FAIMS_Voltages = "on"
-                }, id: ms1Id, delay: 3);
+                }, delay: 3);
                 log.Info(String.Format("Created MS1 scan with cv={0}", cv));
             }
             catch (Exception ex)
