@@ -162,9 +162,9 @@ namespace Flash
                             noPrecursors[i] = 0;
                             noPrecursorsTruncated[i] = 0;
                             planScanIDs[i] = planScanCounter;
-                            planScanCounter++;
                             customScans.Enqueue(createAGCScan(cvs[i]));
                             customScans.Enqueue(createMS1Scan(cvs[i], planScanCounter));
+                            planScanCounter++;
                             MS1Count++;
                             AGCCount++;
                             log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", cvs[i], customScans.Count));
