@@ -42,6 +42,8 @@ namespace Flash
         public bool[] planned;
         // Whether the planning phase has been started
         public bool planMode;
+        // Maximum number of scans per CV cycle (Discovery Phase with all CVs)
+        public int maxCVScans;
 
 
         private ScanFactory scanFactory;
@@ -70,11 +72,9 @@ namespace Flash
             MS2Count = 0;
             AGCCount = 0;
 
-            // Set CV values
-            // TODO : Move to methodParams
-            CVs = new double[] { 0.0, -40.0, -50.0, -60.0};
-
             // Initialize FAIMS related variables
+            CVs = methodParams.IDA.CVValues;
+            maxCVScans = (int) ((methodParams.IDA.RTWindow - ((Convert.ToDouble(CVs.Length) - 1) * 0.3)) / 2.25);
             currentCV = CVs.Length - 1;
             maxScansPerCV = new int[CVs.Length];
             scansPerCV = new int[CVs.Length];

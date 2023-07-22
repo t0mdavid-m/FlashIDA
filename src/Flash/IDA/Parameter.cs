@@ -26,6 +26,9 @@ namespace Flash.IDA
 
         [XmlArray()]
         public double[] Tolerances { set; get; }
+
+        [XmlArray()]
+        public double[] CVValues { set; get; }
         
         public double RTWindow { set; get; }
 
@@ -43,9 +46,10 @@ namespace Flash.IDA
         /// <param name="targetLogs">log files containing target or excluded masses</param> 
         /// <param name="targetMode">If set to 1, inclusive targeted mode if 2, exclusive targeted mode. If 0, normal exclusion list mode</param> 
         public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1,
-            double rtWindow = 5, int minCharge = 1, int maxCharge = 100, double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0)
+            double rtWindow = 5, int minCharge = 1, int maxCharge = 100, double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
+            CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
             RTWindow = rtWindow;
             MaxMs2CountPerMs1 = maxMs2CountPerMs1;
             MinCharge = minCharge;
