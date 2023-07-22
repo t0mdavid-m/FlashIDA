@@ -296,7 +296,7 @@ namespace Flash
                         SourceCIDEnergy = methodParams.MS1.SourceCID,
                         DataType = methodParams.MS1.DataType,
                         ScanType = "Full"
-                    }, id: 42, delay: 3); 
+                    }, delay: 3); 
 
                 log.Info("Created default and AGC scans");
             }
