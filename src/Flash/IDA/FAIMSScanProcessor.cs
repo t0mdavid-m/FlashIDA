@@ -81,6 +81,7 @@ namespace Flash.IDA
                     // In the beginning scans with different CV values are scheduled, ignore those
                     if (pos == -1)
                     {
+                        scans.Add(null);
                         return scans;
                     }
 
