@@ -96,7 +96,7 @@ namespace Flash.IDA
                         if (scanScheduler.planned.All(a => a)) // Planning was successfully completed
                         {
                             // Truncate number of such that all MS2 scans are used if enough precursors are available
-                            if (scanScheduler.noPrecursorsTruncated.Sum() >= (23 * methodParams.TopN))
+                            if (scanScheduler.noPrecursorsTruncated.Sum() >= (scanScheduler.maxCVScans * methodParams.TopN))
                             {
                                 scanScheduler.noPrecursors = scanScheduler.noPrecursorsTruncated;
                             }
