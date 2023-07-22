@@ -108,13 +108,7 @@ namespace Flash.IDA
                                 scanScheduler.maxScansPerCV[i] = Convert.ToInt32(Convert.ToDouble((scanScheduler.noPrecursors[i]) / Convert.ToDouble(scanScheduler.noPrecursors.Sum())) * Convert.ToDouble(methodParams.TopN));
                             }
 
-                        }
-
-                        if (!scanScheduler.planned[scanScheduler.currentCV]) // If the CV is not currently scheduled (likely last CV in list) do nothing
-                        {
-                            scans.Add(null);
-                            return scans;
-                        }                        
+                        }                    
                     }
 
                     // Schedule MS2 scans
@@ -171,6 +165,13 @@ namespace Flash.IDA
                             center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count));
 
                     }
+
+                    if (!scanScheduler.planned[scanScheduler.currentCV]) // If the CV is not currently scheduled (likely last CV in list) shelve MS2 scans
+                    {
+                        scanScheduler.shelvedMS2Scans[scanScheduler.currentCV] = scans;
+                        List<IFusionCustomScan> blank = new List<IFusionCustomScan> { null };
+                        return blank;
+                    }
                 }
 
                 catch (Exception ex)
@@ -178,7 +179,7 @@ namespace Flash.IDA
                     IDAlog.Error(String.Format("ProcessMS failed while creating MS2 scans. {0}\n{1}", ex.Message, ex.StackTrace));
                 }
 
-                scans.Add(null); //will be replaced by default scan
+                scans.Add(null); // If an exception occurrs do nothing
             }
 
             return scans;

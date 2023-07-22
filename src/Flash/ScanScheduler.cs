@@ -5,6 +5,7 @@ using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 using System.Linq;
 using Thermo.Interfaces.InstrumentAccess_V1.Control.Scans;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
 
 namespace Flash
 {
@@ -44,6 +45,8 @@ namespace Flash
         public bool planMode;
         // Maximum number of scans per CV cycle (Discovery Phase with all CVs)
         public int maxCVScans;
+        // MS2 scans that are shelved until the cv is analyzed
+        public List<IFusionCustomScan>[] shelvedMS2Scans;
 
 
         private ScanFactory scanFactory;
@@ -81,6 +84,7 @@ namespace Flash
             noPrecursors = new int[CVs.Length];
             noPrecursorsTruncated = new int[CVs.Length];
             planned = new bool[CVs.Length];
+            shelvedMS2Scans = new List<IFusionCustomScan>[CVs.Length];
             for (int i = 0; i < maxScansPerCV.Length; i++)
             {
                 maxScansPerCV[i] = -1;
@@ -155,6 +159,7 @@ namespace Flash
                             noPrecursors[i] = 0;
                             noPrecursorsTruncated[i] = 0;
                             planned[i] = false;
+                            shelvedMS2Scans[i] = null;
                             // Add planning scans
                             customScans.Enqueue(createAGCScan(CVs[i]));
                             customScans.Enqueue(createMS1Scan(CVs[i]));
@@ -179,6 +184,9 @@ namespace Flash
                     }
                     else // Planning is complete => Acquire MS2 scans as planned
                     {
+                        // Whether or not the CV is changed now
+                        bool CVChanged = false;
+
                         while ((maxScansPerCV[currentCV] <= 0) || (maxScansPerCV[currentCV] >= scansPerCV[currentCV])) // Maximum number of scans has been reached for current CV or no scans are scheduled
                         {
                             if (currentCV == 0) // This is the last CV => Set to plan mode
@@ -192,6 +200,7 @@ namespace Flash
                                 return getNextScan();
                             }
                             currentCV--;
+                            CVChanged = true;
                         }
 
                         // Queue MS1 scan with appropiate CV
@@ -201,6 +210,17 @@ namespace Flash
                         customScans.Enqueue(createMS1Scan(cv)); 
                         MS1Count++;
                         AGCCount++;
+
+                        if (CVChanged && (shelvedMS2Scans[currentCV] != null)) // Add shelved MS2 scans
+                        {
+                            foreach (var shelvedMS2 in shelvedMS2Scans[currentCV])
+                            {
+                                if (shelvedMS2 != null)
+                                {
+                                    AddScan(shelvedMS2, 2);
+                                }
+                            }
+                        }
                     }
                 }
 
