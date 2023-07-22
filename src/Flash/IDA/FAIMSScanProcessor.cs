@@ -70,13 +70,13 @@ namespace Flash.IDA
             {
                 // get ScanID and CV data
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
-                msScan.Trailer.TryGetValue("FAIMS CV", out var cv_string);
+                msScan.Trailer.TryGetValue("FAIMS CV", out var CVString);
                 msScan.Trailer.TryGetValue("FAIMS Voltage On", out var faims_status);
 
                 try
                 {
                     // Get CV and position in the CV list
-                    double cv = double.Parse(cv_string);
+                    double cv = double.Parse(CVString);
                     int pos = Array.IndexOf(scanScheduler.CVs, cv);
                     // In the beginning scans with different CV values are scheduled, ignore those
                     if (pos == -1)
@@ -121,7 +121,7 @@ namespace Flash.IDA
                     List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                     //logging of targets
                     IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets",
-                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, cv_string, faims_status));
+                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faims_status));
                     if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
                     if (monoMasses.Count > 0)                   
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
