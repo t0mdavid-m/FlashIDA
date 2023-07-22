@@ -6,6 +6,7 @@ using System.Linq;
 using Thermo.Interfaces.InstrumentAccess_V1.Control.Scans;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
+using System.Net.Security;
 
 namespace Flash
 {
@@ -47,6 +48,8 @@ namespace Flash
         public int maxCVScans;
         // MS2 scans that are shelved until the cv is analyzed
         public List<IFusionCustomScan>[] shelvedMS2Scans;
+        // Number of MS1 scans that have been sent out while planning phase is not completed
+        private int unplannedScans;
 
 
         private ScanFactory scanFactory;
@@ -94,6 +97,7 @@ namespace Flash
                 planned[i] = false;
             }
             planMode = true;
+            unplannedScans = 0;
         }
 
         /// <summary>
@@ -171,10 +175,18 @@ namespace Flash
                         planMode = false;
                         // Start MS2 acquisition at the last CV value in the queue
                         currentCV = CVs.Length - 1;
+                        // No unplanned scans have been executed yet
+                        unplannedScans = 0;
                     }
 
                     else if (!planned.All(a => a)) // Planning is not yet complete => Acquire MS2 scans for last CV
                     {
+                        if (unplannedScans >= 5) // If 5 MS1 scans have been scheduled and planning has not yet completed, something went wrong
+                        {
+                            // Restart planning
+                            planMode = true;
+                            return getNextScan();
+                        }
                         double cv = CVs[currentCV];
                         scansPerCV[currentCV]++;
                         customScans.Enqueue(createAGCScan(cv));
