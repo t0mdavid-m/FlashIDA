@@ -365,7 +365,14 @@ namespace Flash
             //Initialize FLASHIDA Processor
             try
             {
-                flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
+                if (methodParams.IDA.UseFAIMS)
+                {
+                    flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
+                }
+                else
+                {
+                    flashIDAProcessor = new IDAScanProcessor(methodParams, scanFactory, scanScheduler); 
+                }
                 log.Info("Created FLASHIDA processor");
             }
             catch (Exception ex)

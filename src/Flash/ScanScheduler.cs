@@ -155,6 +155,14 @@ namespace Flash
             {
                 if (customScans.IsEmpty) //No scans in the queue => Fill Queue
                 {
+                    if (!methodParams.IDA.UseFAIMS)
+                    {
+                        log.Debug("Empty queue - gonna send AGC scan");
+                        customScans.Enqueue(defaultScan);
+                        MS1Count++;
+                        log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
+                        return agcScan;
+                    }
                     if (planMode) // Planning Mode: Scan over CVs and collect precursors
                     {
                         for (int i = 0; i < maxScansPerCV.Length; i++)
