@@ -166,7 +166,7 @@ namespace Flash.IDA
 
                     }
 
-                    if (!scanScheduler.planned[scanScheduler.currentCV]) // If the CV is not currently scheduled (likely last CV in list) shelve MS2 scans
+                    if (scanScheduler.currentCV != pos) // If the CV is not currently scheduled (likely last CV in list) shelve MS2 scans
                     {
                         scanScheduler.shelvedMS2Scans[scanScheduler.currentCV] = scans;
                         List<IFusionCustomScan> blank = new List<IFusionCustomScan> { null };
