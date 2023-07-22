@@ -26,20 +26,26 @@ namespace Flash
         private IFusionCustomScan defaultScan; //type of scan that will be requested when nothing is in the queue
         private IFusionCustomScan agcScan;
 
-        // Housekeeping for FAIMS
-        public double[] cvs;
+        // Stores the cvs used for FAIMS
+        public double[] CVs;
+        // Index of the cv currently selected
         public int currentCV;
+        // Number of scans allowed per CV
         public int[] maxScansPerCV;
+        // Number of scans conducted for each CV in the current cycle
         public int[] scansPerCV;
+        // Number of precursors for each CV
         public int[] noPrecursors;
+        // Number of precursors for each CV, truncated to be divisible by MaxMs2CountPerMs1
         public int[] noPrecursorsTruncated;
+        // Whether the planning phase has been completed for each CV
         public bool[] planned;
+        // Whether the planning phase has been started
         public bool planMode;
-        public bool planningComplete;
 
-        // TODO : find nicer solution
-        ScanFactory scanFactory;
-        MethodParameters methodParams;
+
+        private ScanFactory scanFactory;
+        private MethodParameters methodParams;
 
 
         private ILog log;
@@ -64,15 +70,17 @@ namespace Flash
             MS2Count = 0;
             AGCCount = 0;
 
+            // Set CV values
             // TODO : Move to methodParams
-            cvs = new double[] { 0.0, -40.0, -50.0, -60.0};
-            currentCV = cvs.Length - 1;
+            CVs = new double[] { 0.0, -40.0, -50.0, -60.0};
 
-            maxScansPerCV = new int[cvs.Length];
-            scansPerCV = new int[cvs.Length];
-            noPrecursors = new int[cvs.Length];
-            noPrecursorsTruncated = new int[cvs.Length];
-            planned = new bool[cvs.Length];
+            // Initialize FAIMS related variables
+            currentCV = CVs.Length - 1;
+            maxScansPerCV = new int[CVs.Length];
+            scansPerCV = new int[CVs.Length];
+            noPrecursors = new int[CVs.Length];
+            noPrecursorsTruncated = new int[CVs.Length];
+            planned = new bool[CVs.Length];
             for (int i = 0; i < maxScansPerCV.Length; i++)
             {
                 maxScansPerCV[i] = -1;
@@ -81,11 +89,7 @@ namespace Flash
                 noPrecursorsTruncated[i] = 0;
                 planned[i] = false;
             }
-
             planMode = true;
-            planningComplete = false;
-
-            
         }
 
         /// <summary>
@@ -139,81 +143,68 @@ namespace Flash
             log.Info(String.Format("Queue length: {0}", customScans.Count));
             try
             {
-                if (customScans.IsEmpty) //No scans in the queue => send AGC scan and put default scan in the queue to be next
+                if (customScans.IsEmpty) //No scans in the queue => Fill Queue
                 {
-                    log.Info("Empty queue - Handle Scans Appropiately");
-                    if (planMode)
+                    if (planMode) // Planning Mode: Scan over CVs and collect precursors
                     {
-                        log.Info("Starting Plan Mode");
-
                         for (int i = 0; i < maxScansPerCV.Length; i++)
                         {
+                            // Set planning variables
                             maxScansPerCV[i] = -1;
                             scansPerCV[i] = 0;
                             noPrecursors[i] = 0;
                             noPrecursorsTruncated[i] = 0;
                             planned[i] = false;
-                            customScans.Enqueue(createAGCScan(cvs[i]));
-                            customScans.Enqueue(createMS1Scan(cvs[i]));
+                            // Add planning scans
+                            customScans.Enqueue(createAGCScan(CVs[i]));
+                            customScans.Enqueue(createMS1Scan(CVs[i]));
                             MS1Count++;
                             AGCCount++;
-                            log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", cvs[i], customScans.Count));
+                            log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", CVs[i], customScans.Count));
                         }
-
+                        // Planning has been executed
                         planMode = false;
-                        planningComplete = false;
-                        currentCV = cvs.Length - 1;
+                        // Start MS2 acquisition at the last CV value in the queue
+                        currentCV = CVs.Length - 1;
                     }
 
-                    else if (!planningComplete)
+                    else if (!planned.All(a => a)) // Planning is not yet complete => Acquire MS2 scans for last CV
                     {
-                        double cv = cvs[currentCV];
+                        double cv = CVs[currentCV];
                         scansPerCV[currentCV]++;
                         customScans.Enqueue(createAGCScan(cv));
                         customScans.Enqueue(createMS1Scan(cv));
                         MS1Count++;
                         AGCCount++;
-                        log.Info(String.Format("Ran out of scans but planning is not complete - Send default MS1 scan with CV={0} as #{1}", cv, customScans.Count));
                     }
-                    else
+                    else // Planning is complete => Acquire MS2 scans as planned
                     {
-                        if (maxScansPerCV[currentCV] >= scansPerCV[currentCV])
+                        while ((maxScansPerCV[currentCV] <= 0) || (maxScansPerCV[currentCV] >= scansPerCV[currentCV])) // Maximum number of scans has been reached for current CV or no scans are scheduled
                         {
-                            if (currentCV == 0)
+                            if (currentCV == 0) // This is the last CV => Set to plan mode
                             {
                                 planMode = true;
-                                Array.Sort(noPrecursors, cvs);
-                                log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
+                                // Schedule CVs such that the CV with the maximum number of precursors is run last => Schedule the scans while in plan mode
+                                if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
+                                {
+                                    Array.Sort(noPrecursors, CVs);
+                                }
                                 return getNextScan();
                             }
-                            log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
                             currentCV--;
                         }
 
-                        while (maxScansPerCV[currentCV] <= 0)
-                        {
-                            if (currentCV == 0)
-                            {
-                                planMode = true;
-                                Array.Sort(noPrecursors, cvs);
-                                log.Info(String.Format("´Finished all CVs - order for next scan = {0}", string.Join(" ", cvs)));
-                                return getNextScan();
-                            }
-                            log.Info(String.Format("´Finished with CV {0} - Next up {1}", cvs[currentCV], cvs[currentCV - 1]));
-                            currentCV--;
-                        }
-
-                        double cv = cvs[currentCV];
+                        // Queue MS1 scan with appropiate CV
+                        double cv = CVs[currentCV];
                         scansPerCV[currentCV]++;
                         customScans.Enqueue(createAGCScan(cv));
-                        customScans.Enqueue(createMS1Scan(cv));
+                        customScans.Enqueue(createMS1Scan(cv)); 
                         MS1Count++;
                         AGCCount++;
-
                     }
-
                 }
 
+                // Queue is not empty => If it was empty at beginning of method, it was just refilled
                 customScans.TryDequeue(out var nextScan);
                 if (nextScan != null)
                 {
