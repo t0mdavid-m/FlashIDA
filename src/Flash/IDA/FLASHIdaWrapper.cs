@@ -10,6 +10,7 @@ using log4net;
 using log4net.Core;
 using System.Xml.Linq;
 using Thermo.TNG.Client.API.MsScanContainer;
+using System.Data.Common;
 
 namespace Flash.IDA
 {
@@ -181,11 +182,22 @@ namespace Flash.IDA
             return null;
         }
 
+        /// <summary>
+        /// Obtain the the number of of targets for fragmentation from the current spectrum.
+        /// </summary>
+        /// <returns></returns>
         public int GetAllPeakGroupSize()
         {
-            return GetAllPeakGroupSize(m_pNativeObject);
+            try
+            {
+                return GetAllPeakGroupSize(m_pNativeObject);
+            }
+            catch (Exception idaException)
+            {
+                log.Error(String.Format("IDAWrapper.GetAllPeakGroupSize reported: {0}\n{1}", idaException.Message, idaException.StackTrace));
+            }
+            return -1;
         }
-
 
         /// <summary>
         /// Obtain the the list of targets for fragmentation from the current spectrum.
