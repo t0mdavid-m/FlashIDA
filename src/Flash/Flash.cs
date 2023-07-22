@@ -235,11 +235,11 @@ namespace Flash
                 log.Info("ScanControl success");
             }
             //NOTE: it is extremly important to catch all possible exceptions in the "instrument part", unhandled exception does not crash the software the usual way, but lead to weird behavior
-            catch (Exception ex) 
+            catch (Exception ex)
             {
                 log.Error(String.Format("ScanControl failed\n{0}\n{1}", ex.Message, ex.StackTrace));
             }
- 
+
             //should fire when a custom scan is done (never fires as of current version of API), apparently fixed in API 3.5
             scanControl.CanAcceptNextCustomScan += CustomScanListner;
 
@@ -260,6 +260,10 @@ namespace Flash
 
             IFusionCustomScan agcScan = null;
             IFusionCustomScan defaultScan = null;
+            double[] CVs = methodParams.IDA.CVValues;
+            IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
+            IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
+
 
             try
             {
@@ -277,8 +281,8 @@ namespace Flash
                         SrcRFLens = new double[] { methodParams.MS1.RFLens },
                         SourceCIDEnergy = methodParams.MS1.SourceCID,
                         DataType = "Profile",
-                        ScanType = "Full"
-
+                        ScanType = "Full",
+                        FAIMS_Voltages = "off"
                     }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
 
                 //default MS1 scan
@@ -295,8 +299,50 @@ namespace Flash
                         SrcRFLens = new double[] { methodParams.MS1.RFLens },
                         SourceCIDEnergy = methodParams.MS1.SourceCID,
                         DataType = methodParams.MS1.DataType,
-                        ScanType = "Full"
+                        ScanType = "Full",
+                        FAIMS_Voltages = "off"
                     }, delay: 3); 
+                
+                // Rinse and repeat for each CV
+                for (int i = 0; i < CVs.Length; i++)
+                {
+                    faimsAgcScans[i] = scanFactory.CreateFusionCustomScan(
+                        new ScanParameters
+                        {
+                            Analyzer = "IonTrap",
+                            FirstMass = new double[] { methodParams.MS1.FirstMass },
+                            LastMass = new double[] { methodParams.MS1.LastMass },
+                            ScanRate = "Turbo",
+                            AGCTarget = 30000,
+                            MaxIT = 1,
+                            Microscans = 1,
+                            SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                            SourceCIDEnergy = methodParams.MS1.SourceCID,
+                            DataType = "Profile",
+                            ScanType = "Full",
+                            FAIMS_CV = CVs[i],
+                            FAIMS_Voltages = "on"
+                        }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
+
+                    //default MS1 scan
+                    faimsDefaultScans[i] = scanFactory.CreateFusionCustomScan(
+                        new ScanParameters
+                        {
+                            Analyzer = methodParams.MS1.Analyzer,
+                            FirstMass = new double[] { methodParams.MS1.FirstMass },
+                            LastMass = new double[] { methodParams.MS1.LastMass },
+                            OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
+                            AGCTarget = methodParams.MS1.AGCTarget,
+                            MaxIT = methodParams.MS1.MaxIT,
+                            Microscans = methodParams.MS1.Microscans,
+                            SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                            SourceCIDEnergy = methodParams.MS1.SourceCID,
+                            DataType = methodParams.MS1.DataType,
+                            ScanType = "Full",
+                            FAIMS_CV = CVs[i],
+                            FAIMS_Voltages = "on"
+                        }, delay: 3);
+                }
 
                 log.Info("Created default and AGC scans");
             }
@@ -308,7 +354,7 @@ namespace Flash
             //create instance of custom scan queue and scheduler
             try
             {
-                scanScheduler = new ScanScheduler(defaultScan, agcScan, scanFactory, methodParams);
+                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, methodParams);
                 log.Info("ScanScheduler created");
             }
             catch (Exception ex)

@@ -27,6 +27,8 @@ namespace Flash
 
         private IFusionCustomScan defaultScan; //type of scan that will be requested when nothing is in the queue
         private IFusionCustomScan agcScan;
+        private IFusionCustomScan[] faimsDefaultScans; //type of scan that will be requested when nothing is in the queue
+        private IFusionCustomScan[] faimsAgcScans;
 
         // Stores the cvs used for FAIMS
         public double[] CVs;
@@ -52,7 +54,6 @@ namespace Flash
         private int unplannedScans;
 
 
-        private ScanFactory scanFactory;
         private MethodParameters methodParams;
 
 
@@ -64,13 +65,14 @@ namespace Flash
         /// </summary>
         /// <param name="scan">API definition of a default "regular" scan</param>
         /// <param name="AGCScan">API definition of a default "regular" AGC scan</param>
-        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, ScanFactory factory, MethodParameters mparams)
+        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, MethodParameters mparams)
         {
-            scanFactory = factory;
             methodParams = mparams;
             
             defaultScan = scan;
             agcScan = AGCScan;
+            faimsDefaultScans = faimsScans;
+            faimsAgcScans = faimsAGCScans;
             customScans = new ConcurrentQueue<IFusionCustomScan>();
             log = LogManager.GetLogger("General");
 
@@ -165,8 +167,8 @@ namespace Flash
                             planned[i] = false;
                             shelvedMS2Scans[i] = null;
                             // Add planning scans
-                            customScans.Enqueue(createAGCScan(CVs[i]));
-                            customScans.Enqueue(createMS1Scan(CVs[i]));
+                            customScans.Enqueue(faimsAgcScans[i]);
+                            customScans.Enqueue(faimsDefaultScans[i]);
                             MS1Count++;
                             AGCCount++;
                             log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", CVs[i], customScans.Count));
@@ -187,10 +189,9 @@ namespace Flash
                             planMode = true;
                             return getNextScan();
                         }
-                        double cv = CVs[currentCV];
                         scansPerCV[currentCV]++;
-                        customScans.Enqueue(createAGCScan(cv));
-                        customScans.Enqueue(createMS1Scan(cv));
+                        customScans.Enqueue(faimsAgcScans[currentCV]);
+                        customScans.Enqueue(faimsDefaultScans[currentCV]);
                         MS1Count++;
                         AGCCount++;
                     }
@@ -208,6 +209,8 @@ namespace Flash
                                 if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
                                 {
                                     Array.Sort(noPrecursors, CVs);
+                                    Array.Sort(noPrecursors, faimsAgcScans);
+                                    Array.Sort(noPrecursors, faimsDefaultScans);
                                 }
                                 return getNextScan();
                             }
@@ -216,10 +219,9 @@ namespace Flash
                         }
 
                         // Queue MS1 scan with appropiate CV
-                        double cv = CVs[currentCV];
+                        customScans.Enqueue(faimsAgcScans[currentCV]);
+                        customScans.Enqueue(faimsDefaultScans[currentCV]);
                         scansPerCV[currentCV]++;
-                        customScans.Enqueue(createAGCScan(cv));
-                        customScans.Enqueue(createMS1Scan(cv)); 
                         MS1Count++;
                         AGCCount++;
 
@@ -293,74 +295,6 @@ namespace Flash
                 return String.Format("#{0} MSn {1} [{2}, {3}+]", scan.RunningNumber, scan.Values["Analyzer"], scan.Values["PrecursorMass"], scan.Values["ChargeStates"]);
             }
             return "Unknown"; //sanity
-        }
-
-
-        public IFusionCustomScan createAGCScan(double cv)
-        {
-            IFusionCustomScan cvAgcScan;
-            try
-            {
-                //default AGC scan, scan parameters match the vendor implementation
-                cvAgcScan = scanFactory.CreateFusionCustomScan(
-                    new ScanParameters
-                    {
-                        Analyzer = "IonTrap",
-                        FirstMass = new double[] { methodParams.MS1.FirstMass },
-                        LastMass = new double[] { methodParams.MS1.LastMass },
-                        ScanRate = "Turbo",
-                        AGCTarget = 30000,
-                        MaxIT = 1,
-                        Microscans = 1,
-                        SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                        SourceCIDEnergy = methodParams.MS1.SourceCID,
-                        DataType = "Profile",
-                        ScanType = "Full",
-                        FAIMS_CV = cv,
-                        FAIMS_Voltages = "on"
-
-                    }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
-                log.Info(String.Format("Created AGC scan with cv={0}", cv));
-            }
-            catch (Exception ex)
-            {
-                cvAgcScan = agcScan;
-                log.Error(String.Format("Cannot create AGC scan: {0}\n{1}", ex.Message, ex.StackTrace));
-            }
-            return cvAgcScan;
-        }
-
-        public IFusionCustomScan createMS1Scan(double cv)
-        {
-            IFusionCustomScan cvMS1Scan;
-            try
-            {
-                //default MS1 scan
-                cvMS1Scan = scanFactory.CreateFusionCustomScan(
-                new ScanParameters
-                {
-                    Analyzer = methodParams.MS1.Analyzer,
-                    FirstMass = new double[] { methodParams.MS1.FirstMass },
-                    LastMass = new double[] { methodParams.MS1.LastMass },
-                    OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
-                    AGCTarget = methodParams.MS1.AGCTarget,
-                    MaxIT = methodParams.MS1.MaxIT,
-                    Microscans = methodParams.MS1.Microscans,
-                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                    SourceCIDEnergy = methodParams.MS1.SourceCID,
-                    DataType = methodParams.MS1.DataType,
-                    ScanType = "Full",
-                    FAIMS_CV = cv,
-                    FAIMS_Voltages = "on"
-                }, delay: 3);
-                log.Info(String.Format("Created MS1 scan with cv={0}", cv));
-            }
-            catch (Exception ex)
-            {
-                cvMS1Scan = defaultScan;
-                log.Error(String.Format("Cannot create MS1 scan: {0}\n{1}", ex.Message, ex.StackTrace));
-            }
-            return cvMS1Scan;
         }
     }
 }
