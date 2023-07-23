@@ -228,9 +228,9 @@ namespace Flash
             {
                 if (customScans.IsEmpty) //No scans in the queue => Fill Queue
                 {
+                    log.Debug("Empty queue - handle appropiately");
                     if (!methodParams.IDA.UseFAIMS)
                     {
-                        log.Debug("Empty queue - gonna send AGC scan");
                         customScans.Enqueue(defaultScan);
                         MS1Count++;
                         log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
@@ -240,7 +240,7 @@ namespace Flash
                     {
                         if (planMode) // Planning Mode: Scan over CVs and collect precursors
                         {
-                            // Add Lock
+                            log.Debug(String.Format("Planning Started with CVs={0}", string.Join(" ", CVs)));
                             for (int i = 0; i < CVs.Length; i++)
                             {
                                 // Set planning variables
@@ -258,7 +258,7 @@ namespace Flash
                                 }
                                 customScans.Enqueue(faimsDefaultScans[i]);
                                 MS1Count++;
-                                log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", CVs[i], customScans.Count));
+                                log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Plan Mode)", CVs[i], customScans.Count));
                             }
                             // Planning has been executed
                             planMode = false;
@@ -271,6 +271,7 @@ namespace Flash
 
                         else if (!planned.All(a => a)) // Planning is not yet complete => Acquire MS2 scans for last CV
                         {
+                            log.Debug(String.Format("Planning still in progress CVs={0}; Planned={1}", string.Join(" ", CVs), string.Join(" ", planned)));
                             if (unplannedScans >= 5) // If 5 MS1 scans have been scheduled and planning has not yet completed, something went wrong
                             {
                                 // Restart planning
@@ -280,6 +281,8 @@ namespace Flash
                             scansPerCV[currentCV]++;
                             customScans.Enqueue(faimsDefaultScans[currentCV]);
                             MS1Count++;
+                            unplannedScans++;
+                            log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Unplanned #{2})", CVs[currentCV], customScans.Count,unplannedScans));
                             return faimsAgcScans[currentCV];
                         }
                         else // Planning is complete => Acquire MS2 scans as planned
@@ -305,6 +308,11 @@ namespace Flash
                                 CVChanged = true;
                             }
 
+                            if (CVChanged)
+                            {
+                                log.Debug(String.Format("Changed to CV={0} in CVs={1} with plan={2}", CVs[currentCV], string.Join(" ", CVs), string.Join(" ", maxScansPerCV)));
+                            }
+
                             // Queue MS1 scan with appropiate CV
                             customScans.Enqueue(faimsDefaultScans[currentCV]);
                             scansPerCV[currentCV]++;
@@ -312,6 +320,7 @@ namespace Flash
 
                             if (CVChanged && (shelvedMS2Scans[currentCV] != null)) // Add shelved MS2 scans
                             {
+                                log.Debug(String.Format("Found {0} shelved MS2 scans}", shelvedMS2Scans[currentCV].Count));
                                 foreach (var shelvedMS2 in shelvedMS2Scans[currentCV])
                                 {
                                     if (shelvedMS2 != null)
@@ -320,6 +329,7 @@ namespace Flash
                                     }
                                 }
                             }
+                            log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1} (Planned #{2}/{3})", CVs[currentCV], customScans.Count, scansPerCV[currentCV], maxScansPerCV[currentCV]));
                             return faimsAgcScans[currentCV];
                         }
                     }
