@@ -78,46 +78,22 @@ namespace Flash.IDA
 
                     // Get CV and position in the CV list
                     double cv = double.Parse(CVString);
-                    int pos = Array.IndexOf(scanScheduler.CVs, cv);
+
                     // In the beginning scans with different CV values are scheduled, ignore those
-                    if (pos == -1)
+                    if (!methodParams.IDA.CVValues.Contains(cv))
                     {
                         scans.Add(null);
                         return scans;
                     }
 
-                    // TODO: Move and make thread safe
                     // Deconvolve spectrum and get relevant information
                     List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
                     List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                     int precursors = flashIdaWrapper.GetAllPeakGroupSize();
 
-                    if (!scanScheduler.planned.All(a => a) && !scanScheduler.planned[pos]) // Planning is not complete and the plan scan for the current cv has not been recorded yet
-                    {
-                        // Get number of precursors and set variables to indicate complete planning
-                        scanScheduler.noPrecursors[pos] = precursors;
-                        scanScheduler.noPrecursorsTruncated[pos] = precursors - (precursors % methodParams.TopN);
-                        scanScheduler.planned[pos] = true;
+                    // Use Information for planning calculations
+                    scanScheduler.planCV(cv, precursors);
 
-                        if (scanScheduler.planned.All(a => a)) // Planning was successfully completed
-                        {
-                            // Truncate number of such that all MS2 scans are used if enough precursors are available
-                            if (scanScheduler.noPrecursorsTruncated.Sum() >= (scanScheduler.maxCVScans * methodParams.TopN))
-                            {
-                                scanScheduler.noPrecursors = scanScheduler.noPrecursorsTruncated;
-                            }
-
-                            // Assign maximum number of scans for each CV
-                            for (int i = 0; i < scanScheduler.CVs.Length; i++)
-                            {
-                                scanScheduler.maxScansPerCV[i] = Convert.ToInt32(Convert.ToDouble((scanScheduler.noPrecursors[i]) / Convert.ToDouble(scanScheduler.noPrecursors.Sum())) * Convert.ToDouble(methodParams.TopN));
-                            }
-
-                        }                    
-                    }
-
-                    // Schedule MS2 scans
-                    
                     //logging of targets
                     IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets",
                             msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faims_status));
@@ -126,9 +102,8 @@ namespace Flash.IDA
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
 
                     // Move to next CV value if no precursors are found
-                    if ((targets.Count == 0) && (pos==scanScheduler.currentCV))
-                    {
-                        scanScheduler.maxScansPerCV[pos] = -1;
+                    if (targets.Count == 0) {
+                        scanScheduler.handleNoTargets(cv);
                     }
 
                     //schedule TopN fragmentation scans with highest qScore
@@ -170,12 +145,12 @@ namespace Flash.IDA
 
                     }
 
-                    if (scanScheduler.currentCV != pos) // If the CV is not currently scheduled (likely last CV in list) shelve MS2 scans
+                    if (scanScheduler.shelveMS2Scans(cv, scans))
                     {
-                        scanScheduler.shelvedMS2Scans[scanScheduler.currentCV] = scans;
                         List<IFusionCustomScan> blank = new List<IFusionCustomScan> { null };
                         return blank;
                     }
+
                 }
 
                 catch (Exception ex)
