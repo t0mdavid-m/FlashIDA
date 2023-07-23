@@ -241,7 +241,7 @@ namespace Flash
                         if (planMode) // Planning Mode: Scan over CVs and collect precursors
                         {
                             // Add Lock
-                            for (int i = 0; i < maxScansPerCV.Length; i++)
+                            for (int i = 0; i < CVs.Length; i++)
                             {
                                 // Set planning variables
                                 maxScansPerCV[i] = -1;
@@ -287,11 +287,10 @@ namespace Flash
                             // Whether or not the CV is changed now
                             bool CVChanged = false;
 
-                            while ((maxScansPerCV[currentCV] <= 0) || (maxScansPerCV[currentCV] >= scansPerCV[currentCV])) // Maximum number of scans has been reached for current CV or no scans are scheduled
+                            while (scansPerCV[currentCV] >= maxScansPerCV[currentCV]) // Maximum number of scans has been reached for current CV or no scans are scheduled
                             {
                                 if (currentCV == 0) // This is the last CV => Set to plan mode
                                 {
-                                    planMode = true;
                                     // Schedule CVs such that the CV with the maximum number of precursors is run last => Schedule the scans while in plan mode
                                     if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
                                     {
@@ -299,6 +298,7 @@ namespace Flash
                                         Array.Sort(noPrecursors, faimsAgcScans);
                                         Array.Sort(noPrecursors, faimsDefaultScans);
                                     }
+                                    planMode = true;
                                     return getNextScan();
                                 }
                                 currentCV--;
