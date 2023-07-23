@@ -82,7 +82,7 @@ namespace Flash.IDA
                     // In the beginning scans with different CV values are scheduled, ignore those
                     if (!methodParams.IDA.CVValues.Contains(cv))
                     {
-                        IDAlog.Info(String.Format("Got scan with CV={0}, which is not in {1} -> Ignore Scan", cv, string.Join(" ", methodParams.IDA.CVValues));
+                        IDAlog.Info(String.Format("Got scan with CV={0}, which is not in {1} -> Ignore Scan", cv, string.Join(" ", methodParams.IDA.CVValues)));
                         scans.Add(null);
                         return scans;
                     }
