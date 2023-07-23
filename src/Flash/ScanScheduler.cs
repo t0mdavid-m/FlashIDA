@@ -177,7 +177,7 @@ namespace Flash
                             // Assign maximum number of scans for each CV
                             for (int i = 0; i < CVs.Length; i++)
                             {
-                                maxScansPerCV[i] = Convert.ToInt32(Convert.ToDouble((noPrecursors[i]) / Convert.ToDouble(noPrecursors.Sum())) * Convert.ToDouble(methodParams.TopN));
+                                maxScansPerCV[i] = Convert.ToInt32((Convert.ToDouble(noPrecursors[i]) / (Convert.ToDouble(noPrecursors.Sum())+0.0000001)) * Convert.ToDouble(methodParams.TopN));
                             }
                             log.Debug(String.Format("Planning complete! Came up with plan {0} for precursor distribution {1}", string.Join(" ", maxCVScans), string.Join(" ", noPrecursors)));
                         }
@@ -198,6 +198,7 @@ namespace Flash
                 {
                     // Move to next CV value
                     maxScansPerCV[currentCV] = -1;
+                    log.Debug(String.Format("Ran out of targets for CV={0}, jumping to next CV", cv));
                 }
             }
         }
