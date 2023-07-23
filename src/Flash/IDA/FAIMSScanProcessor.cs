@@ -86,6 +86,7 @@ namespace Flash.IDA
                         return scans;
                     }
 
+                    // TODO: Move and make thread safe
                     // Deconvolve spectrum and get relevant information
                     List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
                     List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
@@ -125,7 +126,7 @@ namespace Flash.IDA
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
 
                     // Move to next CV value if no precursors are found
-                    if (targets.Count == 0)
+                    if ((targets.Count == 0) && (pos==scanScheduler.currentCV))
                     {
                         scanScheduler.maxScansPerCV[pos] = -1;
                     }
