@@ -71,7 +71,7 @@ namespace Flash.IDA
                 // get ScanID and CV data
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
                 msScan.Trailer.TryGetValue("FAIMS CV", out var CVString);
-                msScan.Trailer.TryGetValue("FAIMS Voltage On", out var faims_status);
+                msScan.Trailer.TryGetValue("FAIMS Voltage On", out var faimsStatus);
 
                 try
                 {
@@ -82,6 +82,7 @@ namespace Flash.IDA
                     // In the beginning scans with different CV values are scheduled, ignore those
                     if (!methodParams.IDA.CVValues.Contains(cv))
                     {
+                        IDAlog.Info(String.Format("Got scan with CV={0}, which is not in {1} -> Ignore Scan", cv, string.Join(" ", methodParams.IDA.CVValues));
                         scans.Add(null);
                         return scans;
                     }
@@ -91,15 +92,15 @@ namespace Flash.IDA
                     List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                     int precursors = flashIdaWrapper.GetAllPeakGroupSize();
 
-                    // Use Information for planning calculations
-                    scanScheduler.planCV(cv, precursors);
-
                     //logging of targets
-                    IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets",
-                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faims_status));
+                    IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors)",
+                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors));
                     if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
                     if (monoMasses.Count > 0)                   
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
+
+                    // Use Information for planning calculations
+                    scanScheduler.planCV(cv, precursors);
 
                     // Move to next CV value if no precursors are found
                     if (targets.Count == 0) {
