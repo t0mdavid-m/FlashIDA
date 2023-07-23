@@ -147,8 +147,7 @@ namespace Flash.IDA
 
                     if (scanScheduler.shelveMS2Scans(cv, scans))
                     {
-                        List<IFusionCustomScan> blank = new List<IFusionCustomScan> { null };
-                        return blank;
+                        return new List<IFusionCustomScan> { null };
                     }
 
                 }
