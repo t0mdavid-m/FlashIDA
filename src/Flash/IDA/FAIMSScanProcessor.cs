@@ -75,6 +75,7 @@ namespace Flash.IDA
 
                 try
                 {
+
                     // Get CV and position in the CV list
                     double cv = double.Parse(CVString);
                     int pos = Array.IndexOf(scanScheduler.CVs, cv);
@@ -85,11 +86,14 @@ namespace Flash.IDA
                         return scans;
                     }
 
+                    // Deconvolve spectrum and get relevant information
+                    List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
+                    List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
+                    int precursors = flashIdaWrapper.GetAllPeakGroupSize();
 
                     if (!scanScheduler.planned.All(a => a) && !scanScheduler.planned[pos]) // Planning is not complete and the plan scan for the current cv has not been recorded yet
                     {
                         // Get number of precursors and set variables to indicate complete planning
-                        int precursors = flashIdaWrapper.GetAllPeakGroupSize();
                         scanScheduler.noPrecursors[pos] = precursors;
                         scanScheduler.noPrecursorsTruncated[pos] = precursors - (precursors % methodParams.TopN);
                         scanScheduler.planned[pos] = true;
@@ -112,8 +116,7 @@ namespace Flash.IDA
                     }
 
                     // Schedule MS2 scans
-                    List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
-                    List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
+                    
                     //logging of targets
                     IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets",
                             msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faims_status));
