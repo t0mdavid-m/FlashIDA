@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Net.Security;
 using System.Security.Policy;
+using log4net.Core;
 
 namespace Flash
 {
@@ -164,6 +165,7 @@ namespace Flash
                         noPrecursorsTruncated[pos] = precursors - (precursors % methodParams.TopN);
                         planned[pos] = true;
 
+                        log.Debug(String.Format("Received plan scan for CV={0} with {1} precursors ({2} truncated)", cv, noPrecursors[pos], noPrecursorsTruncated[pos]));
                         if (planned.All(a => a)) // Planning was successfully completed
                         {
                             // Truncate number of such that all MS2 scans are used if enough precursors are available
@@ -177,7 +179,7 @@ namespace Flash
                             {
                                 maxScansPerCV[i] = Convert.ToInt32(Convert.ToDouble((noPrecursors[i]) / Convert.ToDouble(noPrecursors.Sum())) * Convert.ToDouble(methodParams.TopN));
                             }
-
+                            log.Debug(String.Format("Planning complete! Came up with plan {0} for precursor distribution {1}", string.Join(" ", maxCVScans), string.Join(" ", noPrecursors)));
                         }
                     }
                 }
