@@ -251,10 +251,13 @@ namespace Flash
                                 planned[i] = false;
                                 shelvedMS2Scans[i] = null;
                                 // Add planning scans
-                                customScans.Enqueue(faimsAgcScans[i]);
+                                if (i > 0)
+                                {
+                                    customScans.Enqueue(faimsAgcScans[i]);
+                                    AGCCount++;
+                                }
                                 customScans.Enqueue(faimsDefaultScans[i]);
                                 MS1Count++;
-                                AGCCount++;
                                 log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1}", CVs[i], customScans.Count));
                             }
                             // Planning has been executed
@@ -263,6 +266,7 @@ namespace Flash
                             currentCV = CVs.Length - 1;
                             // No unplanned scans have been executed yet
                             unplannedScans = 0;
+                            return faimsAgcScans[0];
                         }
 
                         else if (!planned.All(a => a)) // Planning is not yet complete => Acquire MS2 scans for last CV
@@ -274,10 +278,9 @@ namespace Flash
                                 return getNextScan();
                             }
                             scansPerCV[currentCV]++;
-                            customScans.Enqueue(faimsAgcScans[currentCV]);
                             customScans.Enqueue(faimsDefaultScans[currentCV]);
                             MS1Count++;
-                            AGCCount++;
+                            return faimsAgcScans[currentCV];
                         }
                         else // Planning is complete => Acquire MS2 scans as planned
                         {
@@ -303,11 +306,9 @@ namespace Flash
                             }
 
                             // Queue MS1 scan with appropiate CV
-                            customScans.Enqueue(faimsAgcScans[currentCV]);
                             customScans.Enqueue(faimsDefaultScans[currentCV]);
                             scansPerCV[currentCV]++;
                             MS1Count++;
-                            AGCCount++;
 
                             if (CVChanged && (shelvedMS2Scans[currentCV] != null)) // Add shelved MS2 scans
                             {
@@ -319,41 +320,44 @@ namespace Flash
                                     }
                                 }
                             }
+                            return faimsAgcScans[currentCV];
                         }
                     }
                 }
-
-                // Queue is not empty => If it was empty at beginning of method, it was just refilled
-                customScans.TryDequeue(out var nextScan);
-                if (nextScan != null)
+                else
                 {
-                    if (nextScan.Values["ScanType"] == "Full")
+                    // Queue is not empty => If it was empty at beginning of method, it was just refilled
+                    customScans.TryDequeue(out var nextScan);
+                    if (nextScan != null)
                     {
-                        //we assume that we never use IonTrap for anything except AGC, if it ever going to change more sofisticated check is necessary
-                        if (nextScan.Values["Analyzer"] == "IonTrap") AGCCount--;
-                        else MS1Count--;
+                        if (nextScan.Values["ScanType"] == "Full")
+                        {
+                            //we assume that we never use IonTrap for anything except AGC, if it ever going to change more sofisticated check is necessary
+                            if (nextScan.Values["Analyzer"] == "IonTrap") AGCCount--;
+                            else MS1Count--;
 
-                        log.Debug(String.Format("POP Full {0} scan [{1} - {2}] // AGC: {3}, MS1: {4}, MS2: {5}",
-                            nextScan.Values["Analyzer"], nextScan.Values["FirstMass"], nextScan.Values["LastMass"],
-                            AGCCount, MS1Count, MS2Count));
+                            log.Debug(String.Format("POP Full {0} scan [{1} - {2}] // AGC: {3}, MS1: {4}, MS2: {5}",
+                                nextScan.Values["Analyzer"], nextScan.Values["FirstMass"], nextScan.Values["LastMass"],
+                                AGCCount, MS1Count, MS2Count));
+                        }
+                        else if (nextScan.Values["ScanType"] == "MSn") //all MSn considered MS2 (i.e. no check for the actual MS level), should be added if necessary
+                        {
+                            MS2Count--;
+                            log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} // AGC: {2}, MS1: {3}, MS2: {4}",
+                                nextScan.Values["PrecursorMass"], nextScan.Values["ChargeStates"],
+                                AGCCount, MS1Count, MS2Count));
+                        }
+
+                        return nextScan;
                     }
-                    else if (nextScan.Values["ScanType"] == "MSn") //all MSn considered MS2 (i.e. no check for the actual MS level), should be added if necessary
+                    else //cannot get the scan out for some reason (hopefully never happens)
                     {
-                        MS2Count--;
-                        log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} // AGC: {2}, MS1: {3}, MS2: {4}",
-                            nextScan.Values["PrecursorMass"], nextScan.Values["ChargeStates"],
-                            AGCCount, MS1Count, MS2Count));
+                        log.Debug("Cannot receive next scan - gonna send AGC scan");
+                        customScans.Enqueue(defaultScan);
+                        MS1Count++;
+                        log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
+                        return agcScan;
                     }
-
-                    return nextScan;
-                }
-                else //cannot get the scan out for some reason (hopefully never happens)
-                {
-                    log.Debug("Cannot receive next scan - gonna send AGC scan");
-                    customScans.Enqueue(defaultScan);
-                    MS1Count++;
-                    log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
-                    return agcScan;
                 }
             }
             catch (Exception ex)
