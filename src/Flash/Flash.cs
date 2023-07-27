@@ -142,7 +142,7 @@ namespace Flash
                 {
                     Console.Error.WriteLine(String.Format("Cannot find method file {0}", args.MethodPath));
                     Environment.Exit(1);
-                }
+                } 
             }
             
             return args;

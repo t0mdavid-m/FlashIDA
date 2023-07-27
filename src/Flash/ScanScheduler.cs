@@ -354,9 +354,20 @@ namespace Flash
                             if (nextScan.Values["Analyzer"] == "IonTrap") AGCCount--;
                             else MS1Count--;
 
-                            log.Debug(String.Format("POP Full {0} scan [{1} - {2}] // AGC: {3}, MS1: {4}, MS2: {5}",
+                            if (methodParams.IDA.UseFAIMS)
+                            {
+                                log.Debug(String.Format("POP Full {0} scan [{1} - {2}] CV={6} // AGC: {3}, MS1: {4}, MS2: {5}",
+                                nextScan.Values["Analyzer"], nextScan.Values["FirstMass"], nextScan.Values["LastMass"],
+                                AGCCount, MS1Count, MS2Count, nextScan.Values["FAIMS CV"]));
+
+                            }
+                            else
+                            {
+                                log.Debug(String.Format("POP Full {0} scan [{1} - {2}] // AGC: {3}, MS1: {4}, MS2: {5}",
                                 nextScan.Values["Analyzer"], nextScan.Values["FirstMass"], nextScan.Values["LastMass"],
                                 AGCCount, MS1Count, MS2Count));
+                            }
+                            
                         }
                         else if (nextScan.Values["ScanType"] == "MSn") //all MSn considered MS2 (i.e. no check for the actual MS level), should be added if necessary
                         {
