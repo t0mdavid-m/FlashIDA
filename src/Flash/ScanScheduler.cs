@@ -71,7 +71,7 @@ namespace Flash
         public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, MethodParameters mparams)
         {
             methodParams = mparams;
-            
+
             defaultScan = scan;
             agcScan = AGCScan;
             faimsDefaultScans = faimsScans;
@@ -85,10 +85,10 @@ namespace Flash
 
             // Initialize FAIMS related variables
             CVs = methodParams.IDA.CVValues;
-            maxCVScans = (int) ((methodParams.IDA.RTWindow - ((Convert.ToDouble(CVs.Length) - 1) * 0.3)) / 2.25);
+            maxCVScans = (int)((methodParams.IDA.RTWindow - ((Convert.ToDouble(CVs.Length) - 1) * 0.3)) / 2.25);
             if (methodParams.IDA.UseFAIMS)
             {
-                log.Debug(String.Format("Maximum # of scans per block={0}, CVValues={1]", maxCVScans ,string.Join(" ", CVs)));
+                log.Debug(String.Format("Maximum # of scans per block={0}, CVValues={1}", maxCVScans, string.Join(" ", CVs)));
             }
             currentCV = CVs.Length - 1;
             maxScansPerCV = new int[CVs.Length];
@@ -181,9 +181,9 @@ namespace Flash
                             // Assign maximum number of scans for each CV
                             for (int i = 0; i < CVs.Length; i++)
                             {
-                                maxScansPerCV[i] = Convert.ToInt32((Convert.ToDouble(noPrecursors[i]) / (Convert.ToDouble(noPrecursors.Sum())+0.0000001)) * Convert.ToDouble(methodParams.TopN));
+                                maxScansPerCV[i] = Convert.ToInt32((Convert.ToDouble(noPrecursors[i]) / (Convert.ToDouble(noPrecursors.Sum()) + 0.000000001)) * Convert.ToDouble(maxCVScans));
                             }
-                            log.Debug(String.Format("Planning complete! Came up with plan {0} for precursor distribution {1}", string.Join(" ", maxCVScans), string.Join(" ", noPrecursors)));
+                            log.Debug(String.Format("Planning complete! Came up with plan {0} for precursor distribution {1}", string.Join(" ", maxScansPerCV), string.Join(" ", noPrecursors)));
                         }
                     }
                 }
@@ -217,7 +217,7 @@ namespace Flash
             {
                 if (CVs[currentCV] != cv) // If the CV is not currently scheduled shelve MS2 scans
                 {
-                    shelvedMS2Scans[currentCV] = scans;
+                    shelvedMS2Scans[Array.IndexOf(CVs, cv)] = scans;
                     log.Debug(String.Format("Found {0} targets at CV={1} but currently at CV={2}, shelving for later", scans.Count, cv, CVs[currentCV]));
                     return true;
                 }
@@ -290,7 +290,7 @@ namespace Flash
                             customScans.Enqueue(faimsDefaultScans[currentCV]);
                             MS1Count++;
                             unplannedScans++;
-                            log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Unplanned #{2})", CVs[currentCV], customScans.Count,unplannedScans));
+                            log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Unplanned #{2})", CVs[currentCV], customScans.Count, unplannedScans));
                             return faimsAgcScans[currentCV];
                         }
                         else // Planning is complete => Acquire MS2 scans as planned
@@ -305,9 +305,9 @@ namespace Flash
                                     // Schedule CVs such that the CV with the maximum number of precursors is run last => Schedule the scans while in plan mode
                                     if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
                                     {
-                                        Array.Sort( (int[]) noPrecursors.Clone(), CVs);
-                                        Array.Sort( (int[]) noPrecursors.Clone(), faimsAgcScans);
-                                        Array.Sort( (int[]) noPrecursors.Clone(), faimsDefaultScans);
+                                        Array.Sort((int[])noPrecursors.Clone(), CVs);
+                                        Array.Sort((int[])noPrecursors.Clone(), faimsAgcScans);
+                                        Array.Sort((int[])noPrecursors.Clone(), faimsDefaultScans);
                                     }
                                     planMode = true;
                                     return getNextScan();
@@ -328,7 +328,7 @@ namespace Flash
 
                             if (CVChanged && (shelvedMS2Scans[currentCV] != null)) // Add shelved MS2 scans
                             {
-                                log.Debug(String.Format("Found {0} shelved MS2 scans}", shelvedMS2Scans[currentCV].Count));
+                                log.Debug(String.Format("Found {0} shelved MS2 scans", shelvedMS2Scans[currentCV].Count));
                                 foreach (var shelvedMS2 in shelvedMS2Scans[currentCV])
                                 {
                                     if (shelvedMS2 != null)
