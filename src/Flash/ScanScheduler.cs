@@ -372,9 +372,19 @@ namespace Flash
                         else if (nextScan.Values["ScanType"] == "MSn") //all MSn considered MS2 (i.e. no check for the actual MS level), should be added if necessary
                         {
                             MS2Count--;
-                            log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} // AGC: {2}, MS1: {3}, MS2: {4}",
+                            if (methodParams.IDA.UseFAIMS)
+                            {
+                                log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} CV={5} // AGC: {2}, MS1: {3}, MS2: {4}",
+                                nextScan.Values["PrecursorMass"], nextScan.Values["ChargeStates"],
+                                AGCCount, MS1Count, MS2Count, nextScan.Values["FAIMS CV"]));
+                            }
+                            else
+                            {
+                                log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} // AGC: {2}, MS1: {3}, MS2: {4}",
                                 nextScan.Values["PrecursorMass"], nextScan.Values["ChargeStates"],
                                 AGCCount, MS1Count, MS2Count));
+                            }
+                            
                         }
 
                         return nextScan;
