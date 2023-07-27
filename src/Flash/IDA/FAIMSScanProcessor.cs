@@ -136,7 +136,9 @@ namespace Flash.IDA
                                 ReagentAGCTarget = methodParams.MS2.ReagentAGCTarget != 0 ? new int[] { methodParams.MS2.ReagentAGCTarget } : null,
                                 SrcRFLens = new double[] { methodParams.MS1.RFLens },
                                 SourceCIDEnergy = methodParams.MS1.SourceCID,
-                                DataType = methodParams.MS2.DataType
+                                DataType = methodParams.MS2.DataType,
+                                FAIMS_CV = cv,
+                                FAIMS_Voltages = "on"
                             }, delay: 3);
 
                         scans.Add(repScan);
