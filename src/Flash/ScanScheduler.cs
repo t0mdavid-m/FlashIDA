@@ -305,9 +305,9 @@ namespace Flash
                                     // Schedule CVs such that the CV with the maximum number of precursors is run last => Schedule the scans while in plan mode
                                     if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
                                     {
-                                        Array.Sort(noPrecursors, CVs);
-                                        Array.Sort(noPrecursors, faimsAgcScans);
-                                        Array.Sort(noPrecursors, faimsDefaultScans);
+                                        Array.Sort( (int[]) noPrecursors.Clone(), CVs);
+                                        Array.Sort( (int[]) noPrecursors.Clone(), faimsAgcScans);
+                                        Array.Sort( (int[]) noPrecursors.Clone(), faimsDefaultScans);
                                     }
                                     planMode = true;
                                     return getNextScan();
