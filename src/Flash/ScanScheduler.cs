@@ -55,6 +55,8 @@ namespace Flash
         private List<IFusionCustomScan>[] shelvedMS2Scans;
         // Number of MS1 scans that have been sent out while planning phase is not completed
         private int unplannedScans;
+        // No of MS2 scans that have been queued after last MS1 scan
+        private int MS2AfterMS1;
 
 
         private MethodParameters methodParams;
@@ -107,6 +109,7 @@ namespace Flash
             }
             planMode = true;
             unplannedScans = 0;
+            MS2AfterMS1 = 0;
         }
 
         /// <summary>
@@ -116,6 +119,22 @@ namespace Flash
         /// <param name="level">MS level of the scan (this parameter is used for internal "book-keeping")</param>
         public void AddScan(IFusionCustomScan scan, int level)
         {
+            if (methodParams.IDA.UseFAIMS)
+            {
+                lock(sync)
+                {
+                    if (MS2AfterMS1 >= 4)
+                    {
+                        getFAIMSMS1Scan(queue_agc : true);
+                    }
+                    if (double.Parse(scan.Values["FAIMS CV"]) != CVs[currentCV])
+                    {
+                        log.Debug(String.Format("Received MS2 scan for CV={0} but CV changed to {1} -> Scrapping scan", double.Parse(scan.Values["FAIMS CV"]), CVs[currentCV]));
+                        return;
+                    }
+                    MS2AfterMS1++;
+                }
+            }
             customScans.Enqueue(scan);
             switch (level)
             {
@@ -226,6 +245,125 @@ namespace Flash
         }
 
         /// <summary>
+        /// Returns the next AGC + MS1 scan as scheduled for FAIMS
+        /// </summary>
+        /// <returns></returns>
+        public IFusionCustomScan getFAIMSMS1Scan(bool queue_agc=false)
+        {
+            lock (sync)
+            {
+                MS2AfterMS1 = 0;
+                if (planMode) // Planning Mode: Scan over CVs and collect precursors
+                {
+                    log.Debug(String.Format("Planning Started with CVs={0}", string.Join(" ", CVs)));
+                    for (int i = 0; i < CVs.Length; i++)
+                    {
+                        // Set planning variables
+                        maxScansPerCV[i] = -1;
+                        scansPerCV[i] = 0;
+                        noPrecursors[i] = 0;
+                        noPrecursorsTruncated[i] = 0;
+                        planned[i] = false;
+                        shelvedMS2Scans[i] = null;
+                        // Add planning scans
+                        if ((i > 0) || (queue_agc))
+                        {
+                            customScans.Enqueue(faimsAgcScans[i]);
+                            AGCCount++;
+                        }
+                        customScans.Enqueue(faimsDefaultScans[i]);
+                        MS1Count++;
+                        log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Plan Mode)", CVs[i], customScans.Count));
+                    }
+                    // Planning has been executed
+                    planMode = false;
+                    // Start MS2 acquisition at the last CV value in the queue
+                    currentCV = CVs.Length - 1;
+                    // No unplanned scans have been executed yet
+                    unplannedScans = 0;
+                    return faimsAgcScans[0];
+                }
+
+                else if (!planned.All(a => a)) // Planning is not yet complete => Acquire MS2 scans for last CV
+                {
+                    log.Debug(String.Format("Planning still in progress CVs={0}; Planned={1}", string.Join(" ", CVs), string.Join(" ", planned)));
+                    if (unplannedScans >= 5) // If 5 MS1 scans have been scheduled and planning has not yet completed, something went wrong
+                    {
+                        // Restart planning
+                        planMode = true;
+                        return getFAIMSMS1Scan(queue_agc);
+                    }
+                    if (queue_agc)
+                    {
+                        customScans.Enqueue(faimsAgcScans[currentCV]);
+                        AGCCount++;
+                    }
+                    scansPerCV[currentCV]++;
+                    customScans.Enqueue(faimsDefaultScans[currentCV]);
+                    MS1Count++;
+                    unplannedScans++;
+                    log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Unplanned #{2})", CVs[currentCV], customScans.Count, unplannedScans));
+                    return faimsAgcScans[currentCV];
+                }
+                else // Planning is complete => Acquire MS2 scans as planned
+                {
+                    // Whether or not the CV is changed now
+                    bool CVChanged = false;
+
+                    while (scansPerCV[currentCV] >= maxScansPerCV[currentCV]) // Maximum number of scans has been reached for current CV or no scans are scheduled
+                    {
+                        if (currentCV == 0) // This is the last CV => Set to plan mode
+                        {
+                            // Schedule CVs such that the CV with the maximum number of precursors is run last => Schedule the scans while in plan mode
+                            if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
+                            {
+                                Array.Sort((int[])noPrecursors.Clone(), CVs);
+                                Array.Sort((int[])noPrecursors.Clone(), faimsAgcScans);
+                                Array.Sort((int[])noPrecursors.Clone(), faimsDefaultScans);
+                            }
+                            planMode = true;
+                            return getFAIMSMS1Scan(queue_agc);
+                        }
+                        currentCV--;
+                        CVChanged = true;
+                    }
+
+                    if (CVChanged)
+                    {
+                        log.Debug(String.Format("Changed to CV={0} in CVs={1} with plan={2}", CVs[currentCV], string.Join(" ", CVs), string.Join(" ", maxScansPerCV)));
+                    }
+
+                    if (queue_agc)
+                    {
+                        customScans.Enqueue(faimsAgcScans[currentCV]);
+                        AGCCount++;
+                    }
+
+                    // Queue MS1 scan with appropiate CV
+                    customScans.Enqueue(faimsDefaultScans[currentCV]);
+                    scansPerCV[currentCV]++;
+                    MS1Count++;
+
+                    if (CVChanged && (shelvedMS2Scans[currentCV] != null)) // Add shelved MS2 scans
+                    {
+                        log.Debug(String.Format("Found {0} shelved MS2 scans", shelvedMS2Scans[currentCV].Count));
+                        foreach (var shelvedMS2 in shelvedMS2Scans[currentCV])
+                        {
+                            if (shelvedMS2 != null)
+                            {
+                                AddScan(shelvedMS2, 2);
+                                MS2AfterMS1++;
+                            }
+                        }
+                    }
+                    log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1} (Planned #{2}/{3})", CVs[currentCV], customScans.Count, scansPerCV[currentCV], maxScansPerCV[currentCV]));
+                    return faimsAgcScans[currentCV];
+                }
+            }
+
+        }
+
+        /// <summary>
         /// Receive next scan from the queue or fallback to a default scan
         /// </summary>
         /// <returns></returns>
@@ -244,102 +382,9 @@ namespace Flash
                         log.Debug(String.Format("ADD default MS1 scan as #{0}", customScans.Count));
                         return agcScan;
                     }
-                    lock (sync)
+                    else
                     {
-                        if (planMode) // Planning Mode: Scan over CVs and collect precursors
-                        {
-                            log.Debug(String.Format("Planning Started with CVs={0}", string.Join(" ", CVs)));
-                            for (int i = 0; i < CVs.Length; i++)
-                            {
-                                // Set planning variables
-                                maxScansPerCV[i] = -1;
-                                scansPerCV[i] = 0;
-                                noPrecursors[i] = 0;
-                                noPrecursorsTruncated[i] = 0;
-                                planned[i] = false;
-                                shelvedMS2Scans[i] = null;
-                                // Add planning scans
-                                if (i > 0)
-                                {
-                                    customScans.Enqueue(faimsAgcScans[i]);
-                                    AGCCount++;
-                                }
-                                customScans.Enqueue(faimsDefaultScans[i]);
-                                MS1Count++;
-                                log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Plan Mode)", CVs[i], customScans.Count));
-                            }
-                            // Planning has been executed
-                            planMode = false;
-                            // Start MS2 acquisition at the last CV value in the queue
-                            currentCV = CVs.Length - 1;
-                            // No unplanned scans have been executed yet
-                            unplannedScans = 0;
-                            return faimsAgcScans[0];
-                        }
-
-                        else if (!planned.All(a => a)) // Planning is not yet complete => Acquire MS2 scans for last CV
-                        {
-                            log.Debug(String.Format("Planning still in progress CVs={0}; Planned={1}", string.Join(" ", CVs), string.Join(" ", planned)));
-                            if (unplannedScans >= 5) // If 5 MS1 scans have been scheduled and planning has not yet completed, something went wrong
-                            {
-                                // Restart planning
-                                planMode = true;
-                                return getNextScan();
-                            }
-                            scansPerCV[currentCV]++;
-                            customScans.Enqueue(faimsDefaultScans[currentCV]);
-                            MS1Count++;
-                            unplannedScans++;
-                            log.Debug(String.Format("ADD default MS1 scan with CV={0} as #{1} (Unplanned #{2})", CVs[currentCV], customScans.Count, unplannedScans));
-                            return faimsAgcScans[currentCV];
-                        }
-                        else // Planning is complete => Acquire MS2 scans as planned
-                        {
-                            // Whether or not the CV is changed now
-                            bool CVChanged = false;
-
-                            while (scansPerCV[currentCV] >= maxScansPerCV[currentCV]) // Maximum number of scans has been reached for current CV or no scans are scheduled
-                            {
-                                if (currentCV == 0) // This is the last CV => Set to plan mode
-                                {
-                                    // Schedule CVs such that the CV with the maximum number of precursors is run last => Schedule the scans while in plan mode
-                                    if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
-                                    {
-                                        Array.Sort((int[])noPrecursors.Clone(), CVs);
-                                        Array.Sort((int[])noPrecursors.Clone(), faimsAgcScans);
-                                        Array.Sort((int[])noPrecursors.Clone(), faimsDefaultScans);
-                                    }
-                                    planMode = true;
-                                    return getNextScan();
-                                }
-                                currentCV--;
-                                CVChanged = true;
-                            }
-
-                            if (CVChanged)
-                            {
-                                log.Debug(String.Format("Changed to CV={0} in CVs={1} with plan={2}", CVs[currentCV], string.Join(" ", CVs), string.Join(" ", maxScansPerCV)));
-                            }
-
-                            // Queue MS1 scan with appropiate CV
-                            customScans.Enqueue(faimsDefaultScans[currentCV]);
-                            scansPerCV[currentCV]++;
-                            MS1Count++;
-
-                            if (CVChanged && (shelvedMS2Scans[currentCV] != null)) // Add shelved MS2 scans
-                            {
-                                log.Debug(String.Format("Found {0} shelved MS2 scans", shelvedMS2Scans[currentCV].Count));
-                                foreach (var shelvedMS2 in shelvedMS2Scans[currentCV])
-                                {
-                                    if (shelvedMS2 != null)
-                                    {
-                                        AddScan(shelvedMS2, 2);
-                                    }
-                                }
-                            }
-                            log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1} (Planned #{2}/{3})", CVs[currentCV], customScans.Count, scansPerCV[currentCV], maxScansPerCV[currentCV]));
-                            return faimsAgcScans[currentCV];
-                        }
+                        return getFAIMSMS1Scan();
                     }
                 }
                 else
