@@ -121,15 +121,16 @@ namespace Flash
         {
             if (methodParams.IDA.UseFAIMS)
             {
-                lock(sync)
+                double cv = double.Parse(scan.Values["FAIMS CV"]);
+                lock (sync)
                 {
                     if (MS2AfterMS1 >= 4)
                     {
                         getFAIMSMS1Scan(queue_agc : true);
                     }
-                    if (double.Parse(scan.Values["FAIMS CV"]) != CVs[currentCV])
+                    if (cv != CVs[currentCV])
                     {
-                        log.Debug(String.Format("Received MS2 scan for CV={0} but CV changed to {1} -> Scrapping scan", double.Parse(scan.Values["FAIMS CV"]), CVs[currentCV]));
+                        log.Debug(String.Format("Received MS2 scan for CV={0} but CV changed to {1} -> Scrapping scan", cv, CVs[currentCV]));
                         return;
                     }
                     MS2AfterMS1++;
