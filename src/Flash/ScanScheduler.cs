@@ -124,7 +124,7 @@ namespace Flash
                 double cv = double.Parse(scan.Values["FAIMS CV"]);
                 lock (sync)
                 {
-                    if (MS2AfterMS1 >= 4)
+                    if (MS2AfterMS1 >= methodParams.IDA.MaxMs2CountPerMs1)
                     {
                         getFAIMSMS1Scan(queue_agc : true);
                     }
