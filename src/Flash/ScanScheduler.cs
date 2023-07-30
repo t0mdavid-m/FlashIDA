@@ -215,7 +215,7 @@ namespace Flash
         {
             lock (sync)
             {
-                if (CVs[currentCV] != cv) // If the CV is not currently scheduled shelve MS2 scans
+                if ((CVs[currentCV] != cv) && (scans.Count != 0)) // If the CV is not currently scheduled shelve MS2 scans
                 {
                     shelvedMS2Scans[Array.IndexOf(CVs, cv)] = scans;
                     log.Debug(String.Format("Found {0} targets at CV={1} but currently at CV={2}, shelving for later", scans.Count, cv, CVs[currentCV]));
