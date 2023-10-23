@@ -51,8 +51,6 @@ namespace Flash
         private bool planMode;
         // Maximum number of scans per CV cycle (Discovery Phase with all CVs)
         private int maxCVScans;
-        // MS2 scans that are shelved until the cv is analyzed
-        private List<IFusionCustomScan>[] shelvedMS2Scans;
         // Number of MS1 scans that have been sent out while planning phase is not completed
         private int unplannedScans;
         // No of MS2 scans that have been queued after last MS1 scan
@@ -98,7 +96,6 @@ namespace Flash
             noPrecursors = new int[CVs.Length];
             noPrecursorsTruncated = new int[CVs.Length];
             planned = new bool[CVs.Length];
-            shelvedMS2Scans = new List<IFusionCustomScan>[CVs.Length];
             for (int i = 0; i < maxScansPerCV.Length; i++)
             {
                 maxScansPerCV[i] = -1;
@@ -117,7 +114,7 @@ namespace Flash
         /// </summary>
         /// <param name="scan">Scan to add</param>
         /// <param name="level">MS level of the scan (this parameter is used for internal "book-keeping")</param>
-        public void AddScan(IFusionCustomScan scan, int level)
+        public int AddScan(IFusionCustomScan scan, int level)
         {
             if (methodParams.IDA.UseFAIMS)
             {
@@ -131,7 +128,12 @@ namespace Flash
                     if (cv != CVs[currentCV])
                     {
                         log.Debug(String.Format("Received MS2 scan for CV={0} but CV changed to {1} -> Scrapping scan", cv, CVs[currentCV]));
-                        return;
+                        return -1;
+                    }
+                    if (customScans.Count > 9)
+                    {
+                        log.Debug(String.Format("Received MS2 scan for CV={0} but queue length is {1} -> Scrapping scan", cv, customScans.Count));
+                        return -1;
                     }
                     MS2AfterMS1++;
                 }
@@ -146,6 +148,7 @@ namespace Flash
                     log.Warn(String.Format("MS Level is {0}", level));
                     break;
             }
+            return customScans.Count;
         }
 
         /// <summary>
@@ -227,23 +230,6 @@ namespace Flash
             }
         }
 
-        /// <summary>
-        /// Checks if MS2 scans should be shelved as their CV is not active and shelves the scans if required
-        /// </summary>
-        /// <returns></returns>
-        public bool shelveMS2Scans(double cv, List<IFusionCustomScan> scans)
-        {
-            lock (sync)
-            {
-                if ((CVs[currentCV] != cv) && (scans.Count != 0)) // If the CV is not currently scheduled shelve MS2 scans
-                {
-                    shelvedMS2Scans[Array.IndexOf(CVs, cv)] = scans;
-                    log.Debug(String.Format("Found {0} targets at CV={1} but currently at CV={2}, shelving for later", scans.Count, cv, CVs[currentCV]));
-                    return true;
-                }
-            }
-            return false;
-        }
 
         /// <summary>
         /// Returns the next AGC + MS1 scan as scheduled for FAIMS
@@ -257,7 +243,7 @@ namespace Flash
                 if (planMode) // Planning Mode: Scan over CVs and collect precursors
                 {
                     log.Debug(String.Format("Planning Started with CVs={0}", string.Join(" ", CVs)));
-                    for (int i = 0; i < CVs.Length; i++)
+                    for (int i = (CVs.Length - 1); i >= 0; i--)
                     {
                         // Set planning variables
                         maxScansPerCV[i] = -1;
@@ -265,9 +251,8 @@ namespace Flash
                         noPrecursors[i] = 0;
                         noPrecursorsTruncated[i] = 0;
                         planned[i] = false;
-                        shelvedMS2Scans[i] = null;
                         // Add planning scans
-                        if ((i > 0) || (queue_agc))
+                        if ((i < (CVs.Length - 1)) || (queue_agc))
                         {
                             customScans.Enqueue(faimsAgcScans[i]);
                             AGCCount++;
@@ -282,7 +267,10 @@ namespace Flash
                     currentCV = CVs.Length - 1;
                     // No unplanned scans have been executed yet
                     unplannedScans = 0;
-                    return faimsAgcScans[0];
+
+                    MS2AfterMS1 = methodParams.IDA.MaxMs2CountPerMs1;
+
+                    return faimsAgcScans[CVs.Length - 1];
                 }
 
                 else if (!planned.All(a => a)) // Planning is not yet complete => Acquire MS2 scans for last CV
@@ -345,18 +333,6 @@ namespace Flash
                     scansPerCV[currentCV]++;
                     MS1Count++;
 
-                    if (CVChanged && (shelvedMS2Scans[currentCV] != null)) // Add shelved MS2 scans
-                    {
-                        log.Debug(String.Format("Found {0} shelved MS2 scans", shelvedMS2Scans[currentCV].Count));
-                        foreach (var shelvedMS2 in shelvedMS2Scans[currentCV])
-                        {
-                            if (shelvedMS2 != null)
-                            {
-                                AddScan(shelvedMS2, 2);
-                                MS2AfterMS1++;
-                            }
-                        }
-                    }
                     log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1} (Planned #{2}/{3})", CVs[currentCV], customScans.Count, scansPerCV[currentCV], maxScansPerCV[currentCV]));
                     return faimsAgcScans[currentCV];
                 }

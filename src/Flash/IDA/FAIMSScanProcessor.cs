@@ -83,8 +83,6 @@ namespace Flash.IDA
                     if (!methodParams.IDA.CVValues.Contains(cv))
                     {
                         IDAlog.Info(String.Format("Got scan with CV={0}, which is not in {1} -> Ignore Scan", cv, string.Join(" ", methodParams.IDA.CVValues)));
-                        scans.Add(null);
-                        return scans;
                     }
 
                     // Deconvolve spectrum and get relevant information
@@ -141,18 +139,20 @@ namespace Flash.IDA
                                 FAIMS_Voltages = "on"
                             }, delay: 3);
 
-                        scans.Add(repScan);
+                        int queue_pos = scanScheduler.AddScan(repScan, 2);
 
-                        log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
-                            center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count));
-
+                        if (queue_pos == -1)
+                        {
+                            log.Debug(String.Format("IGNORE m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04}",
+                            center, isolation, z, precursor.Score));
+                            flashIdaWrapper.RemoveFromExclusionList(precursor.Id);
+                        }
+                        else
+                        {
+                            log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
+                            center, isolation, z, precursor.Score, queue_pos));
+                        }
                     }
-
-                    if (scanScheduler.shelveMS2Scans(cv, scans))
-                    {
-                        return new List<IFusionCustomScan> { null };
-                    }
-
                 }
 
                 catch (Exception ex)
@@ -160,7 +160,6 @@ namespace Flash.IDA
                     IDAlog.Error(String.Format("ProcessMS failed while creating MS2 scans. {0}\n{1}", ex.Message, ex.StackTrace));
                 }
 
-                scans.Add(null); // If an exception occurrs do nothing
             }
 
             return scans;

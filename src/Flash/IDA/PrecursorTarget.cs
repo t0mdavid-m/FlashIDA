@@ -50,6 +50,8 @@ namespace Flash.IDA
 
         public double PpmError { get; set; }
 
+        public int Id { get; set; }
+
         /// <summary>
         /// Default constructor
         /// </summary>
@@ -77,8 +79,9 @@ namespace Flash.IDA
         /// <param name="snr">Signal-to-noise ratio</param>
         /// <param name="chargeScore">Charge score</param>
         /// <param name="ppmError">Mass error in ppm</param>
+        /// <param name="id">id to be used for exclusion list removal</param>
         public PrecursorTarget(double lowMz, double highMz, int z, int min_z, int max_z, double mass, double score, double precursorIntensity, 
-            double precursorPeakGroupIntensity, double chargeCos, double chargeSnr, double isoCos, double snr, double chargeScore, double ppmError)
+            double precursorPeakGroupIntensity, double chargeCos, double chargeSnr, double isoCos, double snr, double chargeScore, double ppmError, int id)
         {
             Window = new Range(lowMz, highMz);
             Score = score;
@@ -94,6 +97,7 @@ namespace Flash.IDA
             Snr = snr;
             ChargeScore = chargeScore;
             PpmError = ppmError;
+            Id = id;
         }
 
         /// <summary>

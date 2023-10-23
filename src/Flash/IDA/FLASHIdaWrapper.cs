@@ -46,8 +46,11 @@ namespace Flash.IDA
             double[] qScores, int[] charges, int[] min_charges, int[] max_charges, double[] monoMasses, double[] chargeCos, double[] chargeSnrs,
                            double[] isoCos,
                            double[] snrs, double[] chargeScores,
-                           double[] ppmErrors, double[] precursorIntensities, double[] peakgroupIntensities
+                           double[] ppmErrors, double[] precursorIntensities, double[] peakgroupIntensities, int[] ids
             );
+
+        [DllImport(dllName)]
+        static private extern void RemoveFromExclusionList(IntPtr pTestClassObjectdouble, int id);
 
         [DllImport(dllName)]
         static private extern void TestCode(IntPtr pTestClassObjectdouble, int[] arg, int length);
@@ -143,12 +146,13 @@ namespace Flash.IDA
             double[] tppmErrors = new double[size];
             double[] tprecursorIntensities = new double[size];
             double[] tpeakgroupIntensities = new double[size];
+            int[] ids = new int[size];
 
             try
             {
                 GetIsolationWindows(m_pNativeObject, wstart, wend, tqScores, tCharges, tMinCharges, tMaxCharges, tmonoMasses, tchargeCos,
                     tchargeSnrs, tisoCos, tsnrs, tchargeScores, tppmErrors,
-                    tprecursorIntensities, tpeakgroupIntensities);
+                    tprecursorIntensities, tpeakgroupIntensities, ids);
             }
             catch (Exception idaException)
             {
@@ -160,7 +164,7 @@ namespace Flash.IDA
             for (int i = 0; i < size; i++)
             {
                 result.Add(new PrecursorTarget(wstart[i], wend[i], tCharges[i], tMinCharges[i], tMaxCharges[i], tmonoMasses[i], tqScores[i], tprecursorIntensities[i],
-                    tpeakgroupIntensities[i], tchargeCos[i], tchargeSnrs[i], tisoCos[i], tsnrs[i], tchargeScores[i], tppmErrors[i]));  
+                    tpeakgroupIntensities[i], tchargeCos[i], tchargeSnrs[i], tisoCos[i], tsnrs[i], tchargeScores[i], tppmErrors[i], ids[i]));  
             }
 
             return result;
@@ -198,6 +202,23 @@ namespace Flash.IDA
             }
             return -1;
         }
+
+        /// <summary>
+        /// Remove a precursor with a certain id from the exclusion list
+        /// </summary>
+        /// <returns></returns>
+        public void RemoveFromExclusionList(int id)
+        {
+            try
+            {
+                RemoveFromExclusionList(m_pNativeObject, id);
+            }
+            catch (Exception idaException)
+            {
+                log.Error(String.Format("IDAWrapper.RemoveFromExclusionList reported: {0}\n{1}", idaException.Message, idaException.StackTrace));
+            }
+        }
+
 
         /// <summary>
         /// Obtain the the list of targets for fragmentation from the current spectrum.
@@ -363,7 +384,7 @@ namespace Flash.IDA
            
             try
             {
-                MethodParameters methodParams = MethodParameters.Load(@"C:\Users\KyowonJeong\openms-development\FlashIDA\src\Flash\etc\method.xml");
+                MethodParameters methodParams = MethodParameters.Load(@"C:\MasterProject\Test_Environment\20230930_TestModifyExclusionList\method.xml");
                 param = methodParams.IDA;
                 //Console.WriteLine(methodParams.IDA.TargetLog);
             }
@@ -384,7 +405,7 @@ namespace Flash.IDA
             var msLevel = 1;
             var totalScore = .0;
             bool start = false;
-            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity");
+            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity\tid");
             while ((line = file.ReadLine()) != null)
             {
                 var token = line.Split('\t');
@@ -410,12 +431,20 @@ namespace Flash.IDA
 
                         foreach (var item in l)
                         {
-                            wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}", 
+                            w.RemoveFromExclusionList(10000);
+                            w.RemoveFromExclusionList(69);
+                            if (((int) item.MonoMass) == 5469)
+                            {
+                                w.RemoveFromExclusionList(item.Id);
+                                Console.WriteLine("Remove");
+                            }
+                            wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}", 
                                 rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
                                 item.Snr, item.ChargeScore, item.PpmError,
-                                item.PrecursorIntensity, item.PrecursorPeakGroupIntensity);
+                                item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Id);
                             //   Console.WriteLine(item);
                             totalScore += item.Score;
+                            //Console.WriteLine(item.Id);
                         }
                     }
 
