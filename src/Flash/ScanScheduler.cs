@@ -221,6 +221,11 @@ namespace Flash
         {
             lock (sync)
             {
+                // If planning is not complete dont triy to change the CV value
+                if (!planned.All(a => a))
+                {
+                    return;
+                }
                 if (cv == CVs[currentCV]) // Check if the CV is currently analyzed
                 {
                     // Move to next CV value
