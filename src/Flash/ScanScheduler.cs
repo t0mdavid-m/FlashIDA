@@ -32,6 +32,7 @@ namespace Flash
         private IFusionCustomScan agcScan;
         private IFusionCustomScan[] faimsDefaultScans; //type of scan that will be requested when nothing is in the queue
         private IFusionCustomScan[] faimsAgcScans;
+        public Dictionary<double, int> faimsPagcGroups;
 
         // Stores the cvs used for FAIMS
         private double[] CVs;
@@ -68,7 +69,7 @@ namespace Flash
         /// </summary>
         /// <param name="scan">API definition of a default "regular" scan</param>
         /// <param name="AGCScan">API definition of a default "regular" AGC scan</param>
-        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, MethodParameters mparams)
+        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, Dictionary<double, int> faimsPAGCGroups, MethodParameters mparams)
         {
             methodParams = mparams;
 
@@ -76,6 +77,7 @@ namespace Flash
             agcScan = AGCScan;
             faimsDefaultScans = faimsScans;
             faimsAgcScans = faimsAGCScans;
+            faimsPagcGroups = faimsPAGCGroups;
             customScans = new ConcurrentQueue<IFusionCustomScan>();
             log = LogManager.GetLogger("General");
 
@@ -312,6 +314,7 @@ namespace Flash
                             if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
                             {
                                 Array.Sort((int[])noPrecursors.Clone(), CVs);
+                                // TODO: Change to HashMap - this unnecessarily dangerous
                                 Array.Sort((int[])noPrecursors.Clone(), faimsAgcScans);
                                 Array.Sort((int[])noPrecursors.Clone(), faimsDefaultScans);
                             }

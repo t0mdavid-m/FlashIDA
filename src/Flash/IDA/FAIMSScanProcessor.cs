@@ -112,6 +112,9 @@ namespace Flash.IDA
                         double isolation = precursor.Window.Width;
                         int z = precursor.Charge;
 
+                        int PAGCGroup;
+                        scanScheduler.faimsPagcGroups.TryGetValue(cv, out PAGCGroup);
+
                         IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
                             new ScanParameters
                             {
@@ -137,7 +140,7 @@ namespace Flash.IDA
                                 DataType = methodParams.MS2.DataType,
                                 FAIMS_CV = cv,
                                 FAIMS_Voltages = "on"
-                            }, delay: 3);
+                            }, delay: 3, AGCgroup: PAGCGroup);
 
                         int queue_pos = scanScheduler.AddScan(repScan, 2);
 

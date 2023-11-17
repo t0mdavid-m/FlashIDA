@@ -263,6 +263,7 @@ namespace Flash
             double[] CVs = methodParams.IDA.CVValues;
             IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
             IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
+            Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
 
 
             try
@@ -322,7 +323,7 @@ namespace Flash
                             ScanType = "Full",
                             FAIMS_CV = CVs[i],
                             FAIMS_Voltages = "on"
-                        }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
+                        }, id: 41, IsAGC: true, delay: 3, AGCgroup: i+1); //41 is the magic scan identifier
 
                     //default MS1 scan
                     faimsDefaultScans[i] = scanFactory.CreateFusionCustomScan(
@@ -341,7 +342,8 @@ namespace Flash
                             ScanType = "Full",
                             FAIMS_CV = CVs[i],
                             FAIMS_Voltages = "on"
-                        }, delay: 3);
+                        }, delay: 3, AGCgroup: i+1);
+                    faimsPAGCGroups.Add(CVs[i], i + 1);
                 }
 
                 log.Info("Created default and AGC scans");
@@ -354,7 +356,7 @@ namespace Flash
             //create instance of custom scan queue and scheduler
             try
             {
-                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, methodParams);
+                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams);
                 log.Info("ScanScheduler created");
             }
             catch (Exception ex)
