@@ -314,7 +314,6 @@ namespace Flash
                             if (!noPrecursors.All(a => (a <= 0))) // Only change order of CV values if precursors were found
                             {
                                 Array.Sort((int[])noPrecursors.Clone(), CVs);
-                                // TODO: Change to HashMap - this unnecessarily dangerous
                                 Array.Sort((int[])noPrecursors.Clone(), faimsAgcScans);
                                 Array.Sort((int[])noPrecursors.Clone(), faimsDefaultScans);
                             }
