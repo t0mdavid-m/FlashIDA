@@ -14,6 +14,7 @@ using System.Data.Common;
 using System.Web.UI;
 using System.Security.Cryptography;
 using System.Collections;
+using System.Threading;
 
 namespace Flash.IDA
 {
@@ -430,7 +431,8 @@ namespace Flash.IDA
             bool planMode = true;
             int scanCount = 0;
             int pos = 0;
-            int maxCVScans = 20;
+            int maxCVScans = 79;
+            double fragmentationDelay = 1.8 / 60;
 
 
             while (true)
@@ -489,8 +491,6 @@ namespace Flash.IDA
                     break;
                 }
 
-                var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line, cvs[pos].ToString());
-
                 if (planMode)
                 {
                     precursors[cvs[pos]] = w.GetAllPeakGroupSize();
@@ -511,8 +511,10 @@ namespace Flash.IDA
                 }
                 else
                 {
+                    double rt_boost = 0;
                     foreach (var item in l)
                     {
+                        rt_boost += (fragmentationDelay / param.MaxMs2CountPerMs1);
                         wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}\t{15}",
                             rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
                             item.Snr, item.ChargeScore, item.PpmError, item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Id, cvs[pos]
@@ -521,6 +523,7 @@ namespace Flash.IDA
                         totalScore += item.Score;
                         //Console.WriteLine(item.Id)
                     }
+                    rt += rt_boost;
                     scanCount++;
                     if ((scanCount > scansPerCV[cvs[pos]]) || (w.GetAllPeakGroupSize() == 0))
                     {
