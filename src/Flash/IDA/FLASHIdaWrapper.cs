@@ -491,6 +491,8 @@ namespace Flash.IDA
                     break;
                 }
 
+                var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line, cvs[pos].ToString());
+
                 if (planMode)
                 {
                     precursors[cvs[pos]] = w.GetAllPeakGroupSize();
