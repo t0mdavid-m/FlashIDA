@@ -83,6 +83,7 @@ namespace Flash.IDA
                     if (!methodParams.IDA.CVValues.Contains(cv))
                     {
                         IDAlog.Info(String.Format("Got scan with CV={0}, which is not in {1} -> Ignore Scan", cv, string.Join(" ", methodParams.IDA.CVValues)));
+                        return scans;
                     }
 
                     // Deconvolve spectrum and get relevant information
