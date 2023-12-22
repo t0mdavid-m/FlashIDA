@@ -87,7 +87,15 @@ namespace Flash.IDA
                     }
 
                     // Deconvolve spectrum and get relevant information
-                    List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan, CVString);
+                    List<PrecursorTarget> targets;
+                    if (methodParams.IDA.UseCVQScore)
+                    {
+                        targets = flashIdaWrapper.GetIsolationWindows(msScan, CVString);
+                    }
+                    else
+                    {
+                        targets = flashIdaWrapper.GetIsolationWindows(msScan);
+                    }
                     List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                     int precursors = flashIdaWrapper.GetAllPeakGroupSize();
 

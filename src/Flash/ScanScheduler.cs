@@ -87,7 +87,7 @@ namespace Flash
 
             // Initialize FAIMS related variables
             CVs = methodParams.IDA.CVValues;
-            maxCVScans = (int)((methodParams.IDA.RTWindow - ((Convert.ToDouble(CVs.Length) - 1) * 0.3)) / 2.25);
+            maxCVScans = (int)((methodParams.IDA.CycleTime - ((Convert.ToDouble(CVs.Length) - 1) * 0.3)) / 2.25);
             if (methodParams.IDA.UseFAIMS)
             {
                 log.Debug(String.Format("Maximum # of scans per block={0}, CVValues={1}", maxCVScans, string.Join(" ", CVs)));

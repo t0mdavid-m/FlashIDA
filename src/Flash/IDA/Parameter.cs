@@ -32,6 +32,10 @@ namespace Flash.IDA
         
         public double RTWindow { set; get; }
 
+        public double CycleTime { set; get; }
+
+        public bool UseCVQScore { set; get; }
+
         public bool UseFAIMS { set; get; }
 
         /// <summary>
@@ -50,7 +54,7 @@ namespace Flash.IDA
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
         /// <param name="usefaims">If set to true FAIMS is used</param>
         public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100, 
-                             double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, bool usefaims = false)
+                             double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, bool usefaims = false, double cycletime = 180, bool usecvqscore = true)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -64,6 +68,8 @@ namespace Flash.IDA
             QScoreThreshold = qScoreThreshold;
             TargetLogs = targetLogs;
             TargetMode = targetMode;
+            CycleTime = cycletime;
+            UseCVQScore = usecvqscore;
         }
 
         /// <summary>
