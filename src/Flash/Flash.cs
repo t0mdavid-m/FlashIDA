@@ -281,6 +281,7 @@ namespace Flash
                         Microscans = 1,
                         SrcRFLens = new double[] { methodParams.MS1.RFLens },
                         SourceCIDEnergy = methodParams.MS1.SourceCID,
+                        SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                         DataType = "Profile",
                         ScanType = "Full",
                         FAIMS_Voltages = "off"
@@ -299,6 +300,7 @@ namespace Flash
                         Microscans = methodParams.MS1.Microscans,
                         SrcRFLens = new double[] { methodParams.MS1.RFLens },
                         SourceCIDEnergy = methodParams.MS1.SourceCID,
+                        SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                         DataType = methodParams.MS1.DataType,
                         ScanType = "Full",
                         FAIMS_Voltages = "off"
@@ -319,6 +321,7 @@ namespace Flash
                             Microscans = 1,
                             SrcRFLens = new double[] { methodParams.MS1.RFLens },
                             SourceCIDEnergy = methodParams.MS1.SourceCID,
+                            SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                             DataType = "Profile",
                             ScanType = "Full",
                             FAIMS_CV = CVs[i],
@@ -338,6 +341,7 @@ namespace Flash
                             Microscans = methodParams.MS1.Microscans,
                             SrcRFLens = new double[] { methodParams.MS1.RFLens },
                             SourceCIDEnergy = methodParams.MS1.SourceCID,
+                            SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                             DataType = methodParams.MS1.DataType,
                             ScanType = "Full",
                             FAIMS_CV = CVs[i],

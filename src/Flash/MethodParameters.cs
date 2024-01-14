@@ -22,6 +22,8 @@ namespace Flash
         public string DataType;
         public double RFLens;
         public double SourceCID;
+        // Should be zero
+        public double SourceCIDScaling;
     }
 
     /// <summary>

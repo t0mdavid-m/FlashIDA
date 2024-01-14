@@ -30,6 +30,7 @@ namespace Flash
         public int[] CollisionEnergy;
         public string ScanType;
         public double? SourceCIDEnergy;
+        public double? SourceCIDScalingFactor;
         public int? Microscans;
         public string DataType;
         public int[] ChargeStates;

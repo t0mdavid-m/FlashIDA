@@ -143,6 +143,7 @@ namespace Flash.IDA
                                 ReagentAGCTarget = methodParams.MS2.ReagentAGCTarget != 0 ? new int[] { methodParams.MS2.ReagentAGCTarget } : null,
                                 SrcRFLens = new double[] { methodParams.MS1.RFLens },
                                 SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                 DataType = methodParams.MS2.DataType,
                                 FAIMS_CV = cv,
                                 FAIMS_Voltages = "on"
