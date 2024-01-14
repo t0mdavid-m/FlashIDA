@@ -17,10 +17,6 @@ using Thermo.Interfaces.FusionAccess_V1.Control;
 using log4net;
 using log4net.Config;
 using Mono.Options;
-using Thermo.Interfaces.InstrumentAccess_V1.Control.Scans;
-using System.Data;
-using Thermo.TNG.Client.API.Control.Scans;
-using Thermo.Interfaces.FusionAccess_V1.Control.Peripherals;
 
 namespace Flash
 {
@@ -34,9 +30,6 @@ namespace Flash
 
         //instrument scan control
         static IFusionScans scanControl;
-
-        // Syringe control?
-        static ISyringePumpControl syringePumpControl;
 
         //scans that are ariving from the instrument
         static IFusionMsScanContainer  msscans;
@@ -247,18 +240,6 @@ namespace Flash
                 log.Error(String.Format("ScanControl failed\n{0}\n{1}", ex.Message, ex.StackTrace));
             }
 
-            //interface for syringe 
-            try
-            {
-                syringePumpControl = control.SyringePumpControl;
-                log.Info("syringeControl success");
-            }
-            //NOTE: it is extremly important to catch all possible exceptions in the "instrument part", unhandled exception does not crash the software the usual way, but lead to weird behavior
-            catch (Exception ex)
-            {
-                log.Error(String.Format("syringeControl failed\n{0}\n{1}", ex.Message, ex.StackTrace));
-            }
-
             //should fire when a custom scan is done (never fires as of current version of API), apparently fixed in API 3.5
             scanControl.CanAcceptNextCustomScan += CustomScanListner;
 
@@ -443,16 +424,6 @@ namespace Flash
                 instrumentAccess.ContactClosureChanged += OnContactClosure;
                 log.Info("Waiting for contact closure");
             }
-
-            foreach (var property in scanControl.PossibleParameters)
-            {
-                log.Info(String.Format("{0} - {1} - {2} - {3}", property.Name, property.DefaultValue, property.Selection, property.Help));
-            }
-
-            log.Info(String.Format("Diameter : {0}", syringePumpControl.Diameter.ToString("g3")));
-            log.Info(String.Format("Volume : {0}", syringePumpControl.Volume.ToString("g3")));
-            log.Info(String.Format("FlowRate : {0}", syringePumpControl.FlowRate.ToString("g3")));
-            log.Info(String.Format("Status : {0}", syringePumpControl.Status.ToString()));
         }
 
         /// <summary>
