@@ -56,6 +56,8 @@ namespace Flash
         private int unplannedScans;
         // No of MS2 scans that have been queued after last MS1 scan
         private int MS2AfterMS1;
+        // Whether or not FAIMS is used
+        private bool useFAIMS;
 
 
         private MethodParameters methodParams;
@@ -69,10 +71,10 @@ namespace Flash
         /// </summary>
         /// <param name="scan">API definition of a default "regular" scan</param>
         /// <param name="AGCScan">API definition of a default "regular" AGC scan</param>
-        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, Dictionary<double, int> faimsPAGCGroups, MethodParameters mparams)
+        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, Dictionary<double, int> faimsPAGCGroups, MethodParameters mparams, bool UseFAIMS)
         {
             methodParams = mparams;
-
+            useFAIMS = UseFAIMS;
             defaultScan = scan;
             agcScan = AGCScan;
             faimsDefaultScans = faimsScans;
@@ -88,7 +90,7 @@ namespace Flash
             // Initialize FAIMS related variables
             CVs = methodParams.IDA.CVValues;
             maxCVScans = (int)((methodParams.IDA.CycleTime - ((Convert.ToDouble(CVs.Length) - 1) * 0.3)) / 2.25);
-            if (methodParams.IDA.UseFAIMS)
+            if (useFAIMS)
             {
                 log.Debug(String.Format("Maximum # of scans per block={0}, CVValues={1}", maxCVScans, string.Join(" ", CVs)));
             }
@@ -118,7 +120,7 @@ namespace Flash
         /// <param name="level">MS level of the scan (this parameter is used for internal "book-keeping")</param>
         public int AddScan(IFusionCustomScan scan, int level)
         {
-            if (methodParams.IDA.UseFAIMS)
+            if (useFAIMS)
             {
                 double cv = double.Parse(scan.Values["FAIMS CV"]);
                 lock (sync)
@@ -359,7 +361,7 @@ namespace Flash
                 if (customScans.IsEmpty) //No scans in the queue => Fill Queue
                 {
                     log.Debug("Empty queue - handle appropiately");
-                    if (!methodParams.IDA.UseFAIMS)
+                    if (!useFAIMS)
                     {
                         customScans.Enqueue(defaultScan);
                         MS1Count++;
@@ -383,7 +385,7 @@ namespace Flash
                             if (nextScan.Values["Analyzer"] == "IonTrap") AGCCount--;
                             else MS1Count--;
 
-                            if (methodParams.IDA.UseFAIMS)
+                            if (useFAIMS)
                             {
                                 log.Debug(String.Format("POP Full {0} scan [{1} - {2}] CV={6} // AGC: {3}, MS1: {4}, MS2: {5}",
                                 nextScan.Values["Analyzer"], nextScan.Values["FirstMass"], nextScan.Values["LastMass"],
@@ -401,7 +403,7 @@ namespace Flash
                         else if (nextScan.Values["ScanType"] == "MSn") //all MSn considered MS2 (i.e. no check for the actual MS level), should be added if necessary
                         {
                             MS2Count--;
-                            if (methodParams.IDA.UseFAIMS)
+                            if (useFAIMS)
                             {
                                 log.Debug(String.Format("POP MSn scan MZ = {0} Z = {1} CV={5} // AGC: {2}, MS1: {3}, MS2: {4}",
                                 nextScan.Values["PrecursorMass"], nextScan.Values["ChargeStates"],

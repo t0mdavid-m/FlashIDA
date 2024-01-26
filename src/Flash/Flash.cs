@@ -31,6 +31,9 @@ namespace Flash
         //instrument scan control
         static IFusionScans scanControl;
 
+        //stores if FAIMS is enabled
+        static bool useFAIMS;
+
         //scans that are ariving from the instrument
         static IFusionMsScanContainer  msscans;
 
@@ -232,6 +235,22 @@ namespace Flash
             try
             {
                 scanControl = control.GetScans(false) as IFusionScans;
+                useFAIMS = false;
+                foreach (var property in scanControl.PossibleParameters)
+                {
+                    if (property.Name == "FAIMS Voltages")
+                    {
+                        useFAIMS = true;
+                        break;
+                    }
+                }
+                if (useFAIMS) {
+                    log.Info("FAIMS detected");
+                }
+                else
+                {
+                    log.Info("FAIMS not detected");
+                }
                 log.Info("ScanControl success");
             }
             //NOTE: it is extremly important to catch all possible exceptions in the "instrument part", unhandled exception does not crash the software the usual way, but lead to weird behavior
@@ -360,7 +379,7 @@ namespace Flash
             //create instance of custom scan queue and scheduler
             try
             {
-                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams);
+                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS);
                 log.Info("ScanScheduler created");
             }
             catch (Exception ex)
@@ -371,7 +390,7 @@ namespace Flash
             //Initialize FLASHIDA Processor
             try
             {
-                if (methodParams.IDA.UseFAIMS)
+                if (useFAIMS)
                 {
                     flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
                 }
