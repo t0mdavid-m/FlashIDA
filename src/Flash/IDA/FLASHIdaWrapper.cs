@@ -28,7 +28,7 @@ namespace Flash.IDA
         private static ILog IDAlog = LogManager.GetLogger("IDA");
 
         //binding for FlashIda engine
-        const string dllName = "C:\\MasterProject\\FlashIDA\\dll\\OpenMS.dll";
+        const string dllName = "OpenMS.dll";
         [DllImport(dllName)]
         static private extern IntPtr CreateFLASHIda(string arg);
 
