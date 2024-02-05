@@ -412,140 +412,91 @@ namespace Flash.IDA
             // Read the file and display it line by line.  
             double[] cvs = param.CVValues;
             Dictionary<double, double> rts = new Dictionary<double, double>();
-            Dictionary<double, bool> starts = new Dictionary<double, bool>();  
+            Dictionary<double, String> names = new Dictionary<double, String>();
+
+
             for (int i = 0; i < cvs.Length; i++)
             {
-                starts[cvs[i]] = false;
-                rts[cvs[i]] = -1;
+                file = dataSource[cvs[i]];
+                line = file.ReadLine();
+                Console.WriteLine(line);
+                var token = line.Split('\t');
+                double rt_init = double.Parse(token[1]);
+                rts[cvs[i]] = rt_init;
+                names[cvs[i]] = line;
             }
+
+
             var mzs = new List<double>();
             var ints = new List<double>();
-            var rt = .0;
+            double rt;
+            String name;
             var msLevel = 1;
             var totalScore = .0;
-            bool start = false;
             wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity\tid\tcv");
-
-            Dictionary<double, int> precursors = new Dictionary<double, int>();
-            Dictionary<double, int> scansPerCV = new Dictionary<double, int>();
-            bool planMode = true;
-            int scanCount = 0;
-            int pos = 0;
-            int maxCVScans = 79;
-            double fragmentationDelay = 1.8 / 60;
-
 
             while (true)
             {
+
+                double newRT = 1e10;
+                int pos = -1;
+                for (int i = 0; i < cvs.Length; i++)
+                {
+                    if (rts[cvs[i]] < newRT)
+                    {
+                        pos = i;
+                        newRT = rts[cvs[i]];
+                    }
+                }
+                if (pos < 0)
+                {
+                    break;
+                }
+                rt = newRT;
+
+                name = names[cvs[pos]];
                 file = dataSource[cvs[pos]];
                 mzs.Clear();
                 ints.Clear();
-                bool validRT = false;
-                if (rts[cvs[pos]] >= rt)
-                {
-                    validRT = true;
-                    rt = rts[cvs[pos]];
-                }
 
                 while ((line = file.ReadLine()) != null)
                 {
                     var token = line.Split('\t');
 
-                    if (line.StartsWith(@"Spec") || (start && line.StartsWith(@"Running FLASHDeconv ... ")))
+                    if (line.StartsWith(@"Spec"))
                     {
-                        starts[cvs[pos]] = true;
-                        double newRT = double.Parse(token[1]) / 60.0;
-                        rts[cvs[pos]] = newRT;
-
-                        if (mzs.Count > 0)
-                        {
-                            if (validRT)
-                            {
-                                break;
-                            }
-                        }
-
-                        if (rts[cvs[pos]] >= rt)
-                        {
-                            validRT = true;
-                            rt = rts[cvs[pos]];
-                        }
-
-                        mzs.Clear();
-                        ints.Clear();
-
-                        if (start && line.StartsWith(@"Running FLASHDeconv ... "))
-                        {
-                            break;
-                        }
+                        rts[cvs[pos]] = double.Parse(token[1]);
+                        names[cvs[pos]] = line;
+                        break;
                     }
 
-                    else if (starts[cvs[pos]])
+                    else if (line != null)
                     {
                         mzs.Add(double.Parse(token[0]));
                         ints.Add(double.Parse(token[1]));
                     }
-                }
+                } 
                 if (line == null)
                 {
-                    break;
+                    rts[cvs[pos]] = 1e11;
                 }
 
-                var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line, cvs[pos].ToString());
+                //Console.WriteLine($"mzs.Count: {mzs.Count}, ints.Count: {ints.Count}, rt: {rt}, msLevel: {msLevel}, line: {name}, cvs[pos]: {cvs[pos]}");
+                var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, name, cvs[pos].ToString());
 
-                if (planMode)
+                foreach (var item in l)
                 {
-                    precursors[cvs[pos]] = w.GetAllPeakGroupSize();
-                    pos++;
-                    if (pos >= cvs.Length)
-                    {
-                        planMode = false;
-                        for (int i = 0; i < cvs.Length; i++)
-                        {
-                            scansPerCV[cvs[i]] = Convert.ToInt32((Convert.ToDouble(precursors[cvs[i]]) / (Convert.ToDouble(precursors.Values.Sum()) + 0.000000001)) * Convert.ToDouble(maxCVScans));
-                        }
-                        pos = 0;
-                        foreach (var item in l)
-                        {
-                            w.RemoveFromExclusionList(item.Id);
-                        }
-                    }
-                }
-                else
-                {
-                    double rt_boost = 0;
-                    foreach (var item in l)
-                    {
-                        rt_boost += (fragmentationDelay / param.MaxMs2CountPerMs1);
-                        wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}\t{15}",
-                            rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
-                            item.Snr, item.ChargeScore, item.PpmError, item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Id, cvs[pos]
-                        );
-                        //   Console.WriteLine(item);
-                        totalScore += item.Score;
-                        //Console.WriteLine(item.Id)
-                    }
-                    rt += rt_boost;
-                    scanCount++;
-                    if ((scanCount > scansPerCV[cvs[pos]]) || (w.GetAllPeakGroupSize() == 0))
-                    {
-                        pos++;
-                        scanCount = 0;
-                    }
-                    if (pos >= cvs.Length)
-                    {
-                        pos = 0;
-                        planMode = true;
-                        Array.Sort(cvs, new CustomComparer(precursors));
-                        Console.WriteLine(string.Join(", ", cvs));
-                    }
+                    wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}\t{15}",
+                        rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
+                        item.Snr, item.ChargeScore, item.PpmError, item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Id, cvs[pos]
+                    );
+                    totalScore += item.Score;
                 }
             }
             
             Console.WriteLine(@"Total QScore (i.e., expected number of PrSM identification): {0}", totalScore);
 
             wfile.Close();
-            file.Close();
             w.Dispose();
         }
         
