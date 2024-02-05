@@ -361,9 +361,31 @@ namespace Flash.IDA
                 Environment.Exit(1);
             }
 
-            // Load Parameters
+            try
+            {
+                file = new StreamReader(args[0]);
+            }
+            catch
+            {
+                Console.WriteLine("Cannot open input file: {0}", args[0]);
+                Environment.Exit(1);
+                return;
+            }
+
+            try
+            {
+                wfile = new StreamWriter(args[1]);
+            }
+            catch
+            {
+                Console.WriteLine("Cannot open output file: {0}", args[1]);
+                Environment.Exit(1);
+                return;
+            }
+            //create Wrapper
             var tolerances = new double[] { 10, 10 };
             var param = new IDAParameters(tolerances, int.Parse(args[2]), double.Parse(args[3]), 180, 4, 50, 500, 50000);
+
             try
             {
                 MethodParameters methodParams = MethodParameters.Load(@"C:\MasterProject\Test_Environment\FAIMS_simulator\method.xml");
@@ -375,128 +397,71 @@ namespace Flash.IDA
                 log.Error(String.Format("Error loading method file: {0}\n{1}", ex.Message, ex.StackTrace));
                 Environment.Exit(1);
             }
-
-            // Load data files
-            Dictionary<double, StreamReader> dataSource = new Dictionary<double, StreamReader>();
-            foreach (double cv in param.CVValues)
-            {
-                String filename = args[0] + "_" + Convert.ToInt32(cv).ToString() + ".mzml.txt";
-                try
-                {
-                    dataSource[cv] = new StreamReader(filename);
-                }
-                catch
-                {
-                    Console.WriteLine("Cannot open input file: {0}", filename);
-                    Environment.Exit(1);
-                    return;
-                }
-            }
-
-            // Prepare output
-            try
-            {
-                wfile = new StreamWriter(args[1]);
-            }
-            catch
-            {
-                Console.WriteLine("Cannot open output file: {0}", args[1]);
-                Environment.Exit(1);
-                return;
-            }
-            
-            // Create wrapper
+     
             FLASHIdaWrapper w;
+
             w = new FLASHIdaWrapper(param);
 
             // Read the file and display it line by line.  
-            double[] cvs = param.CVValues;
-            Dictionary<double, double> rts = new Dictionary<double, double>();
-            Dictionary<double, String> names = new Dictionary<double, String>();
-
-
-            for (int i = 0; i < cvs.Length; i++)
-            {
-                file = dataSource[cvs[i]];
-                line = file.ReadLine();
-                Console.WriteLine(line);
-                var token = line.Split('\t');
-                double rt_init = double.Parse(token[1]);
-                rts[cvs[i]] = rt_init;
-                names[cvs[i]] = line;
-            }
-
-
             var mzs = new List<double>();
             var ints = new List<double>();
-            double rt;
-            String name;
+            var rt = .0;
             var msLevel = 1;
             var totalScore = .0;
-            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity\tid\tcv");
-
-            while (true)
+            bool start = false;
+            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity");
+            while ((line = file.ReadLine()) != null)
             {
+                var token = line.Split('\t');
 
-                double newRT = 1e10;
-                int pos = -1;
-                for (int i = 0; i < cvs.Length; i++)
+                if (line.StartsWith(@"Spec") || (start && line.StartsWith(@"Running FLASHDeconv ... ")))
                 {
-                    if (rts[cvs[i]] < newRT)
+                    //Console.WriteLine(line);
+                    start = true;
+                    if (mzs.Count > 0)
                     {
-                        pos = i;
-                        newRT = rts[cvs[i]];
+                        var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line);
+                        /*List<double> monoMasses = w.GetAllMonoisotopicMasses();
+
+                        Console.WriteLine(rt);
+                        if (l.Count > 0) Console.WriteLine(String.Join<PrecursorTarget>("\n", l.ToArray()));
+                        if (monoMasses.Count > 0)
+                        {
+                            Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray()))); ;
+                        }*/
+
+                        mzs.Clear();
+                        ints.Clear();
+
+                        foreach (var item in l)
+                        {
+                            wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}",
+                                rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
+                                item.Snr, item.ChargeScore, item.PpmError,
+                                item.PrecursorIntensity, item.PrecursorPeakGroupIntensity);
+                            //   Console.WriteLine(item);
+                            totalScore += item.Score;
+                        }
                     }
-                }
-                if (pos < 0)
-                {
-                    break;
-                }
-                rt = newRT;
 
-                name = names[cvs[pos]];
-                file = dataSource[cvs[pos]];
-                mzs.Clear();
-                ints.Clear();
+                    rt = double.Parse(token[1]) / 60.0;
 
-                while ((line = file.ReadLine()) != null)
-                {
-                    var token = line.Split('\t');
-
-                    if (line.StartsWith(@"Spec"))
+                    if (start && line.StartsWith(@"Running FLASHDeconv ... "))
                     {
-                        rts[cvs[pos]] = double.Parse(token[1]);
-                        names[cvs[pos]] = line;
                         break;
                     }
-
-                    else if (line != null)
-                    {
-                        mzs.Add(double.Parse(token[0]));
-                        ints.Add(double.Parse(token[1]));
-                    }
-                } 
-                if (line == null)
-                {
-                    rts[cvs[pos]] = 1e11;
                 }
 
-                //Console.WriteLine($"mzs.Count: {mzs.Count}, ints.Count: {ints.Count}, rt: {rt}, msLevel: {msLevel}, line: {name}, cvs[pos]: {cvs[pos]}");
-                var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, name, cvs[pos].ToString());
-
-                foreach (var item in l)
+                else if (start)
                 {
-                    wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}\t{15}",
-                        rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
-                        item.Snr, item.ChargeScore, item.PpmError, item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Id, cvs[pos]
-                    );
-                    totalScore += item.Score;
+                    mzs.Add(double.Parse(token[0]));
+                    ints.Add(double.Parse(token[1]));
                 }
             }
-            
             Console.WriteLine(@"Total QScore (i.e., expected number of PrSM identification): {0}", totalScore);
 
             wfile.Close();
+            file.Close();
             w.Dispose();
         }
         
