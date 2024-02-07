@@ -101,10 +101,7 @@ namespace Flash.IDA
 
                     //logging of targets
                     IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors)",
-                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors));
-                    if (targets.Count > 0) IDAlog.Debug(String.Join<PrecursorTarget>("\n", targets.ToArray()));
-                    if (monoMasses.Count > 0)                   
-                        IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
+                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors));                    
 
                     // Use Information for planning calculations
                     scanScheduler.planCV(cv, precursors);
@@ -161,8 +158,11 @@ namespace Flash.IDA
                         {
                             log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
                             center, isolation, z, precursor.Score, queue_pos));
+                            IDAlog.Debug(precursor.ToString());
                         }
                     }
+                    if (monoMasses.Count > 0)
+                        IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
                 }
 
                 catch (Exception ex)
