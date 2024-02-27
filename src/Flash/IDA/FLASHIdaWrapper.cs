@@ -433,7 +433,7 @@ namespace Flash.IDA
             String name;
             var msLevel = 1;
             var totalScore = .0;
-            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity\tid\tcv");
+            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity\tid\tcv\tprecursors");
 
             while (true)
             {
@@ -483,12 +483,17 @@ namespace Flash.IDA
 
                 //Console.WriteLine($"mzs.Count: {mzs.Count}, ints.Count: {ints.Count}, rt: {rt}, msLevel: {msLevel}, line: {name}, cvs[pos]: {cvs[pos]}");
                 var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, name, cvs[pos].ToString());
+                int noPrecursors = w.GetAllPeakGroupSize();
+                List<double> monoMasses = w.GetAllMonoisotopicMasses();
+                if (monoMasses.Count > 0)
+                    Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
+
 
                 foreach (var item in l)
                 {
-                    wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}\t{15}",
+                    wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}\t{15}\t{16}",
                         rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
-                        item.Snr, item.ChargeScore, item.PpmError, item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Id, cvs[pos]
+                        item.Snr, item.ChargeScore, item.PpmError, item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Id, cvs[pos], noPrecursors
                     );
                     totalScore += item.Score;
                 }
