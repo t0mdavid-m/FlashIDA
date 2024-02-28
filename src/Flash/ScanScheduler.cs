@@ -49,7 +49,7 @@ namespace Flash
         // Whether the planning phase has been completed for each CV
         private bool[] planned;
         // Whether the planning phase has been started
-        private bool planMode;
+        public bool planMode;
         // Maximum number of scans per CV cycle (Discovery Phase with all CVs)
         private int maxCVScans;
         // Number of MS1 scans that have been sent out while planning phase is not completed
@@ -58,6 +58,8 @@ namespace Flash
         private int MS2AfterMS1;
         // Whether or not FAIMS is used
         private bool useFAIMS;
+        // Whether or not acquisition has been initiated for the current CV
+        private bool acquisitionStarted;
 
 
         private MethodParameters methodParams;
@@ -111,6 +113,7 @@ namespace Flash
             planMode = true;
             unplannedScans = 0;
             MS2AfterMS1 = 0;
+            acquisitionStarted = false;
         }
 
         /// <summary>
@@ -139,6 +142,7 @@ namespace Flash
                         log.Debug(String.Format("Received MS2 scan for CV={0} but queue length is {1} -> Scrapping scan", cv, customScans.Count));
                         return -1;
                     }
+                    acquisitionStarted = true;
                     MS2AfterMS1++;
                 }
             }
@@ -274,6 +278,7 @@ namespace Flash
                     planMode = false;
                     // Start MS2 acquisition at the last CV value in the queue
                     currentCV = CVs.Length - 1;
+                    acquisitionStarted = false;
                     // No unplanned scans have been executed yet
                     unplannedScans = 0;
 
@@ -323,6 +328,7 @@ namespace Flash
                             return getFAIMSMS1Scan(queue_agc);
                         }
                         currentCV--;
+                        acquisitionStarted = false;
                         CVChanged = true;
                     }
 
@@ -339,7 +345,10 @@ namespace Flash
 
                     // Queue MS1 scan with appropiate CV
                     customScans.Enqueue(faimsDefaultScans[currentCV]);
-                    scansPerCV[currentCV]++;
+                    if (acquisitionStarted)
+                    {
+                        scansPerCV[currentCV]++;
+                    }
                     MS1Count++;
 
                     log.Info(String.Format("ADD default MS1 scan with CV={0} as #{1} (Planned #{2}/{3})", CVs[currentCV], customScans.Count, scansPerCV[currentCV], maxScansPerCV[currentCV]));
