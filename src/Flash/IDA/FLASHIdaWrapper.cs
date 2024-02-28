@@ -482,11 +482,12 @@ namespace Flash.IDA
                 }
 
                 //Console.WriteLine($"mzs.Count: {mzs.Count}, ints.Count: {ints.Count}, rt: {rt}, msLevel: {msLevel}, line: {name}, cvs[pos]: {cvs[pos]}");
-                var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, name, cvs[pos].ToString());
+                var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt/60, msLevel, name, cvs[pos].ToString());
                 int noPrecursors = w.GetAllPeakGroupSize();
                 List<double> monoMasses = w.GetAllMonoisotopicMasses();
-                if (monoMasses.Count > 0)
-                    Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
+                Console.WriteLine(rt.ToString());
+                //if (monoMasses.Count > 0)
+                //    Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
 
 
                 foreach (var item in l)
