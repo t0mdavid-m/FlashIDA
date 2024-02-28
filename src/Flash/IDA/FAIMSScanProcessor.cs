@@ -163,6 +163,11 @@ namespace Flash.IDA
                     }
                     if (monoMasses.Count > 0)
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
+                    if ( (targets.Count < methodParams.TopN) && (!scanScheduler.planMode) )
+                    {
+                        scanScheduler.handleNoTargets(cv);
+                    }
+
                 }
 
                 catch (Exception ex)
