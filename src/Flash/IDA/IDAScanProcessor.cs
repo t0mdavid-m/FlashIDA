@@ -101,7 +101,7 @@ namespace Flash.IDA
                                 FirstMass = new double[] { methodParams.MS2.FirstMass },
                                 LastMass = new double[] { Math.Min(z * center + 10, 2000) },
                                 OrbitrapResolution = methodParams.MS2.OrbitrapResolution,
-                                AGCTarget = methodParams.MS2.AGCTarget,
+                                MSXTargets = methodParams.MS2.AGCTarget,
                                 PrecursorMass = new double[] { center },
                                 IsolationWidth = new double[] { isolation },
                                 ActivationType = new string[] { methodParams.MS2.Activation },

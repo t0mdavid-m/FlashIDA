@@ -25,6 +25,7 @@ namespace Flash
         public string IsolationMode;
         public string[] ActivationType;
         public int? AGCTarget;
+        public int? MSXTargets;
         public double? MaxIT;
         public double[] PrecursorMass;
         public int[] CollisionEnergy;
