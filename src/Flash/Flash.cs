@@ -527,7 +527,8 @@ namespace Flash
         /// </summary>
         private static void OnStateChanged(object sender, StateChangedEventArgs e)
         {
-            log.Info(String.Format("Instrument Status: {0}", acquisition.State.SystemMode.ToString()));
+            // Send next scan
+            SendCustomScan(scanScheduler.getNextScan());
         }
 
         /// <summary>
@@ -559,11 +560,10 @@ namespace Flash
                 currentNumber = 41;
             }
             
-            //push current scan to the DataPipe and try sending next scheduled scan to the instrument
+            //push current scan to the DataPipe
             if (inCustom)
             {
                 dataPipe.Push(msScan);
-                SendCustomScan(scanScheduler.getNextScan());
             }
 
             msScan.Dispose();//Release resources
