@@ -42,6 +42,9 @@ namespace Flash.IDA
         static private extern int GetAllPeakGroupSize(IntPtr pTestClassObjectdouble);
 
         [DllImport(dllName)]
+        static private extern double GetRepresentativeMass(IntPtr pTestClassObjectdouble);
+
+        [DllImport(dllName)]
         static private extern void GetAllMonoisotopicMasses(IntPtr pTestClassObjectdouble, double[] monoMasses, int length);
 
 
@@ -206,6 +209,24 @@ namespace Flash.IDA
             }
             return -1;
         }
+
+        /// <summary>
+        /// Get the representative mass of the spectrum. 
+        /// </summary>
+        /// <returns></returns>
+        public double GetRepresentativeMass()
+        {
+            try
+            {
+                return GetRepresentativeMass(m_pNativeObject);
+            }
+            catch (Exception idaException)
+            {
+                log.Error(String.Format("IDAWrapper.GetRepresentativeMass reported: {0}\n{1}", idaException.Message, idaException.StackTrace));
+            }
+            return 0;
+        }
+
 
         /// <summary>
         /// Remove a precursor with a certain id from the exclusion list

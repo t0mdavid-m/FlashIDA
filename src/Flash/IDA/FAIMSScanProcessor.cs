@@ -76,40 +76,19 @@ namespace Flash.IDA
                 try
                 {
 
-                    // Get CV and position in the CV list
+                    // Get CV used for MS1
                     double cv = double.Parse(CVString);
-
-                    // In the beginning scans with different CV values are scheduled, ignore those
-                    if (!methodParams.IDA.CVValues.Contains(cv))
-                    {
-                        IDAlog.Info(String.Format("Got scan with CV={0}, which is not in {1} -> Ignore Scan", cv, string.Join(" ", methodParams.IDA.CVValues)));
-                        return scans;
-                    }
 
                     // Deconvolve spectrum and get relevant information
                     List<PrecursorTarget> targets;
-                    if (methodParams.IDA.UseCVQScore)
-                    {
-                        targets = flashIdaWrapper.GetIsolationWindows(msScan, CVString);
-                    }
-                    else
-                    {
-                        targets = flashIdaWrapper.GetIsolationWindows(msScan);
-                    }
+                    targets = flashIdaWrapper.GetIsolationWindows(msScan, CVString);
                     List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
                     int precursors = flashIdaWrapper.GetAllPeakGroupSize();
+                    double moment = flashIdaWrapper.GetRepresentativeMass();
 
                     //logging of targets
-                    IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors)",
-                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors));                    
-
-                    // Use Information for planning calculations
-                    scanScheduler.planCV(cv, precursors);
-
-                    // Move to next CV value if no precursors are found
-                    if (targets.Count == 0) {
-                        scanScheduler.handleNoTargets(cv);
-                    }
+                    IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors) Moment={7}",
+                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors, moment));                    
 
                     //schedule TopN fragmentation scans with highest qScore
                     foreach (PrecursorTarget precursor in targets.OrderByDescending(t => t.Score).Take(methodParams.TopN))
@@ -163,10 +142,9 @@ namespace Flash.IDA
                     }
                     if (monoMasses.Count > 0)
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
-                    if ( (targets.Count < methodParams.TopN) && (!scanScheduler.planMode) )
-                    {
-                        scanScheduler.handleNoTargets(cv);
-                    }
+
+                    // Update the CV based on the moment -> Future Acquisition with the old CV will be rejected in this case..
+                    scanScheduler.updateCV(moment);
 
                 }
 

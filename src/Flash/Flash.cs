@@ -279,7 +279,10 @@ namespace Flash
 
             IFusionCustomScan agcScan = null;
             IFusionCustomScan defaultScan = null;
-            double[] CVs = methodParams.IDA.CVValues;
+            // TODO: Cleanup!!
+            double[] CVs = new double[] { -80, -70, -60, -50, -40, -30, -20, -10, 0, 10 };
+            double[] CVMedians = new double[] {2600, 3500, 4500, 5100, 7500, 11000, 12000, 13000, 14000, 15000 };
+            methodParams.IDA.CVValues = CVs;
             IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
             IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
             Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
@@ -379,7 +382,7 @@ namespace Flash
             //create instance of custom scan queue and scheduler
             try
             {
-                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS);
+                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS, CVMedians);
                 log.Info("ScanScheduler created");
             }
             catch (Exception ex)
