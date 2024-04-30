@@ -100,7 +100,7 @@ namespace Flash
                 }
                 else if ( (i >= (CVMedians.Length - 1) ) )
                 {
-                    new_value = i;
+                    new_value = CVMedians.Length-1;
                     break;
                 }
                 else if ( (CVMedians[i] < moment) && (CVMedians[i+1] > moment) )
@@ -119,12 +119,12 @@ namespace Flash
             {
                 if (currentCV < new_value)
                 {
-                    currentCV--;
-                }
-                else if (currentCV > new_value) {
                     currentCV++;
                 }
-
+                else if (currentCV > new_value)
+                {
+                    currentCV--;
+                }
             }
             else
             {
