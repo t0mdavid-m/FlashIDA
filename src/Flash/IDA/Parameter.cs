@@ -35,6 +35,8 @@ namespace Flash.IDA
         public double CycleTime { set; get; }
 
         public bool UseCVQScore { set; get; }
+        public bool constrainedSwitching { set; get; }
+        public int switchEveryNCV { set; get; }
 
         /// <summary>
         /// Complete constructor
@@ -51,7 +53,8 @@ namespace Flash.IDA
         /// <param name="targetMode">If set to 1, inclusive targeted mode if 2, exclusive targeted mode. If 0, normal exclusion list mode</param> 
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
         public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100, 
-                             double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true)
+                             double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
+                             bool constrainedSwitching_ = false, int switchEveryNCV_ = 1)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -66,6 +69,8 @@ namespace Flash.IDA
             TargetMode = targetMode;
             CycleTime = cycletime;
             UseCVQScore = usecvqscore;
+            constrainedSwitching = constrainedSwitching_;
+            switchEveryNCV = switchEveryNCV_;
         }
 
         /// <summary>

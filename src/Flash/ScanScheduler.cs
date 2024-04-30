@@ -44,6 +44,8 @@ namespace Flash
         // Whether or not FAIMS is used
         private bool useFAIMS;
 
+        private int lastSwitch;
+
         private MethodParameters methodParams;
 
 
@@ -57,6 +59,7 @@ namespace Flash
         /// <param name="AGCScan">API definition of a default "regular" AGC scan</param>
         public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, Dictionary<double, int> faimsPAGCGroups, MethodParameters mparams, bool UseFAIMS, double[] CVMedians_)
         {
+            lastSwitch = 0;
             methodParams = mparams;
             useFAIMS = UseFAIMS;
             defaultScan = scan;
@@ -80,29 +83,52 @@ namespace Flash
 
         public void updateCV(double moment)
         {
+            lastSwitch++;
+            if (lastSwitch < methodParams.IDA.switchEveryNCV)
+            {
+                return;
+            }
+            lastSwitch = 0;
+
+            int new_value = 0;
             for (int i = 0; i < CVMedians.Length; i++)
             {
                 if ( (i == 0) && (CVMedians[0] > moment) )
                 {
-                    currentCV = 0;
-                    return;
+                    new_value = 0;
+                    break;
                 }
-                else if ( (i == (CVMedians.Length - 1) ) )
+                else if ( (i >= (CVMedians.Length - 1) ) )
                 {
-                    currentCV = i;
-                    return;
+                    new_value = i;
+                    break;
                 }
                 else if ( (CVMedians[i] < moment) && (CVMedians[i+1] > moment) )
                 {
                     if ((moment - CVMedians[i]) > (CVMedians[i+1] - moment)) {
-                        currentCV = i + 1;
+                        new_value = i + 1;
                     }
                     else
                     {
-                        currentCV = i;
+                        new_value = i;
                     }
-                    return;
+                        break;
                 }
+            }
+            if (methodParams.IDA.constrainedSwitching)
+            {
+                if (currentCV < new_value)
+                {
+                    currentCV--;
+                }
+                else if (currentCV > new_value) {
+                    currentCV++;
+                }
+
+            }
+            else
+            {
+                currentCV = new_value;
             }
         }
 
