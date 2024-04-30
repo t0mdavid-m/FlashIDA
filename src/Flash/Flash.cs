@@ -493,7 +493,7 @@ namespace Flash
         /// </remarks>
         private static void CustomScanListner(object sender, EventArgs e)
         {
-            log.Info("Got CanAcceptNextCustomScan");
+            SendCustomScan(scanScheduler.getNextScan());
         }
 
         /// <summary>
@@ -531,7 +531,7 @@ namespace Flash
         private static void OnStateChanged(object sender, StateChangedEventArgs e)
         {
             // Send next scan
-            SendCustomScan(scanScheduler.getNextScan());
+            log.Info("State changed!");
         }
 
         /// <summary>
