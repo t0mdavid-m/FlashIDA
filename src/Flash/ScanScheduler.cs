@@ -97,6 +97,10 @@ namespace Flash
                 {
                     int CVSkipAmountOld = CVSkipAmount[pos];
                     CVSkipAmount[pos] *= 2;
+                    if (CVSkipAmount[pos] <= 0)
+                    {
+                        CVSkipAmount[pos] = 1;
+                    }
                     if (CVSkipAmount[pos] > methodParams.IDA.MaxCVSkip)
                     {
                         CVSkipAmount[pos] = methodParams.IDA.MaxCVSkip;
@@ -189,6 +193,10 @@ namespace Flash
         {
             lock (sync)
             {
+                if (MS1Count > 2)
+                {
+                    return faimsAgcScans[currentCV];
+                }
                 while (true)
                 {
                     currentCV++;

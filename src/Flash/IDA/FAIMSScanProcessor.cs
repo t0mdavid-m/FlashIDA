@@ -94,7 +94,7 @@ namespace Flash.IDA
                     double parsedCV = flashIdaWrapper.GetRepresentativeMass();
 
                     //logging of targets
-                    IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors) SanCV={7} ParsedCV={8}",
+                    IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors) ScanCV={7} ParsedCV={8}",
                             msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors, cv, parsedCV));                    
 
                     //schedule TopN fragmentation scans with highest qScore
