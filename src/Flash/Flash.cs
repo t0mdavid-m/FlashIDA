@@ -279,10 +279,7 @@ namespace Flash
 
             IFusionCustomScan agcScan = null;
             IFusionCustomScan defaultScan = null;
-            // TODO: Cleanup!!
-            double[] CVs = new double[] { -80, -70, -60, -50, -40, -30, -20, -10, 0, 10 };
-            double[] CVMedians = new double[] {2600, 3500, 4500, 5100, 7500, 11000, 12000, 13000, 14000, 15000 };
-            methodParams.IDA.CVValues = CVs;
+            double[] CVs = methodParams.IDA.CVValues;
             IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
             IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
             Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
@@ -382,7 +379,7 @@ namespace Flash
             //create instance of custom scan queue and scheduler
             try
             {
-                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS, CVMedians);
+                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS);
                 log.Info("ScanScheduler created");
             }
             catch (Exception ex)
@@ -530,8 +527,7 @@ namespace Flash
         /// </summary>
         private static void OnStateChanged(object sender, StateChangedEventArgs e)
         {
-            // Send next scan
-            log.Info("State changed!");
+            log.Info(String.Format("Instrument Status: {0}", acquisition.State.SystemMode.ToString()));
         }
 
         /// <summary>

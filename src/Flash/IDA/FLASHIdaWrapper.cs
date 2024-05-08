@@ -506,7 +506,7 @@ namespace Flash.IDA
                 var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt/60, msLevel, name, cvs[pos].ToString());
                 int noPrecursors = w.GetAllPeakGroupSize();
                 List<double> monoMasses = w.GetAllMonoisotopicMasses();
-                Console.WriteLine(rt.ToString() + " - " + w.GetRepresentativeMass());
+                Console.WriteLine(rt.ToString() + " - " + w.GetRepresentativeMass() + "->" + cvs[pos]);
                 //if (monoMasses.Count > 0)
                 //    Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
 

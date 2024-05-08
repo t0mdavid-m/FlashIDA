@@ -36,15 +36,14 @@ namespace Flash
 
         // Stores the cvs used for FAIMS
         private double[] CVs;
-        private double[] CVMedians;
+        private int[] CVSkipAmount;
+        private int[] CVSkipCount;
+        Dictionary<double, int> CVPosition;
+
         // Index of the cv currently selected
         private int currentCV;
-        // No of MS2 scans that have been queued after last MS1 scan
-        private int MS2AfterMS1;
         // Whether or not FAIMS is used
         private bool useFAIMS;
-
-        private int lastSwitch;
 
         private MethodParameters methodParams;
 
@@ -57,9 +56,8 @@ namespace Flash
         /// </summary>
         /// <param name="scan">API definition of a default "regular" scan</param>
         /// <param name="AGCScan">API definition of a default "regular" AGC scan</param>
-        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, Dictionary<double, int> faimsPAGCGroups, MethodParameters mparams, bool UseFAIMS, double[] CVMedians_)
+        public ScanScheduler(IFusionCustomScan scan, IFusionCustomScan AGCScan, IFusionCustomScan[] faimsScans, IFusionCustomScan[] faimsAGCScans, Dictionary<double, int> faimsPAGCGroups, MethodParameters mparams, bool UseFAIMS)
         {
-            lastSwitch = 0;
             methodParams = mparams;
             useFAIMS = UseFAIMS;
             defaultScan = scan;
@@ -76,61 +74,54 @@ namespace Flash
 
             // Initialize FAIMS related variables
             CVs = methodParams.IDA.CVValues;
-            CVMedians = CVMedians_;
+            CVSkipAmount = new int[CVs.Length];
+            CVSkipCount = new int[CVs.Length];
+
+            CVPosition = new Dictionary<double, int>();
+
+            for (int i = 0; i < CVs.Length; i++)
+            {
+                CVPosition[CVs[i]] = i;
+            }
 
             currentCV = 0;
         }
 
-        public void updateCV(double moment)
+        public void updateCV(double cv, int precursors)
         {
-            lastSwitch++;
-            if (lastSwitch < methodParams.IDA.switchEveryNCV)
+            int pos = CVPosition[cv];
+            
+            if (precursors < methodParams.IDA.MassThreshold)
             {
-                return;
-            }
-            lastSwitch = 0;
-
-            int new_value = 0;
-            for (int i = 0; i < CVMedians.Length; i++)
-            {
-                if ( (i == 0) && (CVMedians[0] > moment) )
+                if (CVSkipAmount[pos] < methodParams.IDA.MaxCVSkip)
                 {
-                    new_value = 0;
-                    break;
-                }
-                else if ( (i >= (CVMedians.Length - 1) ) )
-                {
-                    new_value = CVMedians.Length-1;
-                    break;
-                }
-                else if ( (CVMedians[i] < moment) && (CVMedians[i+1] > moment) )
-                {
-                    if ((moment - CVMedians[i]) > (CVMedians[i+1] - moment)) {
-                        new_value = i + 1;
-                    }
-                    else
+                    int CVSkipAmountOld = CVSkipAmount[pos];
+                    CVSkipAmount[pos] *= 2;
+                    if (CVSkipAmount[pos] > methodParams.IDA.MaxCVSkip)
                     {
-                        new_value = i;
+                        CVSkipAmount[pos] = methodParams.IDA.MaxCVSkip;
                     }
-                        break;
+
+                    log.Debug(String.Format(
+                        "Got less ({0}) than {1} masses for CV={2} - OldSpacing={3} NewSpacing={4} UsedSpacing={5}",
+                        precursors, methodParams.IDA.MassThreshold, cv, CVSkipAmountOld, CVSkipAmount[pos], CVSkipCount[pos]
+                    ));
                 }
-            }
-            if (methodParams.IDA.constrainedSwitching)
-            {
-                if (currentCV < new_value)
+                else 
                 {
-                    currentCV++;
+                    log.Debug(String.Format(
+                        "Got less ({0}) than {1} masses for CV={2} - OldSpacing={3} NewSpacing={4} UsedSpacing={5}",
+                        precursors, methodParams.IDA.MassThreshold, cv, CVSkipAmount[pos], CVSkipAmount[pos], CVSkipCount[pos]
+                    ));
                 }
-                else if (currentCV > new_value)
-                {
-                    currentCV--;
-                }
+                CVSkipCount[pos] = 0;
             }
             else
             {
-                currentCV = new_value;
+                CVSkipAmount[pos] = 0;
+                CVSkipCount[pos] = 0;
             }
-        }
+       }
 
 
         /// <summary>
@@ -145,22 +136,12 @@ namespace Flash
                 double cv = double.Parse(scan.Values["FAIMS CV"]);
                 lock (sync)
                 {
-                    if (cv != CVs[currentCV])
-                    {
-                        log.Debug(String.Format("Received MS2 scan for CV={0} but CV changed to {1} -> Scrapping scan", cv, CVs[currentCV]));
-                        return -1;
-                    }
                     // 2 accounts for MS1 + AGC
                     if (customScans.Count > 9-2)
                     {
                         log.Debug(String.Format("Received MS2 scan for CV={0} but queue length is {1} -> Scrapping scan", cv, customScans.Count));
                         return -1;
                     }
-                    if (MS2AfterMS1 >= methodParams.IDA.MaxMs2CountPerMs1)
-                    {
-                        getFAIMSMS1Scan(queue_agc: true);
-                    }
-                    MS2AfterMS1++;
                 }
             }
             customScans.Enqueue(scan);
@@ -208,7 +189,27 @@ namespace Flash
         {
             lock (sync)
             {
-                MS2AfterMS1 = 0;
+                while (true)
+                {
+                    currentCV++;
+
+                    if (currentCV >= CVs.Length) 
+                    {
+                        currentCV = 0;
+                    }
+
+                    if (CVSkipCount[currentCV] < CVSkipAmount[currentCV])
+                    {
+                        CVSkipCount[currentCV]++;
+                        log.Debug(String.Format("Skipping CV={0} ({1}/{2})", CVs[currentCV], CVSkipCount[currentCV], CVSkipAmount[currentCV]));
+                    }
+                    else
+                    {
+                        log.Debug(String.Format("Changed to CV={0}", CVs[currentCV]));
+                        break;
+                    }
+
+                }
 
                 if (queue_agc)
                 {

@@ -35,8 +35,8 @@ namespace Flash.IDA
         public double CycleTime { set; get; }
 
         public bool UseCVQScore { set; get; }
-        public bool constrainedSwitching { set; get; }
-        public int switchEveryNCV { set; get; }
+        public int MaxCVSkip { set; get; }
+        public int MassThreshold { set; get; }
 
         /// <summary>
         /// Complete constructor
@@ -54,7 +54,7 @@ namespace Flash.IDA
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
         public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100, 
                              double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
-                             bool constrainedSwitching_ = false, int switchEveryNCV_ = 1)
+                             int MaxCVSkip_ = 0, int MassThreshold_ = 15)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -69,8 +69,8 @@ namespace Flash.IDA
             TargetMode = targetMode;
             CycleTime = cycletime;
             UseCVQScore = usecvqscore;
-            constrainedSwitching = constrainedSwitching_;
-            switchEveryNCV = switchEveryNCV_;
+            MaxCVSkip = MaxCVSkip_;
+            MassThreshold = MassThreshold_;
         }
 
         /// <summary>
