@@ -133,7 +133,7 @@ namespace Flash
         /// </summary>
         /// <param name="scan">Scan to add</param>
         /// <param name="level">MS level of the scan (this parameter is used for internal "book-keeping")</param>
-        public int AddScan(IFusionCustomScan scan, int level)
+        public int AddScan(IFusionCustomScan scan, int level, bool force=false)
         {
             if (useFAIMS)
             {
@@ -141,7 +141,7 @@ namespace Flash
                 lock (sync)
                 {
                     // 2 accounts for MS1 + AGC
-                    if (customScans.Count > 9-2)
+                    if ((customScans.Count > 9-2) & (!force))
                     {
                         log.Debug(String.Format("Received MS2 scan for CV={0} but queue length is {1} -> Scrapping scan", cv, customScans.Count));
                         return -1;

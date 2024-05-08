@@ -5,6 +5,7 @@ using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
 using log4net;
 using log4net.Core;
+using System.Runtime.InteropServices;
 
 namespace Flash.IDA
 {
@@ -95,7 +96,9 @@ namespace Flash.IDA
 
                     //logging of targets
                     IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors) ScanCV={7} ParsedCV={8}",
-                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors, cv, parsedCV));                    
+                            msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors, cv, parsedCV));
+
+                    bool accepted = false;
 
                     //schedule TopN fragmentation scans with highest qScore
                     foreach (PrecursorTarget precursor in targets.OrderByDescending(t => t.Score).Take(methodParams.TopN))
@@ -132,7 +135,7 @@ namespace Flash.IDA
                                 FAIMS_Voltages = "on"
                             }, delay: 3, AGCgroup: scanScheduler.faimsPagcGroups[cv]);
 
-                        int queue_pos = scanScheduler.AddScan(repScan, 2);
+                        int queue_pos = scanScheduler.AddScan(repScan, 2, accepted);
 
                         if (queue_pos == -1)
                         {
@@ -145,6 +148,7 @@ namespace Flash.IDA
                             log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
                             center, isolation, z, precursor.Score, queue_pos));
                             IDAlog.Debug(precursor.ToString());
+                            accepted = true;
                         }
                     }
                     if (monoMasses.Count > 0)
