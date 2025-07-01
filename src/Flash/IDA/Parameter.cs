@@ -13,6 +13,7 @@ namespace Flash.IDA
 
         public int TargetMode { set; get; } 
         public double QScoreThreshold { set; get; }
+        public double TQScoreThreshold { set; get; }
 
         public int MinCharge { set; get; }
         
@@ -54,7 +55,7 @@ namespace Flash.IDA
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
         public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100, 
                              double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
-                             int MaxCVSkip_ = 0, int MassThreshold_ = 15)
+                             int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -65,6 +66,7 @@ namespace Flash.IDA
             MinMass = minMass;
             MaxMass = maxMass;
             QScoreThreshold = qScoreThreshold;
+            TQScoreThreshold = tqScoreThreshold;
             TargetLogs = targetLogs;
             TargetMode = targetMode;
             CycleTime = cycletime;
@@ -87,8 +89,8 @@ namespace Flash.IDA
         /// <returns></returns>
         public string ToFLASHDeconvInput()
         {
-            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} target_mode {8} ",
-                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TargetMode);
+            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} ",
+                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode);
 
             foreach(var f in TargetLogs)
             {
