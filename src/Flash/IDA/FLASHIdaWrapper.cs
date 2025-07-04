@@ -39,6 +39,9 @@ namespace Flash.IDA
         static private extern int GetPeakGroupSize(IntPtr pTestClassObjectdouble, double[] mzs, double[] ints, int length, double rt, int msLevel, string name, string cv);
 
         [DllImport(dllName)]
+        static private extern bool IsDifferentiallyAbundant(IntPtr pTestClassObjectdouble, double[] mzs, double[] ints, int length, double rt, int msLevel, string name, string cv, string type, double reporter_mz_tol);
+
+        [DllImport(dllName)]
         static private extern int GetAllPeakGroupSize(IntPtr pTestClassObjectdouble);
 
         [DllImport(dllName)]
@@ -177,6 +180,19 @@ namespace Flash.IDA
             return result;
         }
 
+        protected bool IsDifferentiallyAbundant(double[] mzs, double[] ints, double rt, int msLevel, string name, string cv = null, string type = null, double reporter_mz_tol = 0)
+        {
+            try
+            {
+                return IsDifferentiallyAbundant(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, name, cv, type, reporter_mz_tol);
+            }
+            catch (Exception idaException)
+            {
+                log.Error(String.Format("IDAWrapper.IsDifferentiallyAbundant reported: {0}\n{1}", idaException.Message, idaException.StackTrace));
+            }
+            return false;
+        }
+
         public List<double> GetAllMonoisotopicMasses()
         {
             try
@@ -264,6 +280,22 @@ namespace Flash.IDA
             ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
             
             return GetIsolationWindows(mzs, ints, rt, msLevel, name, cv);
+        }
+
+        public bool IsDifferentiallyAbundant(IMsScan msScan, String cv = null, string type = null, double reporter_mz_tol = 0)
+        {
+            int msLevel = int.Parse(msScan.Header["MSOrder"]);
+            double rt = double.Parse(msScan.Header["StartTime"]);
+            string name = msScan.Header["Scan"];
+
+            double[] mzs;
+            double[] ints;
+
+            //always send centroided scans
+            mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
+            ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
+
+            return IsDifferentiallyAbundant(mzs, ints, rt, msLevel, name, cv, type, reporter_mz_tol);
         }
 
         /// <summary>

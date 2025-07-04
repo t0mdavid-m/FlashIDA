@@ -45,6 +45,7 @@ namespace Flash
         public int[] ReagentAGCTarget;
         public double? FAIMS_CV;
         public string FAIMS_Voltages;
+        public string ScanDescription;
     }
 
     /// <summary>

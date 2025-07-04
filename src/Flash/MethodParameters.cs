@@ -56,6 +56,7 @@ namespace Flash
     public class MethodParameters
     {
         public double Duration;
+        public bool isobaricQuantification;
         public MS1Parameters MS1;
         public List<MS2Parameters> MS2;
         public IDAParameters IDA;

@@ -283,6 +283,7 @@ namespace Flash
             IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
             IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
             Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
+            bool isobaricQuant = methodParams.isobaricQuantification;
 
 
             try
@@ -393,6 +394,9 @@ namespace Flash
                 if (useFAIMS)
                 {
                     flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
+                }
+                else if (isobaricQuant) {
+                    flashIDAProcessor = new QuantScanProcessor(methodParams, scanFactory, scanScheduler);
                 }
                 else
                 {
