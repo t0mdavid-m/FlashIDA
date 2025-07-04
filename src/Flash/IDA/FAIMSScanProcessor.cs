@@ -101,55 +101,59 @@ namespace Flash.IDA
                     bool accepted = false;
 
                     //schedule TopN fragmentation scans with highest qScore
-                    foreach (PrecursorTarget precursor in targets.OrderByDescending(t => t.Score).Take(methodParams.TopN))
+                    foreach (PrecursorTarget precursor in targets.OrderByDescending(t => t.Score).Take(methodParams.IDA.MaxMs2CountPerMs1))
                     {
                         double center = precursor.Window.Center;
                         double isolation = precursor.Window.Width;
                         int z = precursor.Charge;
 
-                        IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
-                            new ScanParameters
+                        foreach (MS2Parameters ms2_params in methodParams.MS2) 
+                        { 
+                            IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
+                                new ScanParameters
+                                {
+                                    Analyzer = ms2_params.Analyzer,
+                                    IsolationMode = ms2_params.IsolationMode,
+                                    FirstMass = new double[] { ms2_params.FirstMass },
+                                    LastMass = new double[] { Math.Min(z * center + 10, 2000) },
+                                    OrbitrapResolution = ms2_params.OrbitrapResolution,
+                                    MSXTargets = ms2_params.AGCTarget,
+                                    PrecursorMass = new double[] { center },
+                                    IsolationWidth = new double[] { isolation },
+                                    ActivationType = new string[] { ms2_params.Activation },
+                                    CollisionEnergy = ms2_params.CollisionEnergy != 0 ? new int[] { ms2_params.CollisionEnergy } : null,
+                                    ScanType = "MSn",
+                                    Microscans = ms2_params.Microscans,
+                                    ChargeStates = new int[] { Math.Min(z, 25) },
+                                    MaxIT = ms2_params.MaxIT,
+                                    ReactionTime = ms2_params.ReactionTime != 0 ? new double[] { ms2_params.ReactionTime } : null,
+                                    ReagentMaxIT = ms2_params.ReagentMaxIT != 0 ? new double[] { ms2_params.ReagentMaxIT } : null,
+                                    ReagentAGCTarget = ms2_params.ReagentAGCTarget != 0 ? new int[] { ms2_params.ReagentAGCTarget } : null,
+                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                    SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
+                                    DataType = ms2_params.DataType,
+                                    FAIMS_CV = cv,
+                                    FAIMS_Voltages = "on"
+                                }, delay: 3, AGCgroup: scanScheduler.faimsPagcGroups[cv]);
+
+                            int queue_pos = scanScheduler.AddScan(repScan, 2, accepted);
+
+                            if (queue_pos == -1)
                             {
-                                Analyzer = methodParams.MS2.Analyzer,
-                                IsolationMode = methodParams.MS2.IsolationMode,
-                                FirstMass = new double[] { methodParams.MS2.FirstMass },
-                                LastMass = new double[] { Math.Min(z * center + 10, 2000) },
-                                OrbitrapResolution = methodParams.MS2.OrbitrapResolution,
-                                MSXTargets = methodParams.MS2.AGCTarget,
-                                PrecursorMass = new double[] { center },
-                                IsolationWidth = new double[] { isolation },
-                                ActivationType = new string[] { methodParams.MS2.Activation },
-                                CollisionEnergy = methodParams.MS2.CollisionEnergy != 0 ? new int[] { methodParams.MS2.CollisionEnergy } : null,
-                                ScanType = "MSn",
-                                Microscans = methodParams.MS2.Microscans,
-                                ChargeStates = new int[] { Math.Min(z, 25) },
-                                MaxIT = methodParams.MS2.MaxIT,
-                                ReactionTime = methodParams.MS2.ReactionTime != 0 ? new double[] { methodParams.MS2.ReactionTime } : null,
-                                ReagentMaxIT = methodParams.MS2.ReagentMaxIT != 0 ? new double[] { methodParams.MS2.ReagentMaxIT } : null,
-                                ReagentAGCTarget = methodParams.MS2.ReagentAGCTarget != 0 ? new int[] { methodParams.MS2.ReagentAGCTarget } : null,
-                                SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                                SourceCIDEnergy = methodParams.MS1.SourceCID,
-                                SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                                DataType = methodParams.MS2.DataType,
-                                FAIMS_CV = cv,
-                                FAIMS_Voltages = "on"
-                            }, delay: 3, AGCgroup: scanScheduler.faimsPagcGroups[cv]);
-
-                        int queue_pos = scanScheduler.AddScan(repScan, 2, accepted);
-
-                        if (queue_pos == -1)
-                        {
-                            log.Debug(String.Format("IGNORE m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04}",
-                            center, isolation, z, precursor.Score));
-                            flashIdaWrapper.RemoveFromExclusionList(precursor.Id);
+                                log.Debug(String.Format("IGNORE m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04}",
+                                center, isolation, z, precursor.Score));
+                                flashIdaWrapper.RemoveFromExclusionList(precursor.Id);
+                            }
+                            else
+                            {
+                                log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
+                                center, isolation, z, precursor.Score, queue_pos));
+                                IDAlog.Debug(precursor.ToString());
+                                accepted = true;
+                            }
                         }
-                        else
-                        {
-                            log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
-                            center, isolation, z, precursor.Score, queue_pos));
-                            IDAlog.Debug(precursor.ToString());
-                            accepted = true;
-                        }
+
                     }
                     if (monoMasses.Count > 0)
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));

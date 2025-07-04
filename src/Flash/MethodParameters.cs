@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using Flash.IDA;
 
@@ -54,10 +55,9 @@ namespace Flash
     /// </summary>
     public class MethodParameters
     {
-        public int TopN;
         public double Duration;
         public MS1Parameters MS1;
-        public MS2Parameters MS2;
+        public List<MS2Parameters> MS2;
         public IDAParameters IDA;
 
         /// <summary>
@@ -66,7 +66,7 @@ namespace Flash
         public MethodParameters()
         {
             MS1 = new MS1Parameters();
-            MS2 = new MS2Parameters();
+            MS2 = new List<MS2Parameters>();
             IDA = new IDAParameters();
         }
 
