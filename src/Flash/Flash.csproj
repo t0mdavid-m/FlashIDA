@@ -35,7 +35,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>Flash.Flash</StartupObject>
+    <StartupObject>Flash.IDA.FLASHIdaWrapper</StartupObject>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -113,6 +113,7 @@
     <Compile Include="IDA\PrecursorTarget.cs" />
     <Compile Include="DataObjects\MassIntensityPair.cs" />
     <Compile Include="IDA\Parameter.cs" />
+    <Compile Include="IDA\QuantScanProcessor.cs" />
     <Compile Include="IScanProcessor.cs" />
     <Compile Include="MethodParameters.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
