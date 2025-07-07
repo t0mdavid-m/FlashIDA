@@ -72,6 +72,8 @@ namespace Flash.IDA
         /// <returns></returns>
         public IEnumerable<IFusionCustomScan> ProcessMS(IMsScan msScan)
         {
+            log.Info("Scan Received - Quant");
+
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
 
             //for FTMS MS1 scans search for precursors (exclude IT scans)

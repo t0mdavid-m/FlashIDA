@@ -67,11 +67,14 @@ namespace Flash.IDA
         /// <returns></returns>
         public IEnumerable<IFusionCustomScan> ProcessMS(IMsScan msScan)
         {
+
+            log.Info("Scan Received - IDA");
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
 
             //for FTMS MS1 scans search for precursors (exclude IT scans)
             if (msScan.Header["MSOrder"] == "1" && msScan.Header["MassAnalyzer"] == "FTMS")
             {
+                
                 //get ScanID for logging purposes
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
 
