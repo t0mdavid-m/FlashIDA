@@ -117,7 +117,7 @@ namespace Flash.IDA
                                     Analyzer = ms2_params.Analyzer,
                                     IsolationMode = ms2_params.IsolationMode,
                                     FirstMass = new double[] { ms2_params.FirstMass },
-                                    LastMass = new double[] { Math.Min(z * center + 10, 2000) },
+                                    LastMass = new double[] { ms2_params.LastMass },
                                     OrbitrapResolution = ms2_params.OrbitrapResolution,
                                     MSXTargets = ms2_params.AGCTarget,
                                     PrecursorMass = new double[] { center },

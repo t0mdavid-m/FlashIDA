@@ -479,12 +479,16 @@ namespace Flash.IDA
                     start = true;
                     if (mzs.Count > 0)
                     {
-                        var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line);
+                        //var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line);
+                        var l = w.IsDifferentiallyAbundant(mzs.ToArray(), ints.ToArray(), rt, 2, line, "", "", 0.002);
+                        Console.WriteLine(l);
+                        
 
-                        /*List<double> monoMasses = w.GetAllMonoisotopicMasses();
+                        //List<double> monoMasses = w.GetAllMonoisotopicMasses();
 
                         Console.WriteLine(rt);
-                        if (l.Count > 0) Console.WriteLine(String.Join<PrecursorTarget>("\n", l.ToArray()));
+                        //if (l.Count > 0) Console.WriteLine(String.Join<PrecursorTarget>("\n", l.ToArray()));
+                        /*
                         if (monoMasses.Count > 0)
                         {
                             Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray()))); ;
@@ -493,15 +497,15 @@ namespace Flash.IDA
                         mzs.Clear();
                         ints.Clear();
 
-                        foreach (var item in l)
-                        {
-                            wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}",
-                                rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
-                                item.Snr, item.ChargeScore, item.PpmError,
-                                item.PrecursorIntensity, item.PrecursorPeakGroupIntensity);
-                            //   Console.WriteLine(item);
-                            totalScore += item.Score;
-                        }
+                        //foreach (var item in l)
+                        //{
+                        //    wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}",
+                        //        rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
+                        //        item.Snr, item.ChargeScore, item.PpmError,
+                        //        item.PrecursorIntensity, item.PrecursorPeakGroupIntensity);
+                        //    //   Console.WriteLine(item);
+                        //    totalScore += item.Score;
+                        //}
                     }
 
                     //rt = double.Parse(token[1]) / 60.0;

@@ -68,17 +68,6 @@ namespace Flash.IDA
         public IEnumerable<IFusionCustomScan> ProcessMS(IMsScan msScan)
         {
 
-            foreach (string key in msScan.Header.Keys)
-            {
-                msScan.Trailer.TryGetValue(key, out var value);
-                Console.WriteLine($"Header - Key: {key}, Value: {value}");
-            }
-            foreach (string key in msScan.Trailer.ItemNames)
-            {
-                msScan.Trailer.TryGetValue(key, out var value);
-                Console.WriteLine($"Trailer - Key: {key}, Value: {value}");
-            }
-
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
 
             //for FTMS MS1 scans search for precursors (exclude IT scans)
@@ -113,7 +102,7 @@ namespace Flash.IDA
                                 Analyzer = ms2_params.Analyzer,
                                 IsolationMode = ms2_params.IsolationMode,
                                 FirstMass = new double[] { ms2_params.FirstMass },
-                                LastMass = new double[] { Math.Min(z * center + 10, 2000) },
+                                LastMass = new double[] { ms2_params.LastMass },
                                 OrbitrapResolution = ms2_params.OrbitrapResolution,
                                 MSXTargets = ms2_params.AGCTarget,
                                 PrecursorMass = new double[] { center },

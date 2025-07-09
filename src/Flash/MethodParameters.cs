@@ -38,6 +38,7 @@ namespace Flash
         public string Analyzer;
         public string IsolationMode;
         public double FirstMass;
+        public double LastMass;
         public int OrbitrapResolution;
         public int AGCTarget;
         public double MaxIT;

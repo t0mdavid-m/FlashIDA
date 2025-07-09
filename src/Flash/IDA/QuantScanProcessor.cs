@@ -105,7 +105,7 @@ namespace Flash.IDA
                             Analyzer = ms2_params.Analyzer,
                             IsolationMode = ms2_params.IsolationMode,
                             FirstMass = new double[] { ms2_params.FirstMass },
-                            LastMass = new double[] { Math.Min(z * center + 10, 2000) },
+                            LastMass = new double[] { ms2_params.LastMass },
                             OrbitrapResolution = ms2_params.OrbitrapResolution,
                             MSXTargets = ms2_params.AGCTarget,
                             PrecursorMass = new double[] { center },
@@ -161,7 +161,6 @@ namespace Flash.IDA
                     MS2Parameters ms2_params = methodParams.MS2.Last();
                     double center = double.Parse(msScan.Header["PrecursorMass[0]"]);
                     double isolation = double.Parse(msScan.Header["IsolationWidth[0]"]);
-                    double last_mass = double.Parse(msScan.Header["LastMass"]);
                     msScan.Trailer.TryGetValue("Charge State", out var charge_string);
                     int charge_state = int.Parse(charge_string);
 
@@ -171,7 +170,7 @@ namespace Flash.IDA
                         Analyzer = ms2_params.Analyzer,
                         IsolationMode = ms2_params.IsolationMode,
                         FirstMass = new double[] { ms2_params.FirstMass },
-                        LastMass = new double[] { last_mass },
+                        LastMass = new double[] { ms2_params.LastMass },
                         OrbitrapResolution = ms2_params.OrbitrapResolution,
                         MSXTargets = ms2_params.AGCTarget,
                         PrecursorMass = new double[] { center },
