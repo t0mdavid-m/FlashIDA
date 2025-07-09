@@ -73,9 +73,9 @@ namespace Flash.IDA
         public IEnumerable<IFusionCustomScan> ProcessMS(IMsScan msScan)
         {
             log.Info("Scan Received - Quant");
+            msScan.Trailer.TryGetValue("Scan Description", out var desc);
 
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
-
             //for FTMS MS1 scans search for precursors (exclude IT scans)
             if (msScan.Header["MSOrder"] == "1" && msScan.Header["MassAnalyzer"] == "FTMS")
             {
@@ -143,7 +143,7 @@ namespace Flash.IDA
 
                 scans.Add(null); //will be replaced by default scan
             }
-            else if (msScan.Header["MSOrder"] == "2" && msScan.Header["ScanDescription"] == "quant")
+            else if (msScan.Header["MSOrder"] == "2" && desc == "quant")
             {
                 //get ScanID for logging purposes
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
@@ -159,10 +159,11 @@ namespace Flash.IDA
                     }
 
                     MS2Parameters ms2_params = methodParams.MS2.Last();
-                    double center = double.Parse(msScan.Header["PrecursorMass"]);
-                    double isolation = double.Parse(msScan.Header["IsolationWidth"]);
+                    double center = double.Parse(msScan.Header["PrecursorMass[0]"]);
+                    double isolation = double.Parse(msScan.Header["IsolationWidth[0]"]);
                     double last_mass = double.Parse(msScan.Header["LastMass"]);
-                    int charge_state = int.Parse(msScan.Header["ChargeStates"]);
+                    msScan.Trailer.TryGetValue("Charge State", out var charge_string);
+                    int charge_state = int.Parse(charge_string);
 
                     IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
                     new ScanParameters
