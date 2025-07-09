@@ -143,14 +143,14 @@ namespace Flash.IDA
 
                 scans.Add(null); //will be replaced by default scan
             }
-            else if (msScan.Header["MSOrder"] == "2" && desc == "quant")
+            else if (msScan.Header["MSOrder"] == "2" && desc.Trim() == "quant")
             {
                 //get ScanID for logging purposes
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
 
                 try
                 {
-                    bool differentiallyAbundant = flashIdaWrapper.IsDifferentiallyAbundant(msScan, null, methodParams.IDA.quantType, methodParams.IDA.quantReporterMZTol);
+                    bool differentiallyAbundant = flashIdaWrapper.IsDifferentiallyAbundant(msScan, "", "", 2e-3);
                     IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f04} (Access ID {2}) - differential={3}",
                        msScan.Header["Scan"], msScan.Header["StartTime"], scanId, differentiallyAbundant));
                     if (!differentiallyAbundant)
