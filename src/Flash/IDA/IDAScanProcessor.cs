@@ -68,7 +68,17 @@ namespace Flash.IDA
         public IEnumerable<IFusionCustomScan> ProcessMS(IMsScan msScan)
         {
 
-            log.Info("Scan Received - IDA");
+            foreach (string key in msScan.Header.Keys)
+            {
+                msScan.Trailer.TryGetValue(key, out var value);
+                Console.WriteLine($"Header - Key: {key}, Value: {value}");
+            }
+            foreach (string key in msScan.Trailer.ItemNames)
+            {
+                msScan.Trailer.TryGetValue(key, out var value);
+                Console.WriteLine($"Trailer - Key: {key}, Value: {value}");
+            }
+
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
 
             //for FTMS MS1 scans search for precursors (exclude IT scans)
