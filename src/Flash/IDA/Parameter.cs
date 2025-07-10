@@ -15,7 +15,9 @@ namespace Flash.IDA
         public double QScoreThreshold { set; get; }
         public double TQScoreThreshold { set; get; }
         public double quantReporterMZTol { set; get; }
-        public string quantType { set; get; }
+        public double quantFoldChangeThreshold { set; get; }
+        public bool quantOnlyOneCondition { set; get; }
+
         public int MinCharge { set; get; }
         
         public int MaxCharge { set; get; }
@@ -56,7 +58,7 @@ namespace Flash.IDA
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
         public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100, 
                              double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
-                             int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, string quantType_ = "none")
+                             int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -75,7 +77,8 @@ namespace Flash.IDA
             MaxCVSkip = MaxCVSkip_;
             MassThreshold = MassThreshold_;
             quantReporterMZTol = quantReporterMZTol_;
-            quantType = quantType_;
+            quantFoldChangeThreshold = quantFoldChangeThreshold_;
+            quantOnlyOneCondition = quantOnlyOneCondition_;
         }
 
         /// <summary>

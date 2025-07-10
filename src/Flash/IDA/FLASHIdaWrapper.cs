@@ -39,7 +39,7 @@ namespace Flash.IDA
         static private extern int GetPeakGroupSize(IntPtr pTestClassObjectdouble, double[] mzs, double[] ints, int length, double rt, int msLevel, string name, string cv);
 
         [DllImport(dllName)]
-        static private extern bool IsDifferentiallyAbundant(IntPtr pTestClassObjectdouble, double[] mzs, double[] ints, int length, double rt, int msLevel, string name, string cv, string type, double reporter_mz_tol);
+        static private extern bool IsDifferentiallyAbundant(IntPtr pTestClassObjectdouble, double[] mzs, double[] ints, int length, double rt, int msLevel, string name, double reporter_mz_tol, double fold_change_threshold, bool only_one_condition);
 
         [DllImport(dllName)]
         static private extern int GetAllPeakGroupSize(IntPtr pTestClassObjectdouble);
@@ -180,11 +180,11 @@ namespace Flash.IDA
             return result;
         }
 
-        protected bool IsDifferentiallyAbundant(double[] mzs, double[] ints, double rt, int msLevel, string name, string cv = null, string type = null, double reporter_mz_tol = 0)
+        protected bool IsDifferentiallyAbundant(double[] mzs, double[] ints, double rt, int msLevel, string name, double reporter_mz_tol = 0, double fold_change_threshold = 0, bool only_one_condition = false)
         {
             try
             {
-                return IsDifferentiallyAbundant(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, name, cv, type, reporter_mz_tol);
+                return IsDifferentiallyAbundant(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, name, reporter_mz_tol, fold_change_threshold, only_one_condition);
             }
             catch (Exception idaException)
             {
@@ -282,7 +282,7 @@ namespace Flash.IDA
             return GetIsolationWindows(mzs, ints, rt, msLevel, name, cv);
         }
 
-        public bool IsDifferentiallyAbundant(IMsScan msScan, String cv = null, string type = null, double reporter_mz_tol = 0)
+        public bool IsDifferentiallyAbundant(IMsScan msScan, double reporter_mz_tol = 0, double fold_change_threshold = 0, bool only_one_condition = false)
         {
             int msLevel = int.Parse(msScan.Header["MSOrder"]);
             double rt = double.Parse(msScan.Header["StartTime"]);
@@ -295,7 +295,7 @@ namespace Flash.IDA
             mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
             ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
 
-            return IsDifferentiallyAbundant(mzs, ints, rt, msLevel, name, cv, type, reporter_mz_tol);
+            return IsDifferentiallyAbundant(mzs, ints, rt, msLevel, name, reporter_mz_tol, fold_change_threshold, only_one_condition);
         }
 
         /// <summary>
@@ -480,7 +480,7 @@ namespace Flash.IDA
                     if (mzs.Count > 0)
                     {
                         //var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line);
-                        var l = w.IsDifferentiallyAbundant(mzs.ToArray(), ints.ToArray(), rt, 2, line, "", "", 0.002);
+                        var l = w.IsDifferentiallyAbundant(mzs.ToArray(), ints.ToArray(), rt, 2, line, 0.002, 1.5, false);
                         Console.WriteLine(l);
                         
 

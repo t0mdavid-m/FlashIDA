@@ -150,7 +150,10 @@ namespace Flash.IDA
 
                 try
                 {
-                    bool differentiallyAbundant = flashIdaWrapper.IsDifferentiallyAbundant(msScan, "", "", 2e-3);
+                    bool differentiallyAbundant = flashIdaWrapper.IsDifferentiallyAbundant(
+                        msScan, methodParams.IDA.quantReporterMZTol, methodParams.IDA.quantFoldChangeThreshold, 
+                        methodParams.IDA.quantOnlyOneCondition
+                    );
                     IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f04} (Access ID {2}) - differential={3}",
                        msScan.Header["Scan"], msScan.Header["StartTime"], scanId, differentiallyAbundant));
                     if (!differentiallyAbundant)
