@@ -72,7 +72,6 @@ namespace Flash.IDA
         /// <returns></returns>
         public IEnumerable<IFusionCustomScan> ProcessMS(IMsScan msScan)
         {
-            log.Info("Scan Received - Quant");
             msScan.Trailer.TryGetValue("Scan Description", out var desc);
 
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
