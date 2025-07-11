@@ -195,7 +195,7 @@ namespace Flash.IDA
 
                     scans.Add(repScan);
 
-                    log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) (differentially abundant) to Queue as #{4}",
+                    log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) (differentially abundant) to Queue as #{3}",
                         center, isolation, charge_state, scanScheduler.customScans.Count + scans.Count));
                 }
                 catch (Exception ex)
