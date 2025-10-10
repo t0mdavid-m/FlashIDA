@@ -108,7 +108,7 @@ namespace Flash.IDA
                                 PrecursorMass = new double[] { center },
                                 IsolationWidth = new double[] { isolation },
                                 ActivationType = new string[] { ms2_params.Activation },
-                                CollisionEnergy = ms2_params.CollisionEnergy != 0 ? new int[] { ms2_params.CollisionEnergy } : null,
+                                CollisionEnergy = new int[] { precursor.Hcd },
                                 ScanType = "MSn",
                                 Microscans = ms2_params.Microscans,
                                 ChargeStates = new int[] { Math.Min(z, 25) },
@@ -124,8 +124,8 @@ namespace Flash.IDA
 
                             scans.Add(repScan);
 
-                            log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} to Queue as #{4}",
-                                center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count));
+                            log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} hcd: {5} to Queue as #{4}",
+                                center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count, precursor.Hcd));
                             IDAlog.Debug(precursor.ToString());
                         }
 

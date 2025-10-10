@@ -50,6 +50,7 @@ namespace Flash.IDA
 
         public double PpmError { get; set; }
 
+        public int Hcd { get; set; }
         public int Id { get; set; }
 
         /// <summary>
@@ -81,7 +82,7 @@ namespace Flash.IDA
         /// <param name="ppmError">Mass error in ppm</param>
         /// <param name="id">id to be used for exclusion list removal</param>
         public PrecursorTarget(double lowMz, double highMz, int z, int min_z, int max_z, double mass, double score, double precursorIntensity, 
-            double precursorPeakGroupIntensity, double chargeCos, double chargeSnr, double isoCos, double snr, double chargeScore, double ppmError, int id)
+            double precursorPeakGroupIntensity, double chargeCos, double chargeSnr, double isoCos, double snr, double chargeScore, double ppmError, int hcd, int id)
         {
             Window = new Range(lowMz, highMz);
             Score = score;
@@ -97,6 +98,7 @@ namespace Flash.IDA
             Snr = snr;
             ChargeScore = chargeScore;
             PpmError = ppmError;
+            Hcd = hcd;
             Id = id;
         }
 
@@ -106,8 +108,8 @@ namespace Flash.IDA
         /// <returns></returns>
         public override string ToString()
         {
-            return string.Format("Mass={0}\tZ={1}\tScore={2:f05}\tWindow=[{3:f04}-{4:f04}]\tPrecursorIntensity={5:f05}\tPrecursorMassIntensity={6:f05}\tFeatures=[{7:f06},{8:f06},{9:f06},{10:f06},{11:f06},{12:f06}]\tChargeRange=[{13}-{14}]", 
-                MonoMass, Charge, Score, Window.Start, Window.End, PrecursorIntensity, PrecursorPeakGroupIntensity, ChargeCos, ChargeSnr, IsoCos, Snr, ChargeScore, PpmError, MinCharge, MaxCharge);
+            return string.Format("Mass={0}\tZ={1}\tScore={2:f05}\tWindow=[{3:f04}-{4:f04}]\tPrecursorIntensity={5:f05}\tPrecursorMassIntensity={6:f05}\tFeatures=[{7:f06},{8:f06},{9:f06},{10:f06},{11:f06},{12:f06}]\tChargeRange=[{13}-{14}]\tHCD={15}", 
+                MonoMass, Charge, Score, Window.Start, Window.End, PrecursorIntensity, PrecursorPeakGroupIntensity, ChargeCos, ChargeSnr, IsoCos, Snr, ChargeScore, PpmError, MinCharge, MaxCharge, Hcd);
         }
     }
 }

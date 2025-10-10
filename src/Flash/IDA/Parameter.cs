@@ -42,6 +42,10 @@ namespace Flash.IDA
         public int MaxCVSkip { set; get; }
         public int MassThreshold { set; get; }
 
+        public bool UseIDScore { set; get; }
+        public bool ConsiderAllChargeStates { set; get; }
+        public int HCDEnergy { set; get; }
+
         /// <summary>
         /// Complete constructor
         /// </summary>
@@ -56,9 +60,10 @@ namespace Flash.IDA
         /// <param name="targetLogs">log files containing target or excluded masses</param> 
         /// <param name="targetMode">If set to 1, inclusive targeted mode if 2, exclusive targeted mode. If 0, normal exclusion list mode</param> 
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
-        public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100, 
+        public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100,
                              double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
-                             int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false)
+                             int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false,
+                             bool UseIDScore_ = false, bool ConsiderAllChargeStates_ = false, int HCDEnergy_ = 29)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -79,6 +84,9 @@ namespace Flash.IDA
             quantReporterMZTol = quantReporterMZTol_;
             quantFoldChangeThreshold = quantFoldChangeThreshold_;
             quantOnlyOneCondition = quantOnlyOneCondition_;
+            UseIDScore = UseIDScore_;
+            ConsiderAllChargeStates = ConsiderAllChargeStates_;
+            HCDEnergy = HCDEnergy_;
         }
 
         /// <summary>
@@ -95,8 +103,8 @@ namespace Flash.IDA
         /// <returns></returns>
         public string ToFLASHDeconvInput()
         {
-            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} ",
-                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode);
+            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} IDScore {10} AllCharges {11} HCDEnergy {12} ",
+                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode, UseIDScore ? 1 : 0, ConsiderAllChargeStates ? 1 : 0, HCDEnergy);
 
             foreach(var f in TargetLogs)
             {

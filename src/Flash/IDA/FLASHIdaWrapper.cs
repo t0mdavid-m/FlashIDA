@@ -56,7 +56,7 @@ namespace Flash.IDA
             double[] qScores, int[] charges, int[] min_charges, int[] max_charges, double[] monoMasses, double[] chargeCos, double[] chargeSnrs,
                            double[] isoCos,
                            double[] snrs, double[] chargeScores,
-                           double[] ppmErrors, double[] precursorIntensities, double[] peakgroupIntensities, int[] ids
+                           double[] ppmErrors, double[] precursorIntensities, double[] peakgroupIntensities, int[] hcds, int[] ids
             );
 
         [DllImport(dllName)]
@@ -156,13 +156,14 @@ namespace Flash.IDA
             double[] tppmErrors = new double[size];
             double[] tprecursorIntensities = new double[size];
             double[] tpeakgroupIntensities = new double[size];
+            int[] hcds = new int[size];
             int[] ids = new int[size];
 
             try
             {
                 GetIsolationWindows(m_pNativeObject, wstart, wend, tqScores, tCharges, tMinCharges, tMaxCharges, tmonoMasses, tchargeCos,
                     tchargeSnrs, tisoCos, tsnrs, tchargeScores, tppmErrors,
-                    tprecursorIntensities, tpeakgroupIntensities, ids);
+                    tprecursorIntensities, tpeakgroupIntensities, hcds, ids);
             }
             catch (Exception idaException)
             {
@@ -174,7 +175,7 @@ namespace Flash.IDA
             for (int i = 0; i < size; i++)
             {
                 result.Add(new PrecursorTarget(wstart[i], wend[i], tCharges[i], tMinCharges[i], tMaxCharges[i], tmonoMasses[i], tqScores[i], tprecursorIntensities[i],
-                    tpeakgroupIntensities[i], tchargeCos[i], tchargeSnrs[i], tisoCos[i], tsnrs[i], tchargeScores[i], tppmErrors[i], ids[i]));  
+                    tpeakgroupIntensities[i], tchargeCos[i], tchargeSnrs[i], tisoCos[i], tsnrs[i], tchargeScores[i], tppmErrors[i], hcds[i], ids[i]));  
             }
 
             return result;
@@ -467,8 +468,9 @@ namespace Flash.IDA
             var msLevel = 1;
             var totalScore = .0;
             bool start = false;
-            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity");
+            wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity\thcd");
 
+            Console.WriteLine("aa");
             while ((line = file.ReadLine()) != null)
             {
                 var token = line.Split('\t');
@@ -479,37 +481,37 @@ namespace Flash.IDA
                     start = true;
                     if (mzs.Count > 0)
                     {
-                        //var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line);
-                        var l = w.IsDifferentiallyAbundant(mzs.ToArray(), ints.ToArray(), rt, 2, line, 0.002, 1.5, false);
+                        var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line);
+                        //var l = w.IsDifferentiallyAbundant(mzs.ToArray(), ints.ToArray(), rt, 2, line, 0.002, 1.5, true);
                         Console.WriteLine(l);
                         
 
-                        //List<double> monoMasses = w.GetAllMonoisotopicMasses();
+                        List<double> monoMasses = w.GetAllMonoisotopicMasses();
 
                         Console.WriteLine(rt);
-                        //if (l.Count > 0) Console.WriteLine(String.Join<PrecursorTarget>("\n", l.ToArray()));
-                        /*
+                        if (l.Count > 0) Console.WriteLine(String.Join<PrecursorTarget>("\n", l.ToArray()));
+
                         if (monoMasses.Count > 0)
                         {
                             Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray()))); ;
-                        }*/
+                        }
 
                         mzs.Clear();
                         ints.Clear();
 
-                        //foreach (var item in l)
-                        //{
-                        //    wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}",
-                        //        rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
-                        //        item.Snr, item.ChargeScore, item.PpmError,
-                        //        item.PrecursorIntensity, item.PrecursorPeakGroupIntensity);
-                        //    //   Console.WriteLine(item);
-                        //    totalScore += item.Score;
-                        //}
+                        foreach (var item in l)
+                        {
+                            wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}",
+                                rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
+                                item.Snr, item.ChargeScore, item.PpmError,
+                                item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Hcd);
+                            //   Console.WriteLine(item);
+                            totalScore += item.Score;
+                        }
                     }
 
-                    //rt = double.Parse(token[1]) / 60.0;
-                    rt = double.Parse(token[1]);
+                    rt = double.Parse(token[1]) / 60.0;
+                    //rt = double.Parse(token[1]);
 
                     if (start && line.StartsWith(@"Running FLASHDeconv ... "))
                     {
