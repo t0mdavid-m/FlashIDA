@@ -41,5 +41,8 @@
     </TargetLogs>
     <RTWindow>180</RTWindow>
     <TargetMode>3</TargetMode>
+    <StrictInclusion>false</StrictInclusion>
+    <InclusionList></InclusionList>
+    <PtmList></PtmList>
   </IDA>
 </MethodParameters>
