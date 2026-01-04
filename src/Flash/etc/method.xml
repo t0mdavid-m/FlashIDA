@@ -49,5 +49,6 @@
     <MaxPtmCount>3</MaxPtmCount>
     <MinTagLength>3</MinTagLength>
     <MaxFlankingMassDiff>50000</MaxFlankingMassDiff>
+    <ConditionalMS2>false</ConditionalMS2>
   </IDA>
 </MethodParameters>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
@@ -22,6 +23,21 @@ namespace Flash.IDA
         private ScanFactory scanFactory;
         private ScanScheduler scanScheduler;
         private bool ms2TaggingEnabled;
+
+        // Conditional MS2 mode fields
+        private bool conditionalMS2Enabled;
+        private ConcurrentDictionary<int, PendingConditionalMS2> pendingConditionalMS2s;
+
+        /// <summary>
+        /// Stores pending conditional MS2 information for a precursor.
+        /// MS2 parameters (including HCD energy) are accessed from methodParams.MS2 when needed.
+        /// </summary>
+        private class PendingConditionalMS2
+        {
+            public double PrecursorMz { get; set; }
+            public double IsolationWidth { get; set; }
+            public int Charge { get; set; }
+        }
 
         /// <summary>
         /// Create an instance of the scan processor using <paramref name="parameters"/>, connected to existing <see cref="ScanFactory"/> <paramref name="factory"/>
@@ -60,6 +76,20 @@ namespace Flash.IDA
                 {
                     log.Info(String.Format("MS2Tagging ENABLED with FASTA: {0}", methodParams.IDA.FastaFile));
                 }
+            }
+
+            // Initialize Conditional MS2 mode
+            conditionalMS2Enabled = methodParams.IDA.ConditionalMS2;
+            if (conditionalMS2Enabled)
+            {
+                pendingConditionalMS2s = new ConcurrentDictionary<int, PendingConditionalMS2>();
+
+                if (methodParams.MS2.Count < 2)
+                {
+                    log.Warn("ConditionalMS2 enabled with only 1 MS2 type. Tag detection will work but no follow-up MS2s will be scheduled.");
+                }
+
+                log.Info(String.Format("ConditionalMS2 ENABLED with {0} MS2 types", methodParams.MS2.Count));
             }
         }
 
@@ -114,42 +144,94 @@ namespace Flash.IDA
                         double isolation = precursor.Window.Width;
                         int z = precursor.Charge;
 
-                        foreach (MS2Parameters ms2_params in methodParams.MS2)
+                        if (conditionalMS2Enabled)
                         {
+                            // CONDITIONAL MODE: Only send first MS2 type
+                            MS2Parameters firstMS2Params = methodParams.MS2.First();
+                            int trackingId = precursor.Id;
 
-                            IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
-                            new ScanParameters
+                            IFusionCustomScan firstScan = scanFactory.CreateFusionCustomScan(
+                                new ScanParameters
+                                {
+                                    Analyzer = firstMS2Params.Analyzer,
+                                    IsolationMode = firstMS2Params.IsolationMode,
+                                    FirstMass = new double[] { firstMS2Params.FirstMass },
+                                    LastMass = new double[] { firstMS2Params.LastMass },
+                                    OrbitrapResolution = firstMS2Params.OrbitrapResolution,
+                                    MSXTargets = firstMS2Params.AGCTarget,
+                                    PrecursorMass = new double[] { center },
+                                    IsolationWidth = new double[] { isolation },
+                                    ActivationType = new string[] { firstMS2Params.Activation },
+                                    CollisionEnergy = new int[] { firstMS2Params.CollisionEnergy },
+                                    ScanType = "MSn",
+                                    Microscans = firstMS2Params.Microscans,
+                                    ChargeStates = new int[] { Math.Min(z, 25) },
+                                    MaxIT = firstMS2Params.MaxIT,
+                                    ReactionTime = firstMS2Params.ReactionTime != 0 ? new double[] { firstMS2Params.ReactionTime } : null,
+                                    ReagentMaxIT = firstMS2Params.ReagentMaxIT != 0 ? new double[] { firstMS2Params.ReagentMaxIT } : null,
+                                    ReagentAGCTarget = firstMS2Params.ReagentAGCTarget != 0 ? new int[] { firstMS2Params.ReagentAGCTarget } : null,
+                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                    SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
+                                    DataType = firstMS2Params.DataType,
+                                    ScanDescription = String.Format("cond_{0}", trackingId)
+                                }, delay: 3);
+
+                            scans.Add(firstScan);
+
+                            // Store precursor info for potential follow-up MS2s
+                            if (methodParams.MS2.Count > 1)
                             {
-                                Analyzer = ms2_params.Analyzer,
-                                IsolationMode = ms2_params.IsolationMode,
-                                FirstMass = new double[] { ms2_params.FirstMass },
-                                LastMass = new double[] { ms2_params.LastMass },
-                                OrbitrapResolution = ms2_params.OrbitrapResolution,
-                                MSXTargets = ms2_params.AGCTarget,
-                                PrecursorMass = new double[] { center },
-                                IsolationWidth = new double[] { isolation },
-                                ActivationType = new string[] { ms2_params.Activation },
-                                CollisionEnergy = new int[] { precursor.Hcd },
-                                ScanType = "MSn",
-                                Microscans = ms2_params.Microscans,
-                                ChargeStates = new int[] { Math.Min(z, 25) },
-                                MaxIT = ms2_params.MaxIT,
-                                ReactionTime = ms2_params.ReactionTime != 0 ? new double[] { ms2_params.ReactionTime } : null,
-                                ReagentMaxIT = ms2_params.ReagentMaxIT != 0 ? new double[] { ms2_params.ReagentMaxIT } : null,
-                                ReagentAGCTarget = ms2_params.ReagentAGCTarget != 0 ? new int[] { ms2_params.ReagentAGCTarget } : null,
-                                SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                                SourceCIDEnergy = methodParams.MS1.SourceCID,
-                                SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                                DataType = ms2_params.DataType
-                            }, delay: 3);
+                                pendingConditionalMS2s[trackingId] = new PendingConditionalMS2
+                                {
+                                    PrecursorMz = center,
+                                    IsolationWidth = isolation,
+                                    Charge = z
+                                };
+                            }
 
-                            scans.Add(repScan);
-
-                            log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} hcd: {5} to Queue as #{4}",
-                                center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count, precursor.Hcd));
+                            log.Debug(String.Format("ADD CONDITIONAL m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} trackingId: {4}",
+                                center, isolation, z, precursor.Score, trackingId));
                             IDAlog.Debug(precursor.ToString());
                         }
+                        else
+                        {
+                            // STANDARD MODE: Existing behavior - send all MS2 types
+                            foreach (MS2Parameters ms2_params in methodParams.MS2)
+                            {
+                                IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
+                                    new ScanParameters
+                                    {
+                                        Analyzer = ms2_params.Analyzer,
+                                        IsolationMode = ms2_params.IsolationMode,
+                                        FirstMass = new double[] { ms2_params.FirstMass },
+                                        LastMass = new double[] { ms2_params.LastMass },
+                                        OrbitrapResolution = ms2_params.OrbitrapResolution,
+                                        MSXTargets = ms2_params.AGCTarget,
+                                        PrecursorMass = new double[] { center },
+                                        IsolationWidth = new double[] { isolation },
+                                        ActivationType = new string[] { ms2_params.Activation },
+                                        CollisionEnergy = new int[] { precursor.Hcd },
+                                        ScanType = "MSn",
+                                        Microscans = ms2_params.Microscans,
+                                        ChargeStates = new int[] { Math.Min(z, 25) },
+                                        MaxIT = ms2_params.MaxIT,
+                                        ReactionTime = ms2_params.ReactionTime != 0 ? new double[] { ms2_params.ReactionTime } : null,
+                                        ReagentMaxIT = ms2_params.ReagentMaxIT != 0 ? new double[] { ms2_params.ReagentMaxIT } : null,
+                                        ReagentAGCTarget = ms2_params.ReagentAGCTarget != 0 ? new int[] { ms2_params.ReagentAGCTarget } : null,
+                                        SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                        SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                        SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
+                                        DataType = ms2_params.DataType
+                                    }, delay: 3);
 
+                                scans.Add(repScan);
+
+                                log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} hcd: {5} to Queue as #{4}",
+                                    center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count, precursor.Hcd));
+                                IDAlog.Debug(precursor.ToString());
+                            }
+                        }
                     }
                     if (monoMasses.Count > 0)
                         IDAlog.Debug(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray())));
@@ -161,27 +243,91 @@ namespace Flash.IDA
 
                 scans.Add(null); //will be replaced by default scan
             }
-            // Process MS2 scans for tag-based targeting
-            else if (ms2TaggingEnabled &&
-                     msScan.Header["MSOrder"] == "2" &&
-                     msScan.Header["MassAnalyzer"] == "FTMS")
+            // Process MS2 scans for conditional MS2 mode or tag-based targeting
+            else if (msScan.Header["MSOrder"] == "2" && msScan.Header["MassAnalyzer"] == "FTMS")
             {
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
+                msScan.Trailer.TryGetValue("Scan Description", out var scanDesc);
                 double rt = double.Parse(msScan.Header["StartTime"]);
 
-                try
+                // Handle Conditional MS2 mode
+                if (conditionalMS2Enabled && scanDesc != null && scanDesc.StartsWith("cond_"))
                 {
-                    bool detected = flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
-
-                    if (detected)
+                    try
                     {
-                        IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Protein family detected, inclusion list expanded",
-                            msScan.Header["Scan"], rt));
+                        string trackingIdStr = scanDesc.Substring(5);
+                        if (int.TryParse(trackingIdStr, out int trackingId))
+                        {
+                            bool tagsFound = flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
+
+                            if (tagsFound && pendingConditionalMS2s.TryRemove(trackingId, out var pending))
+                            {
+                                IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Tags found! Scheduling {2} additional MS2 types",
+                                    msScan.Header["Scan"], rt, methodParams.MS2.Count - 1));
+
+                                // Schedule all remaining MS2 types (skip first which was already sent)
+                                foreach (MS2Parameters ms2_params in methodParams.MS2.Skip(1))
+                                {
+                                    IFusionCustomScan followUpScan = scanFactory.CreateFusionCustomScan(
+                                        new ScanParameters
+                                        {
+                                            Analyzer = ms2_params.Analyzer,
+                                            IsolationMode = ms2_params.IsolationMode,
+                                            FirstMass = new double[] { ms2_params.FirstMass },
+                                            LastMass = new double[] { ms2_params.LastMass },
+                                            OrbitrapResolution = ms2_params.OrbitrapResolution,
+                                            MSXTargets = ms2_params.AGCTarget,
+                                            PrecursorMass = new double[] { pending.PrecursorMz },
+                                            IsolationWidth = new double[] { pending.IsolationWidth },
+                                            ActivationType = new string[] { ms2_params.Activation },
+                                            CollisionEnergy = new int[] { ms2_params.CollisionEnergy },
+                                            ScanType = "MSn",
+                                            Microscans = ms2_params.Microscans,
+                                            ChargeStates = new int[] { Math.Min(pending.Charge, 25) },
+                                            MaxIT = ms2_params.MaxIT,
+                                            ReactionTime = ms2_params.ReactionTime != 0 ? new double[] { ms2_params.ReactionTime } : null,
+                                            ReagentMaxIT = ms2_params.ReagentMaxIT != 0 ? new double[] { ms2_params.ReagentMaxIT } : null,
+                                            ReagentAGCTarget = ms2_params.ReagentAGCTarget != 0 ? new int[] { ms2_params.ReagentAGCTarget } : null,
+                                            SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                            SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                            SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
+                                            DataType = ms2_params.DataType
+                                        }, delay: 3);
+
+                                    scans.Add(followUpScan);
+                                    log.Debug(String.Format("ADD follow-up {0} m/z {1:f04}", ms2_params.Activation, pending.PrecursorMz));
+                                }
+                            }
+                            else if (!tagsFound)
+                            {
+                                pendingConditionalMS2s.TryRemove(trackingId, out _);
+                                IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - No tags, skipping remaining MS2 types",
+                                    msScan.Header["Scan"], rt));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        IDAlog.Error(String.Format("Conditional MS2 processing failed: {0}", ex.Message));
                     }
                 }
-                catch (Exception ex)
+                // Handle existing MS2 tagging mode (when ConditionalMS2 is off or scan is not conditional)
+                else if (ms2TaggingEnabled)
                 {
-                    IDAlog.Error(String.Format("MS2 tag processing failed: {0}", ex.Message));
+                    try
+                    {
+                        bool detected = flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
+
+                        if (detected)
+                        {
+                            IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Protein family detected, inclusion list expanded",
+                                msScan.Header["Scan"], rt));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        IDAlog.Error(String.Format("MS2 tag processing failed: {0}", ex.Message));
+                    }
                 }
             }
 

@@ -55,6 +55,7 @@ namespace Flash.IDA
         public int MaxPtmCount { set; get; }
         public int MinTagLength { set; get; }
         public double MaxFlankingMassDiff { set; get; }
+        public bool ConditionalMS2 { set; get; }
 
         /// <summary>
         /// Complete constructor
@@ -75,7 +76,8 @@ namespace Flash.IDA
                              int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false,
                              bool UseIDScore_ = false, bool ConsiderAllChargeStates_ = false, int HCDEnergy_ = 29,
                              bool strictInclusion = false, string inclusionList = null, string ptmList = null,
-                             bool ms2Tagging = false, string fastaFile = null, int maxPtmCount = 3, int minTagLength = 3, double maxFlankingMassDiff = 50000.0)
+                             bool ms2Tagging = false, string fastaFile = null, int maxPtmCount = 3, int minTagLength = 3, double maxFlankingMassDiff = 50000.0,
+                             bool conditionalMS2 = false)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -107,6 +109,7 @@ namespace Flash.IDA
             MaxPtmCount = maxPtmCount;
             MinTagLength = minTagLength;
             MaxFlankingMassDiff = maxFlankingMassDiff;
+            ConditionalMS2 = conditionalMS2;
         }
 
         /// <summary>
