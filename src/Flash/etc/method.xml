@@ -25,6 +25,24 @@
     <Activation>HCD</Activation>
     <CollisionEnergy>29</CollisionEnergy>
   </MS2>
+  <MS3>
+    <MS3Parameters>
+      <Analyzer>Orbitrap</Analyzer>
+      <IsolationMode>Quadrupole</IsolationMode>
+      <FirstMass>150</FirstMass>
+      <LastMass>2000</LastMass>
+      <OrbitrapResolution>30000</OrbitrapResolution>
+      <AGCTarget>100000</AGCTarget>
+      <MaxIT>200</MaxIT>
+      <Microscans>1</Microscans>
+      <DataType>Centroid</DataType>
+      <Activation>HCD</Activation>
+      <ReactionTime>0</ReactionTime>
+      <ReagentMaxIT>0</ReagentMaxIT>
+      <ReagentAGCTarget>0</ReagentAGCTarget>
+      <CollisionEnergy>30</CollisionEnergy>
+    </MS3Parameters>
+  </MS3>
   <IDA>
     <MaxMs2CountPerMs1>4</MaxMs2CountPerMs1>
     <QScoreThreshold>.2</QScoreThreshold>
@@ -50,5 +68,8 @@
     <MinTagLength>3</MinTagLength>
     <MaxFlankingMassDiff>50000</MaxFlankingMassDiff>
     <ConditionalMS2>false</ConditionalMS2>
+    <EnableMS3>false</EnableMS3>
+    <MS3Mode>0</MS3Mode>
+    <MaxMs3PerMs2>4</MaxMs3PerMs2>
   </IDA>
 </MethodParameters>

@@ -28,6 +28,13 @@ namespace Flash.IDA
         private bool conditionalMS2Enabled;
         private ConcurrentDictionary<int, PendingConditionalMS2> pendingConditionalMS2s;
 
+        // MS3 mode fields
+        private bool ms3Enabled;
+        private int ms3Mode;
+        private int maxMs3PerMs2;
+        private ConcurrentDictionary<int, PendingMS3Info> pendingMS3s;
+        private int ms3TrackingIdCounter = 0;
+
         /// <summary>
         /// Stores pending conditional MS2 information for a precursor.
         /// MS2 parameters (including HCD energy) are accessed from methodParams.MS2 when needed.
@@ -37,6 +44,17 @@ namespace Flash.IDA
             public double PrecursorMz { get; set; }
             public double IsolationWidth { get; set; }
             public int Charge { get; set; }
+        }
+
+        /// <summary>
+        /// Stores pending MS3 information for tracking IDA-scheduled MS2 scans.
+        /// </summary>
+        private class PendingMS3Info
+        {
+            public double MS2PrecursorMz { get; set; }
+            public double MS2IsolationWidth { get; set; }
+            public int MS2Charge { get; set; }
+            public double MS2PrecursorMass { get; set; }
         }
 
         /// <summary>
@@ -90,6 +108,27 @@ namespace Flash.IDA
                 }
 
                 log.Info(String.Format("ConditionalMS2 ENABLED with {0} MS2 types", methodParams.MS2.Count));
+            }
+
+            // Initialize MS3 mode
+            ms3Enabled = methodParams.IDA.EnableMS3;
+            ms3Mode = methodParams.IDA.MS3Mode;
+            maxMs3PerMs2 = methodParams.IDA.MaxMs3PerMs2;
+
+            if (ms3Enabled)
+            {
+                pendingMS3s = new ConcurrentDictionary<int, PendingMS3Info>();
+
+                if (methodParams.MS3 == null || methodParams.MS3.Count == 0)
+                {
+                    log.Warn("EnableMS3 is true but no MS3 parameters defined. MS3 disabled.");
+                    ms3Enabled = false;
+                }
+                else
+                {
+                    log.Info(String.Format("MS3 mode {0} ENABLED - MaxMs3PerMs2: {1}, MS3 types: {2}",
+                        ms3Mode, maxMs3PerMs2, methodParams.MS3.Count));
+                }
             }
         }
 
@@ -197,6 +236,24 @@ namespace Flash.IDA
                         else
                         {
                             // STANDARD MODE: Existing behavior - send all MS2 types
+                            // MS3 tracking: tag the first MS2 type for MS3 triggering
+                            int ms3TrackingId = -1;
+                            string ms3ScanDesc = null;
+
+                            if (ms3Enabled)
+                            {
+                                ms3TrackingId = System.Threading.Interlocked.Increment(ref ms3TrackingIdCounter);
+                                ms3ScanDesc = String.Format("ms3_{0}", ms3TrackingId);
+
+                                pendingMS3s[ms3TrackingId] = new PendingMS3Info
+                                {
+                                    MS2PrecursorMz = center,
+                                    MS2IsolationWidth = isolation,
+                                    MS2Charge = z,
+                                    MS2PrecursorMass = precursor.MonoMass
+                                };
+                            }
+
                             foreach (MS2Parameters ms2_params in methodParams.MS2)
                             {
                                 IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
@@ -222,10 +279,14 @@ namespace Flash.IDA
                                         SrcRFLens = new double[] { methodParams.MS1.RFLens },
                                         SourceCIDEnergy = methodParams.MS1.SourceCID,
                                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                                        DataType = ms2_params.DataType
+                                        DataType = ms2_params.DataType,
+                                        ScanDescription = ms3ScanDesc
                                     }, delay: 3);
 
                                 scans.Add(repScan);
+
+                                // Only tag the first MS2 type for MS3 triggering
+                                ms3ScanDesc = null;
 
                                 log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} hcd: {5} to Queue as #{4}",
                                     center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count, precursor.Hcd));
@@ -333,6 +394,94 @@ namespace Flash.IDA
                     catch (Exception ex)
                     {
                         IDAlog.Error(String.Format("MS2 tag processing failed: {0}", ex.Message));
+                    }
+                }
+
+                // Handle MS3 triggering from IDA-scheduled MS2 scans
+                if (ms3Enabled && scanDesc != null && scanDesc.StartsWith("ms3_"))
+                {
+                    try
+                    {
+                        string ms3IdStr = scanDesc.Substring(4);
+                        if (int.TryParse(ms3IdStr, out int ms3TrackingId) &&
+                            pendingMS3s.TryRemove(ms3TrackingId, out var pendingMs3))
+                        {
+                            // Deconvolve MS2 to find fragment masses for MS3
+                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan);
+
+                            if (peakGroups > 0 && ms3Mode == 0)
+                            {
+                                // Mode 0: Top N masses by qscore
+                                List<FLASHIdaWrapper.MS3Target> ms3Targets =
+                                    flashIdaWrapper.GetBestMS2Masses(maxMs3PerMs2);
+
+                                IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Scheduling {2} MS3 scans",
+                                    msScan.Header["Scan"], rt, ms3Targets.Count));
+
+                                foreach (var ms3Target in ms3Targets)
+                                {
+                                    foreach (MS3Parameters ms3_params in methodParams.MS3)
+                                    {
+                                        // MS3 arrays: [0] = MS2 precursor info, [1] = MS3 fragment info
+                                        IFusionCustomScan ms3Scan = scanFactory.CreateFusionCustomScan(
+                                            new ScanParameters
+                                            {
+                                                Analyzer = ms3_params.Analyzer,
+                                                IsolationMode = ms3_params.IsolationMode,
+                                                FirstMass = new double[] { ms3_params.FirstMass },
+                                                LastMass = new double[] { ms3_params.LastMass },
+                                                OrbitrapResolution = ms3_params.OrbitrapResolution,
+                                                MSXTargets = ms3_params.AGCTarget,
+                                                // Two-stage isolation: MS2 precursor first, then MS3 fragment
+                                                PrecursorMass = new double[] {
+                                                    pendingMs3.MS2PrecursorMz,    // MS2 precursor (from MS1)
+                                                    ms3Target.IsolationMz         // MS3 fragment (from MS2)
+                                                },
+                                                IsolationWidth = new double[] {
+                                                    pendingMs3.MS2IsolationWidth, // MS2 isolation width
+                                                    ms3Target.IsolationWidth      // MS3 isolation width
+                                                },
+                                                ActivationType = new string[] {
+                                                    methodParams.MS2.First().Activation, // MS2 activation
+                                                    ms3_params.Activation                // MS3 activation
+                                                },
+                                                CollisionEnergy = new int[] {
+                                                    methodParams.MS2.First().CollisionEnergy, // MS2 energy
+                                                    ms3_params.CollisionEnergy                // MS3 energy
+                                                },
+                                                ScanType = "MSn",
+                                                Microscans = ms3_params.Microscans,
+                                                ChargeStates = new int[] {
+                                                    Math.Min(pendingMs3.MS2Charge, 25), // MS2 charge
+                                                    Math.Max(1, ms3Target.Charge)       // MS3 fragment charge
+                                                },
+                                                MaxIT = ms3_params.MaxIT,
+                                                ReactionTime = ms3_params.ReactionTime != 0 ?
+                                                    new double[] { 0, ms3_params.ReactionTime } : null,
+                                                ReagentMaxIT = ms3_params.ReagentMaxIT != 0 ?
+                                                    new double[] { 0, ms3_params.ReagentMaxIT } : null,
+                                                ReagentAGCTarget = ms3_params.ReagentAGCTarget != 0 ?
+                                                    new int[] { 0, ms3_params.ReagentAGCTarget } : null,
+                                                SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                                SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                                SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
+                                                DataType = ms3_params.DataType
+                                            }, delay: 3);
+
+                                        scans.Add(ms3Scan);
+
+                                        log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02}",
+                                            pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth));
+                                    }
+                                }
+                            }
+
+                            flashIdaWrapper.ClearMS2DeconvolutionState();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        IDAlog.Error(String.Format("MS3 processing failed: {0}", ex.Message));
                     }
                 }
             }

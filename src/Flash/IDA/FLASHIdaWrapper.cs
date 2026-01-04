@@ -423,6 +423,70 @@ namespace Flash.IDA
         }
 
         /// <summary>
+        /// Target information for MS3 scans from MS2 deconvolution
+        /// </summary>
+        public class MS3Target
+        {
+            public double Mass { get; set; }
+            public double QScore { get; set; }
+            public int Charge { get; set; }
+            public double WindowStart { get; set; }
+            public double WindowEnd { get; set; }
+
+            public double IsolationMz => (WindowStart + WindowEnd) / 2;
+            public double IsolationWidth => WindowEnd - WindowStart;
+        }
+
+        /// <summary>
+        /// Get the best deconvolved masses from MS2 spectrum for MS3 targeting.
+        /// REQUIRES DeconvolveMS2() to be called first!
+        /// </summary>
+        /// <param name="n">Maximum number of masses to return</param>
+        /// <returns>List of MS3Target objects sorted by qscore (descending)</returns>
+        public List<MS3Target> GetBestMS2Masses(int n)
+        {
+            var result = new List<MS3Target>();
+
+            try
+            {
+                int peakGroupCount = GetMS2PeakGroupCount();
+                if (peakGroupCount == 0)
+                    return result;
+
+                int requestCount = Math.Min(n, peakGroupCount);
+
+                double[] masses = new double[requestCount];
+                double[] qscores = new double[requestCount];
+                int[] charges = new int[requestCount];
+                double[] windowStarts = new double[requestCount];
+                double[] windowEnds = new double[requestCount];
+
+                int actualCount = GetBestMS2Masses(
+                    m_pNativeObject, requestCount,
+                    masses, qscores, charges,
+                    windowStarts, windowEnds);
+
+                for (int i = 0; i < actualCount; i++)
+                {
+                    result.Add(new MS3Target
+                    {
+                        Mass = masses[i],
+                        QScore = qscores[i],
+                        Charge = charges[i],
+                        WindowStart = windowStarts[i],
+                        WindowEnd = windowEnds[i]
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("GetBestMS2Masses error: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Calculate value G(<paramref name="x"/>) of Gaussian function (G) with height = <paramref name="intensity"/>, center = <paramref name="x0"/>,
         /// and standard deviation = <paramref name="sigma"/>
         /// </summary>
@@ -701,6 +765,26 @@ namespace Flash.IDA
                                     if (detected)
                                     {
                                         Console.WriteLine("RT {0:f02} - Protein family detected (precursor {1:f02} Da), inclusion list expanded", rt, simulatedPrecursorMass);
+                                    }
+
+                                    // Test GetBestMS2Masses for MS3 targeting
+                                    int maxMs3 = 4;  // Request top 4 masses
+                                    double[] masses = new double[maxMs3];
+                                    double[] qscores = new double[maxMs3];
+                                    int[] charges = new int[maxMs3];
+                                    double[] windowStarts = new double[maxMs3];
+                                    double[] windowEnds = new double[maxMs3];
+
+                                    int ms3Count = GetBestMS2Masses(w.m_pNativeObject, maxMs3,
+                                        masses, qscores, charges, windowStarts, windowEnds);
+
+                                    Console.WriteLine("\nMS3 Targets from GetBestMS2Masses ({0} found):", ms3Count);
+                                    for (int i = 0; i < ms3Count; i++)
+                                    {
+                                        double isoMz = (windowStarts[i] + windowEnds[i]) / 2;
+                                        double isoWidth = windowEnds[i] - windowStarts[i];
+                                        Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
+                                            i + 1, masses[i], qscores[i], charges[i], isoMz, isoWidth);
                                     }
                                 }
 

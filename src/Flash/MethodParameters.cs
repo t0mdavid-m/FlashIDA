@@ -52,7 +52,31 @@ namespace Flash
     }
 
     /// <summary>
-    /// Complete set of aquisition parameters, includs MS1, MS2, FlashIDA, and some general ones
+    /// MS3 acquisition parameters
+    /// </summary>
+    /// <remarks>
+    /// Naming of properties is alligned with Thermo instrument API and should not be changed
+    /// </remarks>
+    public struct MS3Parameters
+    {
+        public string Analyzer;
+        public string IsolationMode;
+        public double FirstMass;
+        public double LastMass;
+        public int OrbitrapResolution;
+        public int AGCTarget;
+        public double MaxIT;
+        public int Microscans;
+        public string DataType;
+        public string Activation;
+        public double ReactionTime;
+        public double ReagentMaxIT;
+        public int ReagentAGCTarget;
+        public int CollisionEnergy;
+    }
+
+    /// <summary>
+    /// Complete set of aquisition parameters, includs MS1, MS2, MS3, FlashIDA, and some general ones
     /// </summary>
     public class MethodParameters
     {
@@ -60,6 +84,7 @@ namespace Flash
         public bool isobaricQuantification;
         public MS1Parameters MS1;
         public List<MS2Parameters> MS2;
+        public List<MS3Parameters> MS3;
         public IDAParameters IDA;
 
         /// <summary>
@@ -69,6 +94,7 @@ namespace Flash
         {
             MS1 = new MS1Parameters();
             MS2 = new List<MS2Parameters>();
+            MS3 = new List<MS3Parameters>();
             IDA = new IDAParameters();
         }
 
