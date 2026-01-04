@@ -44,5 +44,10 @@
     <StrictInclusion>false</StrictInclusion>
     <InclusionList></InclusionList>
     <PtmList></PtmList>
+    <MS2Tagging>false</MS2Tagging>
+    <FastaFile></FastaFile>
+    <MaxPtmCount>3</MaxPtmCount>
+    <MinTagLength>3</MinTagLength>
+    <MaxFlankingMassDiff>50000</MaxFlankingMassDiff>
   </IDA>
 </MethodParameters>

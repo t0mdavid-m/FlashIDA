@@ -21,6 +21,7 @@ namespace Flash.IDA
         private MethodParameters methodParams;
         private ScanFactory scanFactory;
         private ScanScheduler scanScheduler;
+        private bool ms2TaggingEnabled;
 
         /// <summary>
         /// Create an instance of the scan processor using <paramref name="parameters"/>, connected to existing <see cref="ScanFactory"/> <paramref name="factory"/>
@@ -40,6 +41,26 @@ namespace Flash.IDA
             scanFactory = factory;
 
             flashIdaWrapper = new FLASHIdaWrapper(methodParams.IDA);
+
+            // Validate MS2Tagging requirements
+            ms2TaggingEnabled = methodParams.IDA.MS2Tagging;
+            if (ms2TaggingEnabled)
+            {
+                if (methodParams.IDA.TargetMode != 1)
+                {
+                    log.Warn("MS2Tagging requires TargetMode=1 (inclusion mode). MS2Tagging disabled.");
+                    ms2TaggingEnabled = false;
+                }
+                else if (String.IsNullOrEmpty(methodParams.IDA.FastaFile))
+                {
+                    log.Warn("MS2Tagging requires FastaFile. MS2Tagging disabled.");
+                    ms2TaggingEnabled = false;
+                }
+                else
+                {
+                    log.Info(String.Format("MS2Tagging ENABLED with FASTA: {0}", methodParams.IDA.FastaFile));
+                }
+            }
         }
 
         /// <summary>
@@ -139,6 +160,29 @@ namespace Flash.IDA
                 }
 
                 scans.Add(null); //will be replaced by default scan
+            }
+            // Process MS2 scans for tag-based targeting
+            else if (ms2TaggingEnabled &&
+                     msScan.Header["MSOrder"] == "2" &&
+                     msScan.Header["MassAnalyzer"] == "FTMS")
+            {
+                msScan.Trailer.TryGetValue("Access ID", out var scanId);
+                double rt = double.Parse(msScan.Header["StartTime"]);
+
+                try
+                {
+                    bool detected = flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
+
+                    if (detected)
+                    {
+                        IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Protein family detected, inclusion list expanded",
+                            msScan.Header["Scan"], rt));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    IDAlog.Error(String.Format("MS2 tag processing failed: {0}", ex.Message));
+                }
             }
 
             return scans;

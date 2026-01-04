@@ -65,6 +65,13 @@ namespace Flash.IDA
         [DllImport(dllName)]
         static private extern void TestCode(IntPtr pTestClassObjectdouble, int[] arg, int length);
 
+        [DllImport(dllName)]
+        static private extern bool ProcessMS2ForTagBasedTargeting(
+            IntPtr pTestClassObject,
+            double[] mzs, double[] ints, int length,
+            double rt_min, int ms_level, string name, string cv,
+            double precursor_mass);
+
         private IntPtr m_pNativeObject;
 
         /// <summary>
@@ -300,6 +307,52 @@ namespace Flash.IDA
         }
 
         /// <summary>
+        /// Process MS2 spectrum for tag-based targeting.
+        /// Analyzes MS2 for sequence tags and expands inclusion list with PTM-modified masses.
+        /// </summary>
+        /// <param name="msScan">MS2 scan object</param>
+        /// <param name="cv">Optional CV value for FAIMS mode</param>
+        /// <returns>True if protein family detected and inclusion list expanded</returns>
+        public bool ProcessMS2ForTagBasedTargeting(IMsScan msScan, string cv = null)
+        {
+            // Debug: print all header key-value pairs
+            //log.Debug("MS2 Scan Header:");
+            //foreach (var key in msScan.Header.Keys)
+            //{
+            //    log.Debug(String.Format("  Header[{0}] = {1}", key, msScan.Header[key]));
+            //}
+
+            //// Debug: print all trailer (body) key-value pairs
+            //log.Debug("MS2 Scan Trailer:");
+            //foreach (var key in msScan.Trailer.Keys)
+            //{
+            //    msScan.Trailer.TryGetValue(key, out var value);
+            //    log.Debug(String.Format("  Trailer[{0}] = {1}", key, value));
+            //}
+
+            int msLevel = int.Parse(msScan.Header["MSOrder"]);
+            double rt = double.Parse(msScan.Header["StartTime"]);
+            string name = msScan.Header["Scan"];
+
+            // Get precursor mass from MS2 scan header
+            double precursorMass = double.Parse(msScan.Header["PrecursorMass[0]"]);
+
+            double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
+            double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
+
+            try
+            {
+                return ProcessMS2ForTagBasedTargeting(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, name, cv, precursorMass);
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("ProcessMS2ForTagBasedTargeting error: {0}\n{1}",
+                    ex.Message, ex.StackTrace));
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Calculate value G(<paramref name="x"/>) of Gaussian function (G) with height = <paramref name="intensity"/>, center = <paramref name="x0"/>,
         /// and standard deviation = <paramref name="sigma"/>
         /// </summary>
@@ -395,6 +448,36 @@ namespace Flash.IDA
         }
 
         /// <summary>
+        /// Load a single spectrum from a text file
+        /// </summary>
+        /// <param name="filePath">Path to spectrum file</param>
+        /// <returns>Tuple of (m/z array, intensity array, retention time in minutes)</returns>
+        private static (double[] mzs, double[] ints, double rt) LoadSpectrum(string filePath)
+        {
+            var mzs = new List<double>();
+            var ints = new List<double>();
+            double rt = 0;
+            bool started = false;
+
+            foreach (var line in File.ReadAllLines(filePath))
+            {
+                var token = line.Split('\t');
+                if (line.StartsWith("Spec"))
+                {
+                    rt = double.Parse(token[1]) / 60.0; // Convert seconds to minutes
+                    started = true;
+                }
+                else if (started && token.Length >= 2)
+                {
+                    mzs.Add(double.Parse(token[0]));
+                    ints.Add(double.Parse(token[1]));
+                }
+            }
+
+            return (mzs.ToArray(), ints.ToArray(), rt);
+        }
+
+        /// <summary>
         /// Extra execution entry point
         /// </summary>
         /// <remarks>
@@ -413,7 +496,7 @@ namespace Flash.IDA
             //parse command args
             if (args.Length < 3)
             {
-                Console.WriteLine("Too little parameters: provide input file, output file, maxMs2CountPerMs1 and qScoreThreshold");
+                Console.WriteLine("Usage: input_file output_file method.xml [ms2_spectrum_file]");
                 Environment.Exit(1);
             }
 
@@ -455,6 +538,25 @@ namespace Flash.IDA
             {
                 Console.WriteLine(String.Format("Error loading method file: {0}\n{1}", ex.Message, ex.StackTrace));
                 Environment.Exit(1);
+            }
+
+            // Optional MS2 spectrum file for tag-based targeting
+            double[] ms2Mzs = null;
+            double[] ms2Ints = null;
+            if (args.Length > 3 && !String.IsNullOrEmpty(args[3]))
+            {
+                try
+                {
+                    var (loadedMzs, loadedInts, loadedRt) = LoadSpectrum(args[3]);
+                    ms2Mzs = loadedMzs;
+                    ms2Ints = loadedInts;
+                    Console.WriteLine("Loaded MS2 spectrum: {0} peaks", ms2Mzs.Length);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(String.Format("Cannot load MS2 file: {0}. Error: {1}", args[3], ex.Message));
+                    Environment.Exit(1);
+                }
             }
 
             FLASHIdaWrapper w;
@@ -507,6 +609,29 @@ namespace Flash.IDA
                                 item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Hcd);
                             //   Console.WriteLine(item);
                             totalScore += item.Score;
+                        }
+
+                        // Send MS2 spectrum for tag-based targeting if MS1 had targets
+                        if (ms2Mzs != null && l.Count > 0)
+                        {
+                            // Use first target's mass as simulated precursor
+                            double simulatedPrecursorMass = l[0].MonoMass;
+
+                            try
+                            {
+                                bool detected = ProcessMS2ForTagBasedTargeting(
+                                    w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length,
+                                    rt, 2, "MS2_sim", null, simulatedPrecursorMass);
+
+                                if (detected)
+                                {
+                                    Console.WriteLine("RT {0:f02} - Protein family detected (precursor {1:f02} Da), inclusion list expanded", rt, simulatedPrecursorMass);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("MS2 tag processing failed: {0}", ex.Message);
+                            }
                         }
                     }
 

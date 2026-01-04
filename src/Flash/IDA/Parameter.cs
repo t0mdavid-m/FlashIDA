@@ -50,6 +50,12 @@ namespace Flash.IDA
         public string InclusionList { set; get; }
         public string PtmList { set; get; }
 
+        public bool MS2Tagging { set; get; }
+        public string FastaFile { set; get; }
+        public int MaxPtmCount { set; get; }
+        public int MinTagLength { set; get; }
+        public double MaxFlankingMassDiff { set; get; }
+
         /// <summary>
         /// Complete constructor
         /// </summary>
@@ -68,7 +74,8 @@ namespace Flash.IDA
                              double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
                              int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false,
                              bool UseIDScore_ = false, bool ConsiderAllChargeStates_ = false, int HCDEnergy_ = 29,
-                             bool strictInclusion = false, string inclusionList = null, string ptmList = null)
+                             bool strictInclusion = false, string inclusionList = null, string ptmList = null,
+                             bool ms2Tagging = false, string fastaFile = null, int maxPtmCount = 3, int minTagLength = 3, double maxFlankingMassDiff = 50000.0)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -95,6 +102,11 @@ namespace Flash.IDA
             StrictInclusion = strictInclusion;
             InclusionList = inclusionList;
             PtmList = ptmList;
+            MS2Tagging = ms2Tagging;
+            FastaFile = fastaFile;
+            MaxPtmCount = maxPtmCount;
+            MinTagLength = minTagLength;
+            MaxFlankingMassDiff = maxFlankingMassDiff;
         }
 
         /// <summary>
@@ -114,6 +126,22 @@ namespace Flash.IDA
             var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} IDScore {10} AllCharges {11} HCDEnergy {12} strict_inclusion {13} ",
                 MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode, UseIDScore ? 1 : 0, ConsiderAllChargeStates ? 1 : 0, HCDEnergy, StrictInclusion ? 1 : 0);
 
+            // min_tag_length and max_ptm_count must come before file paths
+            if (MinTagLength > 0)
+            {
+                ret += String.Format("min_tag_length {0} ", MinTagLength);
+            }
+
+            if (MaxPtmCount > 0)
+            {
+                ret += String.Format("max_ptm_count {0} ", MaxPtmCount);
+            }
+
+            if (MaxFlankingMassDiff > 0)
+            {
+                ret += String.Format("max_flanking_mass_diff {0} ", MaxFlankingMassDiff);
+            }
+
             foreach(var f in TargetLogs)
             {
                 ret += f + " ";
@@ -128,6 +156,12 @@ namespace Flash.IDA
             if (!String.IsNullOrEmpty(InclusionList))
             {
                 ret += InclusionList + " ";
+            }
+
+            // FASTA file must come last (file extension detection order: .fasta/.fa)
+            if (!String.IsNullOrEmpty(FastaFile))
+            {
+                ret += FastaFile + " ";
             }
 
             return ret;
