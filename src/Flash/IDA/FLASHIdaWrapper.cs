@@ -68,9 +68,29 @@ namespace Flash.IDA
         [DllImport(dllName)]
         static private extern bool ProcessMS2ForTagBasedTargeting(
             IntPtr pTestClassObject,
-            double[] mzs, double[] ints, int length,
-            double rt_min, int ms_level, string name, string cv,
             double precursor_mass);
+
+        [DllImport(dllName)]
+        static private extern int DeconvolveMS2(
+            IntPtr pTestClassObject,
+            double[] mzs, double[] ints, int length,
+            double rt_min);
+
+        [DllImport(dllName)]
+        static private extern int GetBestMS2Masses(
+            IntPtr pTestClassObject,
+            int n,
+            double[] masses, double[] qscores, int[] charges,
+            double[] window_starts, double[] window_ends);
+
+        [DllImport(dllName)]
+        static private extern bool HasMS2Deconvolution(IntPtr pTestClassObject);
+
+        [DllImport(dllName)]
+        static private extern int GetMS2PeakGroupCount(IntPtr pTestClassObject);
+
+        [DllImport(dllName)]
+        static private extern void ClearMS2Deconvolution(IntPtr pTestClassObject);
 
         private IntPtr m_pNativeObject;
 
@@ -307,53 +327,99 @@ namespace Flash.IDA
         }
 
         /// <summary>
-        /// Process MS2 spectrum for tag-based targeting.
-        /// Analyzes MS2 for sequence tags and expands inclusion list with PTM-modified masses.
+        /// Process MS2 for tag-based targeting.
+        /// REQUIRES DeconvolveMS2() to be called first!
         /// </summary>
-        /// <param name="msScan">MS2 scan object</param>
-        /// <param name="cv">Optional CV value for FAIMS mode</param>
-        /// <returns>True if protein family detected and inclusion list expanded</returns>
-        public bool ProcessMS2ForTagBasedTargeting(IMsScan msScan, string cv = null)
+        /// <param name="msScan">MS2 scan object (used to extract precursor mass)</param>
+        /// <returns>True if protein family detected</returns>
+        public bool ProcessMS2ForTagBasedTargeting(IMsScan msScan)
         {
-            // Debug: print all header key-value pairs
-            //log.Debug("MS2 Scan Header:");
-            //foreach (var key in msScan.Header.Keys)
-            //{
-            //    log.Debug(String.Format("  Header[{0}] = {1}", key, msScan.Header[key]));
-            //}
-
-            //// Debug: print all trailer (body) key-value pairs
-            //log.Debug("MS2 Scan Trailer:");
-            //foreach (var key in msScan.Trailer.Keys)
-            //{
-            //    msScan.Trailer.TryGetValue(key, out var value);
-            //    log.Debug(String.Format("  Trailer[{0}] = {1}", key, value));
-            //}
-
-            int msLevel = int.Parse(msScan.Header["MSOrder"]);
-            double rt = double.Parse(msScan.Header["StartTime"]);
-            string name = msScan.Header["Scan"];
-
             // Get precursor m/z and charge, then calculate actual mass
-            // Note: Header["PrecursorMass[0]"] is actually precursor m/z, not mass
             double precursorMz = double.Parse(msScan.Header["PrecursorMass[0]"]);
             msScan.Trailer.TryGetValue("Charge State", out var chargeString);
             int charge = int.Parse(chargeString);
             double precursorMass = precursorMz * charge;
 
-            double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
-            double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
-
             try
             {
-                return ProcessMS2ForTagBasedTargeting(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, name, cv, precursorMass);
+                return ProcessMS2ForTagBasedTargeting(m_pNativeObject, precursorMass);
             }
             catch (Exception ex)
             {
                 log.Error(String.Format("ProcessMS2ForTagBasedTargeting error: {0}\n{1}",
                     ex.Message, ex.StackTrace));
+                return false;
             }
-            return false;
+        }
+
+        /// <summary>
+        /// Perform MS2 deconvolution on a scan object.
+        /// MUST be called before ProcessMS2ForTagBasedTargeting.
+        /// </summary>
+        /// <param name="msScan">MS2 scan object</param>
+        /// <returns>Number of peak groups found</returns>
+        public int DeconvolveMS2(IMsScan msScan)
+        {
+            double rt = double.Parse(msScan.Header["StartTime"]);
+            double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
+            double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
+
+            try
+            {
+                return DeconvolveMS2(m_pNativeObject, mzs, ints, mzs.Length, rt);
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("DeconvolveMS2 error: {0}\n{1}", ex.Message, ex.StackTrace));
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get count of MS2 peak groups from most recent deconvolution.
+        /// </summary>
+        public int GetMS2PeakGroupCount()
+        {
+            try
+            {
+                return GetMS2PeakGroupCount(m_pNativeObject);
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("GetMS2PeakGroupCount error: {0}", ex.Message));
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Check if MS2 deconvolution state exists.
+        /// </summary>
+        public bool HasMS2Deconvolution()
+        {
+            try
+            {
+                return HasMS2Deconvolution(m_pNativeObject);
+            }
+            catch (Exception ex)
+            {
+                log.Warn(String.Format("HasMS2Deconvolution check failed: {0}", ex.Message));
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Clear MS2 deconvolution state. Call after processing is complete.
+        /// </summary>
+        public void ClearMS2DeconvolutionState()
+        {
+            try
+            {
+                ClearMS2Deconvolution(m_pNativeObject);
+            }
+            catch (Exception ex)
+            {
+                log.Warn(String.Format("ClearMS2Deconvolution warning: {0}", ex.Message));
+            }
         }
 
         /// <summary>
@@ -623,14 +689,23 @@ namespace Flash.IDA
 
                             try
                             {
-                                bool detected = ProcessMS2ForTagBasedTargeting(
-                                    w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length,
-                                    rt, 2, "MS2_sim", null, simulatedPrecursorMass);
+                                // Explicit MS2 deconvolution workflow
+                                int ms2PeakGroups = DeconvolveMS2(w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length, rt);
+                                Console.WriteLine("MS2 Deconvolution: {0} peak groups found", ms2PeakGroups);
 
-                                if (detected)
+                                if (ms2PeakGroups > 0)
                                 {
-                                    Console.WriteLine("RT {0:f02} - Protein family detected (precursor {1:f02} Da), inclusion list expanded", rt, simulatedPrecursorMass);
+                                    // New simplified signature - only needs precursor mass
+                                    bool detected = ProcessMS2ForTagBasedTargeting(w.m_pNativeObject, simulatedPrecursorMass);
+
+                                    if (detected)
+                                    {
+                                        Console.WriteLine("RT {0:f02} - Protein family detected (precursor {1:f02} Da), inclusion list expanded", rt, simulatedPrecursorMass);
+                                    }
                                 }
+
+                                // Clear MS2 deconvolution state
+                                ClearMS2Deconvolution(w.m_pNativeObject);
                             }
                             catch (Exception ex)
                             {

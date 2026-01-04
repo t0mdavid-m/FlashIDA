@@ -258,7 +258,10 @@ namespace Flash.IDA
                         string trackingIdStr = scanDesc.Substring(5);
                         if (int.TryParse(trackingIdStr, out int trackingId))
                         {
-                            bool tagsFound = flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
+                            // Explicit MS2 deconvolution workflow
+                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan);
+                            bool tagsFound = peakGroups > 0 && flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
+                            flashIdaWrapper.ClearMS2DeconvolutionState();
 
                             if (tagsFound && pendingConditionalMS2s.TryRemove(trackingId, out var pending))
                             {
@@ -316,7 +319,10 @@ namespace Flash.IDA
                 {
                     try
                     {
-                        bool detected = flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
+                        // Explicit MS2 deconvolution workflow
+                        int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan);
+                        bool detected = peakGroups > 0 && flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
+                        flashIdaWrapper.ClearMS2DeconvolutionState();
 
                         if (detected)
                         {
