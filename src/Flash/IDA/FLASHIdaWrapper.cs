@@ -92,6 +92,14 @@ namespace Flash.IDA
         [DllImport(dllName)]
         static private extern void ClearMS2Deconvolution(IntPtr pTestClassObject);
 
+        [DllImport(dllName)]
+        static private extern int GetTopFragmentMatches(
+            IntPtr pTestClassObject,
+            string proteinSequence,
+            int n,
+            double[] masses, double[] qscores, int[] charges,
+            double[] window_starts, double[] window_ends);
+
         private IntPtr m_pNativeObject;
 
         /// <summary>
@@ -487,6 +495,56 @@ namespace Flash.IDA
         }
 
         /// <summary>
+        /// Get the best deconvolved masses matching protein sequence fragments.
+        /// REQUIRES DeconvolveMS2() to be called first!
+        /// </summary>
+        /// <param name="sequence">Protein amino acid sequence</param>
+        /// <param name="n">Maximum number of matches to return</param>
+        /// <returns>List of MS3Target objects sorted by qscore (descending)</returns>
+        public List<MS3Target> GetTopFragmentMatches(string sequence, int n)
+        {
+            var result = new List<MS3Target>();
+
+            try
+            {
+                int peakGroupCount = GetMS2PeakGroupCount();
+                if (peakGroupCount == 0 || string.IsNullOrEmpty(sequence))
+                    return result;
+
+                int requestCount = Math.Min(n, peakGroupCount);
+
+                double[] masses = new double[requestCount];
+                double[] qscores = new double[requestCount];
+                int[] charges = new int[requestCount];
+                double[] windowStarts = new double[requestCount];
+                double[] windowEnds = new double[requestCount];
+
+                int actualCount = GetTopFragmentMatches(
+                    m_pNativeObject, sequence, requestCount,
+                    masses, qscores, charges,
+                    windowStarts, windowEnds);
+
+                for (int i = 0; i < actualCount; i++)
+                {
+                    result.Add(new MS3Target
+                    {
+                        Mass = masses[i],
+                        QScore = qscores[i],
+                        Charge = charges[i],
+                        WindowStart = windowStarts[i],
+                        WindowEnd = windowEnds[i]
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("GetTopFragmentMatches error: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Calculate value G(<paramref name="x"/>) of Gaussian function (G) with height = <paramref name="intensity"/>, center = <paramref name="x0"/>,
         /// and standard deviation = <paramref name="sigma"/>
         /// </summary>
@@ -768,7 +826,7 @@ namespace Flash.IDA
                                     }
 
                                     // Test GetBestMS2Masses for MS3 targeting
-                                    int maxMs3 = 4;  // Request top 4 masses
+                                    int maxMs3 = 15;  // Request top 4 masses
                                     double[] masses = new double[maxMs3];
                                     double[] qscores = new double[maxMs3];
                                     int[] charges = new int[maxMs3];
@@ -785,6 +843,27 @@ namespace Flash.IDA
                                         double isoWidth = windowEnds[i] - windowStarts[i];
                                         Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
                                             i + 1, masses[i], qscores[i], charges[i], isoMz, isoWidth);
+                                    }
+
+                                    // Test GetTopFragmentMatches for MS3 mode 1 (fragment matching)
+                                    string testSequence = "VTAMDVVYALKRQGRTLYGFGG";
+                                    double[] fragMasses = new double[maxMs3];
+                                    double[] fragQscores = new double[maxMs3];
+                                    int[] fragCharges = new int[maxMs3];
+                                    double[] fragWindowStarts = new double[maxMs3];
+                                    double[] fragWindowEnds = new double[maxMs3];
+
+                                    int fragCount = GetTopFragmentMatches(w.m_pNativeObject, testSequence, maxMs3,
+                                        fragMasses, fragQscores, fragCharges, fragWindowStarts, fragWindowEnds);
+
+                                    Console.WriteLine("\nMS3 Targets from GetTopFragmentMatches ({0} found, seq length {1}):",
+                                        fragCount, testSequence.Length);
+                                    for (int i = 0; i < fragCount; i++)
+                                    {
+                                        double fragIsoMz = (fragWindowStarts[i] + fragWindowEnds[i]) / 2;
+                                        double fragIsoWidth = fragWindowEnds[i] - fragWindowStarts[i];
+                                        Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
+                                            i + 1, fragMasses[i], fragQscores[i], fragCharges[i], fragIsoMz, fragIsoWidth);
                                     }
                                 }
 

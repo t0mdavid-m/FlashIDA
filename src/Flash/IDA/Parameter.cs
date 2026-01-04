@@ -61,6 +61,7 @@ namespace Flash.IDA
         public bool EnableMS3 { set; get; }
         public int MS3Mode { set; get; }
         public int MaxMs3PerMs2 { set; get; }
+        public string MS3ProteinSequence { set; get; }
 
         /// <summary>
         /// Complete constructor
@@ -83,7 +84,7 @@ namespace Flash.IDA
                              bool strictInclusion = false, string inclusionList = null, string ptmList = null,
                              bool ms2Tagging = false, string fastaFile = null, int maxPtmCount = 3, int minTagLength = 3, double maxFlankingMassDiff = 50000.0,
                              bool conditionalMS2 = false,
-                             bool enableMS3 = false, int ms3Mode = 0, int maxMs3PerMs2 = 4)
+                             bool enableMS3 = false, int ms3Mode = 0, int maxMs3PerMs2 = 4, string ms3ProteinSequence = null)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -119,6 +120,7 @@ namespace Flash.IDA
             EnableMS3 = enableMS3;
             MS3Mode = ms3Mode;
             MaxMs3PerMs2 = maxMs3PerMs2;
+            MS3ProteinSequence = ms3ProteinSequence;
         }
 
         /// <summary>
