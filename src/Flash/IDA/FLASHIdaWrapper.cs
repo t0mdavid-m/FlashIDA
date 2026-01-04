@@ -334,8 +334,12 @@ namespace Flash.IDA
             double rt = double.Parse(msScan.Header["StartTime"]);
             string name = msScan.Header["Scan"];
 
-            // Get precursor mass from MS2 scan header
-            double precursorMass = double.Parse(msScan.Header["PrecursorMass[0]"]);
+            // Get precursor m/z and charge, then calculate actual mass
+            // Note: Header["PrecursorMass[0]"] is actually precursor m/z, not mass
+            double precursorMz = double.Parse(msScan.Header["PrecursorMass[0]"]);
+            msScan.Trailer.TryGetValue("Charge State", out var chargeString);
+            int charge = int.Parse(chargeString);
+            double precursorMass = precursorMz * charge;
 
             double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
             double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
