@@ -46,6 +46,7 @@
   <IDA>
     <MaxMs2CountPerMs1>4</MaxMs2CountPerMs1>
     <QScoreThreshold>.2</QScoreThreshold>
+    <TieThreshold>0.1</TieThreshold>
     <MinCharge>4</MinCharge>
     <MaxCharge>50</MaxCharge>
     <MinMass>500</MinMass>
@@ -66,6 +67,7 @@
     <FastaFile></FastaFile>
     <MaxPtmCount>3</MaxPtmCount>
     <MinTagLength>3</MinTagLength>
+    <MaxTagLength>8</MaxTagLength>
     <MaxFlankingMassDiff>50000</MaxFlankingMassDiff>
     <ConditionalMS2>false</ConditionalMS2>
     <EnableMS3>false</EnableMS3>

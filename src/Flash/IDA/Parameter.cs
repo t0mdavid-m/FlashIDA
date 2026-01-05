@@ -13,6 +13,7 @@ namespace Flash.IDA
 
         public int TargetMode { set; get; } 
         public double QScoreThreshold { set; get; }
+        public double TieThreshold { set; get; }
         public double TQScoreThreshold { set; get; }
         public double quantReporterMZTol { set; get; }
         public double quantFoldChangeThreshold { set; get; }
@@ -54,6 +55,7 @@ namespace Flash.IDA
         public string FastaFile { set; get; }
         public int MaxPtmCount { set; get; }
         public int MinTagLength { set; get; }
+        public int MaxTagLength { set; get; }
         public double MaxFlankingMassDiff { set; get; }
         public bool ConditionalMS2 { set; get; }
 
@@ -77,12 +79,12 @@ namespace Flash.IDA
         /// <param name="targetLogs">log files containing target or excluded masses</param> 
         /// <param name="targetMode">If set to 1, inclusive targeted mode if 2, exclusive targeted mode. If 0, normal exclusion list mode</param> 
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
-        public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100,
+        public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double tieThreshold = 0.1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100,
                              double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
                              int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false,
                              bool UseIDScore_ = false, bool ConsiderAllChargeStates_ = false, int HCDEnergy_ = 29,
                              bool strictInclusion = false, string inclusionList = null, string ptmList = null,
-                             bool ms2Tagging = false, string fastaFile = null, int maxPtmCount = 3, int minTagLength = 3, double maxFlankingMassDiff = 50000.0,
+                             bool ms2Tagging = false, string fastaFile = null, int maxPtmCount = 3, int minTagLength = 3, int maxTagLength = 8, double maxFlankingMassDiff = 50000.0,
                              bool conditionalMS2 = false,
                              bool enableMS3 = false, int ms3Mode = 0, int maxMs3PerMs2 = 4, string ms3ProteinSequence = null)
         {
@@ -95,6 +97,7 @@ namespace Flash.IDA
             MinMass = minMass;
             MaxMass = maxMass;
             QScoreThreshold = qScoreThreshold;
+            TieThreshold = tieThreshold;
             TQScoreThreshold = tqScoreThreshold;
             TargetLogs = targetLogs;
             TargetMode = targetMode;
@@ -115,6 +118,7 @@ namespace Flash.IDA
             FastaFile = fastaFile;
             MaxPtmCount = maxPtmCount;
             MinTagLength = minTagLength;
+            MaxTagLength = maxTagLength;
             MaxFlankingMassDiff = maxFlankingMassDiff;
             ConditionalMS2 = conditionalMS2;
             EnableMS3 = enableMS3;
@@ -137,13 +141,18 @@ namespace Flash.IDA
         /// <returns></returns>
         public string ToFLASHDeconvInput()
         {
-            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} IDScore {10} AllCharges {11} HCDEnergy {12} strict_inclusion {13} ",
-                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode, UseIDScore ? 1 : 0, ConsiderAllChargeStates ? 1 : 0, HCDEnergy, StrictInclusion ? 1 : 0);
+            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} IDScore {10} AllCharges {11} HCDEnergy {12} strict_inclusion {13} tie_threshold {14} ",
+                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode, UseIDScore ? 1 : 0, ConsiderAllChargeStates ? 1 : 0, HCDEnergy, StrictInclusion ? 1 : 0, TieThreshold);
 
             // min_tag_length and max_ptm_count must come before file paths
             if (MinTagLength > 0)
             {
                 ret += String.Format("min_tag_length {0} ", MinTagLength);
+            }
+
+            if (MaxTagLength > 0)
+            {
+                ret += String.Format("max_tag_length {0} ", MaxTagLength);
             }
 
             if (MaxPtmCount > 0)
