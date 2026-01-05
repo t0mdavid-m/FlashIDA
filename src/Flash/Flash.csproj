@@ -137,12 +137,12 @@
       <Link>OpenSwathAlgo.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\..\dll\Qt5Network.dll">
-      <Link>Qt5Network.dll</Link>
+    <None Include="..\..\dll\Qt6Network.dll">
+      <Link>Qt6Network.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\..\dll\Qt5Core.dll">
-      <Link>Qt5Core.dll</Link>
+    <None Include="..\..\dll\Qt6Core.dll">
+      <Link>Qt6Core.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="..\..\dll\zlib.dll">
