@@ -218,6 +218,7 @@ namespace Flash.IDA
                                     SourceCIDEnergy = methodParams.MS1.SourceCID,
                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                     DataType = firstMS2Params.DataType,
+                                    ScanRangeMode = "DefineMZRange",
                                     ScanDescription = String.Format("cond_{0}", trackingId)
                                 }, delay: 3);
 
@@ -285,6 +286,7 @@ namespace Flash.IDA
                                         SourceCIDEnergy = methodParams.MS1.SourceCID,
                                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                         DataType = ms2_params.DataType,
+                                        ScanRangeMode = "DefineMZRange",
                                         ScanDescription = ms3ScanDesc
                                     }, delay: 3);
 
@@ -360,7 +362,8 @@ namespace Flash.IDA
                                             SrcRFLens = new double[] { methodParams.MS1.RFLens },
                                             SourceCIDEnergy = methodParams.MS1.SourceCID,
                                             SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                                            DataType = ms2_params.DataType
+                                            DataType = ms2_params.DataType,
+                                            ScanRangeMode = "DefineMZRange",
                                         }, delay: 3);
 
                                     scans.Add(followUpScan);
@@ -470,7 +473,8 @@ namespace Flash.IDA
                                                 SrcRFLens = new double[] { methodParams.MS1.RFLens },
                                                 SourceCIDEnergy = methodParams.MS1.SourceCID,
                                                 SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                                                DataType = ms3_params.DataType
+                                                DataType = ms3_params.DataType,
+                                                ScanRangeMode = "DefineMZRange",
                                             }, delay: 3);
 
                                         scans.Add(ms3Scan);
@@ -542,7 +546,8 @@ namespace Flash.IDA
                                                     SrcRFLens = new double[] { methodParams.MS1.RFLens },
                                                     SourceCIDEnergy = methodParams.MS1.SourceCID,
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                                                    DataType = ms3_params.DataType
+                                                    DataType = ms3_params.DataType,
+                                                    ScanRangeMode = "DefineMZRange"
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
@@ -615,7 +620,8 @@ namespace Flash.IDA
                                                     SrcRFLens = new double[] { methodParams.MS1.RFLens },
                                                     SourceCIDEnergy = methodParams.MS1.SourceCID,
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                                                    DataType = ms3_params.DataType
+                                                    DataType = ms3_params.DataType,
+                                                    ScanRangeMode = "DefineMZRange",
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
