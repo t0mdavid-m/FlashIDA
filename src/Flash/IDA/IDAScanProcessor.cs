@@ -274,7 +274,7 @@ namespace Flash.IDA
                                         PrecursorMass = new double[] { center },
                                         IsolationWidth = new double[] { isolation },
                                         ActivationType = new string[] { ms2_params.Activation },
-                                        CollisionEnergy = new int[] { precursor.Hcd },
+                                        CollisionEnergy = new int[] { ms2_params.CollisionEnergy },
                                         ScanType = "MSn",
                                         Microscans = ms2_params.Microscans,
                                         ChargeStates = new int[] { Math.Min(z, 25) },
