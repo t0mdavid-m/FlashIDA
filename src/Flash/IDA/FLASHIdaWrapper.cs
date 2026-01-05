@@ -100,6 +100,14 @@ namespace Flash.IDA
             double[] masses, double[] qscores, int[] charges,
             double[] window_starts, double[] window_ends);
 
+        [DllImport(dllName)]
+        static private extern int GetAmbiguityEnclosingIons(
+            IntPtr pTestClassObject,
+            string proteinSequence,
+            int n,
+            double[] masses, double[] qscores, int[] charges,
+            double[] window_starts, double[] window_ends);
+
         private IntPtr m_pNativeObject;
 
         /// <summary>
@@ -545,6 +553,56 @@ namespace Flash.IDA
         }
 
         /// <summary>
+        /// Get fragment ions that enclose PTM ambiguity regions.
+        /// REQUIRES DeconvolveMS2() to be called first!
+        /// </summary>
+        /// <param name="sequence">Protein amino acid sequence</param>
+        /// <param name="n">Maximum number of ions to return</param>
+        /// <returns>List of MS3Target objects sorted by qscore (descending)</returns>
+        public List<MS3Target> GetAmbiguityEnclosingIons(string sequence, int n)
+        {
+            var result = new List<MS3Target>();
+
+            try
+            {
+                int peakGroupCount = GetMS2PeakGroupCount();
+                if (peakGroupCount == 0 || string.IsNullOrEmpty(sequence))
+                    return result;
+
+                int requestCount = Math.Min(n, peakGroupCount);
+
+                double[] masses = new double[requestCount];
+                double[] qscores = new double[requestCount];
+                int[] charges = new int[requestCount];
+                double[] windowStarts = new double[requestCount];
+                double[] windowEnds = new double[requestCount];
+
+                int actualCount = GetAmbiguityEnclosingIons(
+                    m_pNativeObject, sequence, requestCount,
+                    masses, qscores, charges,
+                    windowStarts, windowEnds);
+
+                for (int i = 0; i < actualCount; i++)
+                {
+                    result.Add(new MS3Target
+                    {
+                        Mass = masses[i],
+                        QScore = qscores[i],
+                        Charge = charges[i],
+                        WindowStart = windowStarts[i],
+                        WindowEnd = windowEnds[i]
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("GetAmbiguityEnclosingIons error: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Calculate value G(<paramref name="x"/>) of Gaussian function (G) with height = <paramref name="intensity"/>, center = <paramref name="x0"/>,
         /// and standard deviation = <paramref name="sigma"/>
         /// </summary>
@@ -554,7 +612,7 @@ namespace Flash.IDA
         /// <param name="sigma">Standard deviation of Gaussian function</param>
         /// <returns></returns>
         private static double Gauss(double x, double x0, double intensity, double sigma)
-        {            
+        {
             return intensity * Math.Exp(-1 * Math.Pow(x - x0, 2)/(2 * Math.Pow(sigma,2)));
         }
 
@@ -864,6 +922,25 @@ namespace Flash.IDA
                                         double fragIsoWidth = fragWindowEnds[i] - fragWindowStarts[i];
                                         Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
                                             i + 1, fragMasses[i], fragQscores[i], fragCharges[i], fragIsoMz, fragIsoWidth);
+                                    }
+
+                                    // Test GetAmbiguityEnclosingIons for MS3 mode 2 (PTM ambiguity)
+                                    double[] ambigMasses = new double[maxMs3];
+                                    double[] ambigQscores = new double[maxMs3];
+                                    int[] ambigCharges = new int[maxMs3];
+                                    double[] ambigWindowStarts = new double[maxMs3];
+                                    double[] ambigWindowEnds = new double[maxMs3];
+
+                                    int ambigCount = GetAmbiguityEnclosingIons(w.m_pNativeObject, testSequence, maxMs3,
+                                        ambigMasses, ambigQscores, ambigCharges, ambigWindowStarts, ambigWindowEnds);
+
+                                    Console.WriteLine("\nMS3 Targets from GetAmbiguityEnclosingIons ({0} found):", ambigCount);
+                                    for (int i = 0; i < ambigCount; i++)
+                                    {
+                                        double ambigIsoMz = (ambigWindowStarts[i] + ambigWindowEnds[i]) / 2;
+                                        double ambigIsoWidth = ambigWindowEnds[i] - ambigWindowStarts[i];
+                                        Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
+                                            i + 1, ambigMasses[i], ambigQscores[i], ambigCharges[i], ambigIsoMz, ambigIsoWidth);
                                     }
                                 }
 

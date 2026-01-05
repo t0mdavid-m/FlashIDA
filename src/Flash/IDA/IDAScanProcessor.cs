@@ -553,6 +553,79 @@ namespace Flash.IDA
                                     }
                                 }
                             }
+                            else if (peakGroups > 0 && ms3Mode == 2)
+                            {
+                                // Mode 2: Ions enclosing PTM ambiguity regions
+                                if (string.IsNullOrEmpty(ms3ProteinSequence))
+                                {
+                                    IDAlog.Warn("MS3 Mode 2 requires ProteinSequence - skipping");
+                                }
+                                else
+                                {
+                                    List<FLASHIdaWrapper.MS3Target> ms3Targets =
+                                        flashIdaWrapper.GetAmbiguityEnclosingIons(ms3ProteinSequence, maxMs3PerMs2);
+
+                                    IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Scheduling {2} MS3 scans (ambiguity enclosing)",
+                                        msScan.Header["Scan"], rt, ms3Targets.Count));
+
+                                    foreach (var ms3Target in ms3Targets)
+                                    {
+                                        foreach (MS3Parameters ms3_params in methodParams.MS3)
+                                        {
+                                            // MS3 arrays: [0] = MS2 precursor info, [1] = MS3 fragment info
+                                            IFusionCustomScan ms3Scan = scanFactory.CreateFusionCustomScan(
+                                                new ScanParameters
+                                                {
+                                                    Analyzer = ms3_params.Analyzer,
+                                                    IsolationMode = ms3_params.IsolationMode,
+                                                    FirstMass = new double[] { ms3_params.FirstMass },
+                                                    LastMass = new double[] { ms3_params.LastMass },
+                                                    OrbitrapResolution = ms3_params.OrbitrapResolution,
+                                                    MSXTargets = ms3_params.AGCTarget,
+                                                    // Two-stage isolation: MS2 precursor first, then MS3 fragment
+                                                    PrecursorMass = new double[] {
+                                                        pendingMs3.MS2PrecursorMz,    // MS2 precursor (from MS1)
+                                                        ms3Target.IsolationMz         // MS3 fragment (from MS2)
+                                                    },
+                                                    IsolationWidth = new double[] {
+                                                        pendingMs3.MS2IsolationWidth, // MS2 isolation width
+                                                        ms3Target.IsolationWidth      // MS3 isolation width
+                                                    },
+                                                    ActivationType = new string[] {
+                                                        methodParams.MS2.First().Activation, // MS2 activation
+                                                        ms3_params.Activation                // MS3 activation
+                                                    },
+                                                    CollisionEnergy = new int[] {
+                                                        methodParams.MS2.First().CollisionEnergy, // MS2 energy
+                                                        ms3_params.CollisionEnergy                // MS3 energy
+                                                    },
+                                                    ScanType = "MSn",
+                                                    Microscans = ms3_params.Microscans,
+                                                    ChargeStates = new int[] {
+                                                        Math.Min(pendingMs3.MS2Charge, 25), // MS2 charge
+                                                        Math.Max(1, ms3Target.Charge)       // MS3 fragment charge
+                                                    },
+                                                    MaxIT = ms3_params.MaxIT,
+                                                    ReactionTime = ms3_params.ReactionTime != 0 ?
+                                                        new double[] { 0, ms3_params.ReactionTime } : null,
+                                                    ReagentMaxIT = ms3_params.ReagentMaxIT != 0 ?
+                                                        new double[] { 0, ms3_params.ReagentMaxIT } : null,
+                                                    ReagentAGCTarget = ms3_params.ReagentAGCTarget != 0 ?
+                                                        new int[] { 0, ms3_params.ReagentAGCTarget } : null,
+                                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                                    SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
+                                                    DataType = ms3_params.DataType
+                                                }, delay: 3);
+
+                                            scans.Add(ms3Scan);
+
+                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} (ambig enclosing)",
+                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth));
+                                        }
+                                    }
+                                }
+                            }
 
                             flashIdaWrapper.ClearMS2DeconvolutionState();
                         }
