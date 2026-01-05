@@ -316,6 +316,7 @@ namespace Flash.IDA
             {
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
                 msScan.Trailer.TryGetValue("Scan Description", out var scanDesc);
+                Console.WriteLine(String.Format("MS2 Scan with Scan ID={0}, Description={1}", scanId, scanDesc));
                 double rt = double.Parse(msScan.Header["StartTime"]);
 
                 // Handle Conditional MS2 mode
