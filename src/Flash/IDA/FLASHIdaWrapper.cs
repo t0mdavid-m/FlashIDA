@@ -108,6 +108,15 @@ namespace Flash.IDA
             double[] masses, double[] qscores, int[] charges,
             double[] window_starts, double[] window_ends);
 
+        [DllImport(dllName)]
+        static private extern int GetTerminalFragmentIons(
+            IntPtr pTestClassObject,
+            string proteinSequence,
+            int n,
+            double[] masses, double[] qscores, int[] charges,
+            double[] window_starts, double[] window_ends,
+            bool[] is_b_ions);
+
         private IntPtr m_pNativeObject;
 
         /// <summary>
@@ -448,6 +457,7 @@ namespace Flash.IDA
             public int Charge { get; set; }
             public double WindowStart { get; set; }
             public double WindowEnd { get; set; }
+            public bool? IsBIon { get; set; }  // null for modes 0-2, true/false for mode 3
 
             public double IsolationMz => (WindowStart + WindowEnd) / 2;
             public double IsolationWidth => WindowEnd - WindowStart;
@@ -597,6 +607,59 @@ namespace Flash.IDA
             catch (Exception ex)
             {
                 log.Error(String.Format("GetAmbiguityEnclosingIons error: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get terminal fragment ions - innermost b-ions (rightmost) and y-ions (leftmost).
+        /// Results interleaved: [b, y, b, y, ...] for complementary coverage.
+        /// REQUIRES DeconvolveMS2() to be called first!
+        /// </summary>
+        /// <param name="sequence">Protein amino acid sequence</param>
+        /// <param name="n">Maximum number of ions to return</param>
+        /// <returns>List of MS3Target objects with IsBIon set</returns>
+        public List<MS3Target> GetTerminalFragmentIons(string sequence, int n)
+        {
+            var result = new List<MS3Target>();
+
+            try
+            {
+                int peakGroupCount = GetMS2PeakGroupCount();
+                if (peakGroupCount == 0 || string.IsNullOrEmpty(sequence))
+                    return result;
+
+                int requestCount = Math.Min(n, peakGroupCount);
+
+                double[] masses = new double[requestCount];
+                double[] qscores = new double[requestCount];
+                int[] charges = new int[requestCount];
+                double[] windowStarts = new double[requestCount];
+                double[] windowEnds = new double[requestCount];
+                bool[] isBIons = new bool[requestCount];
+
+                int actualCount = GetTerminalFragmentIons(
+                    m_pNativeObject, sequence, requestCount,
+                    masses, qscores, charges,
+                    windowStarts, windowEnds, isBIons);
+
+                for (int i = 0; i < actualCount; i++)
+                {
+                    result.Add(new MS3Target
+                    {
+                        Mass = masses[i],
+                        QScore = qscores[i],
+                        Charge = charges[i],
+                        WindowStart = windowStarts[i],
+                        WindowEnd = windowEnds[i],
+                        IsBIon = isBIons[i]
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("GetTerminalFragmentIons error: {0}\n{1}", ex.Message, ex.StackTrace));
             }
 
             return result;
@@ -862,8 +925,11 @@ namespace Flash.IDA
                         }
 
                         // Send MS2 spectrum for tag-based targeting if MS1 had targets
+                        Console.WriteLine(ms2Mzs != null);
+                        Console.WriteLine(l.Count > 0);
                         if (ms2Mzs != null && l.Count > 0)
                         {
+                            Console.WriteLine("aaaa");
                             // Use first target's mass as simulated precursor
                             double simulatedPrecursorMass = l[0].MonoMass;
 
@@ -884,7 +950,7 @@ namespace Flash.IDA
                                     }
 
                                     // Test GetBestMS2Masses for MS3 targeting
-                                    int maxMs3 = 15;  // Request top 4 masses
+                                    int maxMs3 = 100;  // Request top 4 masses
                                     double[] masses = new double[maxMs3];
                                     double[] qscores = new double[maxMs3];
                                     int[] charges = new int[maxMs3];
@@ -899,12 +965,14 @@ namespace Flash.IDA
                                     {
                                         double isoMz = (windowStarts[i] + windowEnds[i]) / 2;
                                         double isoWidth = windowEnds[i] - windowStarts[i];
-                                        Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
-                                            i + 1, masses[i], qscores[i], charges[i], isoMz, isoWidth);
+                                        //Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
+                                        //    i + 1, masses[i], qscores[i], charges[i], isoMz, isoWidth);
+                                        Console.WriteLine(masses[i]);
                                     }
 
                                     // Test GetTopFragmentMatches for MS3 mode 1 (fragment matching)
                                     string testSequence = "VTAMDVVYALKRQGRTLYGFGG";
+                                    testSequence = "SGRGKQGGKARAKAKTRSSRAGLQFPVGRVHRLLRKGNYSERVGAGAPVYLAAVLEYLTAEILELAGNAARDNKKTRIIPRHLQLAIRNDEELNKLLGKVTIAQGGVLPNIQAVLLPKKTESHHKAKGK";
                                     double[] fragMasses = new double[maxMs3];
                                     double[] fragQscores = new double[maxMs3];
                                     int[] fragCharges = new int[maxMs3];
@@ -941,6 +1009,27 @@ namespace Flash.IDA
                                         double ambigIsoWidth = ambigWindowEnds[i] - ambigWindowStarts[i];
                                         Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
                                             i + 1, ambigMasses[i], ambigQscores[i], ambigCharges[i], ambigIsoMz, ambigIsoWidth);
+                                    }
+
+                                    // Test GetTerminalFragmentIons for MS3 mode 3 (terminal b/y-ions)
+                                    double[] termMasses = new double[maxMs3];
+                                    double[] termQscores = new double[maxMs3];
+                                    int[] termCharges = new int[maxMs3];
+                                    double[] termWindowStarts = new double[maxMs3];
+                                    double[] termWindowEnds = new double[maxMs3];
+                                    bool[] termIsBIons = new bool[maxMs3];
+
+                                    int termCount = GetTerminalFragmentIons(w.m_pNativeObject, testSequence, maxMs3,
+                                        termMasses, termQscores, termCharges, termWindowStarts, termWindowEnds, termIsBIons);
+
+                                    Console.WriteLine("\nMS3 Targets from GetTerminalFragmentIons ({0} found):", termCount);
+                                    for (int i = 0; i < termCount; i++)
+                                    {
+                                        double termIsoMz = (termWindowStarts[i] + termWindowEnds[i]) / 2;
+                                        double termIsoWidth = termWindowEnds[i] - termWindowStarts[i];
+                                        string ionType = termIsBIons[i] ? "b" : "y";
+                                        Console.WriteLine("  [{0}] {1}-ion: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
+                                            i + 1, ionType, termMasses[i], termQscores[i], termCharges[i], termIsoMz, termIsoWidth);
                                     }
                                 }
 

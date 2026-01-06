@@ -128,7 +128,7 @@ namespace Flash.IDA
                 }
                 else
                 {
-                    string modeInfo = ms3Mode == 1 && !string.IsNullOrEmpty(ms3ProteinSequence)
+                    string modeInfo = (ms3Mode == 1 || ms3Mode == 2 || ms3Mode == 3) && !string.IsNullOrEmpty(ms3ProteinSequence)
                         ? ", Protein: " + (ms3ProteinSequence.Length > 20 ? ms3ProteinSequence.Substring(0, 20) + "..." : ms3ProteinSequence)
                         : "";
                     log.Info(String.Format("MS3 mode {0} ENABLED - MaxMs3PerMs2: {1}, MS3 types: {2}{3}",
@@ -629,6 +629,80 @@ namespace Flash.IDA
 
                                             log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} (ambig enclosing)",
                                                 pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth));
+                                        }
+                                    }
+                                }
+                            }
+                            else if (peakGroups > 0 && ms3Mode == 3)
+                            {
+                                // Mode 3: Terminal fragment ions (innermost b/y-ions)
+                                if (string.IsNullOrEmpty(ms3ProteinSequence))
+                                {
+                                    IDAlog.Warn("MS3 Mode 3 requires ProteinSequence - skipping");
+                                }
+                                else
+                                {
+                                    List<FLASHIdaWrapper.MS3Target> ms3Targets =
+                                        flashIdaWrapper.GetTerminalFragmentIons(ms3ProteinSequence, maxMs3PerMs2);
+
+                                    IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Scheduling {2} MS3 scans (terminal fragments)",
+                                        msScan.Header["Scan"], rt, ms3Targets.Count));
+
+                                    foreach (var ms3Target in ms3Targets)
+                                    {
+                                        string ionType = ms3Target.IsBIon == true ? "b" : "y";
+
+                                        foreach (MS3Parameters ms3_params in methodParams.MS3)
+                                        {
+                                            IFusionCustomScan ms3Scan = scanFactory.CreateFusionCustomScan(
+                                                new ScanParameters
+                                                {
+                                                    Analyzer = ms3_params.Analyzer,
+                                                    IsolationMode = ms3_params.IsolationMode,
+                                                    FirstMass = new double[] { ms3_params.FirstMass },
+                                                    LastMass = new double[] { ms3_params.LastMass },
+                                                    OrbitrapResolution = ms3_params.OrbitrapResolution,
+                                                    MSXTargets = ms3_params.AGCTarget,
+                                                    PrecursorMass = new double[] {
+                                                        pendingMs3.MS2PrecursorMz,
+                                                        ms3Target.IsolationMz
+                                                    },
+                                                    IsolationWidth = new double[] {
+                                                        pendingMs3.MS2IsolationWidth,
+                                                        ms3Target.IsolationWidth
+                                                    },
+                                                    ActivationType = new string[] {
+                                                        methodParams.MS2.First().Activation,
+                                                        ms3_params.Activation
+                                                    },
+                                                    CollisionEnergy = new int[] {
+                                                        methodParams.MS2.First().CollisionEnergy,
+                                                        ms3_params.CollisionEnergy
+                                                    },
+                                                    ScanType = "MSn",
+                                                    Microscans = ms3_params.Microscans,
+                                                    ChargeStates = new int[] {
+                                                        Math.Min(pendingMs3.MS2Charge, 25),
+                                                        Math.Max(1, ms3Target.Charge)
+                                                    },
+                                                    MaxIT = ms3_params.MaxIT,
+                                                    ReactionTime = ms3_params.ReactionTime != 0 ?
+                                                        new double[] { 0, ms3_params.ReactionTime } : null,
+                                                    ReagentMaxIT = ms3_params.ReagentMaxIT != 0 ?
+                                                        new double[] { 0, ms3_params.ReagentMaxIT } : null,
+                                                    ReagentAGCTarget = ms3_params.ReagentAGCTarget != 0 ?
+                                                        new int[] { 0, ms3_params.ReagentAGCTarget } : null,
+                                                    SrcRFLens = new double[] { methodParams.MS1.RFLens },
+                                                    SourceCIDEnergy = methodParams.MS1.SourceCID,
+                                                    SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
+                                                    DataType = ms3_params.DataType,
+                                                    ScanRangeMode = "DefineMZRange",
+                                                }, delay: 3);
+
+                                            scans.Add(ms3Scan);
+
+                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} ({3}-ion terminal)",
+                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth, ionType));
                                         }
                                     }
                                 }
