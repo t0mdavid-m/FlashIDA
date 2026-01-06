@@ -262,6 +262,7 @@ namespace Flash.IDA
 
                             foreach (MS2Parameters ms2_params in methodParams.MS2)
                             {
+                                Console.WriteLine(String.Format("MS2 Settings: PrecursorMass={0}, IsolationWidth={1}, ChargeStates={2}", center, isolation, z));
                                 IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
                                     new ScanParameters
                                     {
@@ -296,7 +297,7 @@ namespace Flash.IDA
                                 ms3ScanDesc = null;
 
                                 log.Debug(String.Format("ADD m/z {0:f04}/{1:f02} ({2}+) qScore: {3:f04} hcd: {5} to Queue as #{4}",
-                                    center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count, precursor.Hcd));
+                                    center, isolation, z, precursor.Score, scanScheduler.customScans.Count + scans.Count, ms2_params.CollisionEnergy));
                                 IDAlog.Debug(precursor.ToString());
                             }
                         }
