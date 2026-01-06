@@ -260,7 +260,7 @@ namespace Flash
             }
 
             //should fire when a custom scan is done (never fires as of current version of API), apparently fixed in API 3.5
-            scanControl.CanAcceptNextCustomScan += CustomScanListner;
+            //scanControl.CanAcceptNextCustomScan += CustomScanListner;
 
             //helper to have easier interface for scan creation
             scanFactory = new ScanFactory(scanControl);
@@ -567,7 +567,7 @@ namespace Flash
             if (inCustom)
             {
                 dataPipe.Push(msScan);
-                //SendCustomScan(scanScheduler.getNextScan());
+                SendCustomScan(scanScheduler.getNextScan());
             }
 
             msScan.Dispose();//Release resources
