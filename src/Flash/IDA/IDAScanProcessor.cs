@@ -449,7 +449,7 @@ namespace Flash.IDA
                                                 },
                                                 IsolationWidth = new double[] {
                                                     pendingMs3.MS2IsolationWidth, // MS2 isolation width
-                                                    ms3Target.IsolationWidth      // MS3 isolation width
+                                                    Math.Min(ms3Target.IsolationWidth, 2)       // MS3 isolation width
                                                 },
                                                 ActivationType = new string[] {
                                                     methodParams.MS2.First().Activation, // MS2 activation
@@ -522,7 +522,7 @@ namespace Flash.IDA
                                                     },
                                                     IsolationWidth = new double[] {
                                                         pendingMs3.MS2IsolationWidth, // MS2 isolation width
-                                                        ms3Target.IsolationWidth      // MS3 isolation width
+                                                        Math.Min(ms3Target.IsolationWidth, 2)     // MS3 isolation width
                                                     },
                                                     ActivationType = new string[] {
                                                         methodParams.MS2.First().Activation, // MS2 activation
@@ -596,7 +596,7 @@ namespace Flash.IDA
                                                     },
                                                     IsolationWidth = new double[] {
                                                         pendingMs3.MS2IsolationWidth, // MS2 isolation width
-                                                        ms3Target.IsolationWidth      // MS3 isolation width
+                                                        Math.Min(ms3Target.IsolationWidth, 2)       // MS3 isolation width
                                                     },
                                                     ActivationType = new string[] {
                                                         methodParams.MS2.First().Activation, // MS2 activation
@@ -670,7 +670,7 @@ namespace Flash.IDA
                                                     },
                                                     IsolationWidth = new double[] {
                                                         pendingMs3.MS2IsolationWidth,
-                                                        ms3Target.IsolationWidth
+                                                        Math.Min(ms3Target.IsolationWidth, 2)
                                                     },
                                                     ActivationType = new string[] {
                                                         methodParams.MS2.First().Activation,
