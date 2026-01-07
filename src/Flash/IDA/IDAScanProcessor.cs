@@ -378,13 +378,15 @@ namespace Flash.IDA
                     {
                         if (TryExtractTrackingId(scanDesc, "cond_", out int trackingId))
                         {
-                            // Get precursor mass from pending info for MS2 deconvolution
+                            // Get precursor mass and charge from pending info for MS2 deconvolution
                             double precursorMass = 0.0;
+                            int precursorCharge = 0;
                             if (pendingConditionalMS2s.TryGetValue(trackingId, out var pendingPeek))
                             {
                                 precursorMass = pendingPeek.MonoMass;
+                                precursorCharge = pendingPeek.Charge;
                             }
-                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, precursorMass);
+                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, precursorMass, precursorCharge);
                             bool tagsFound = peakGroups > 0 && flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
                             flashIdaWrapper.ClearMS2DeconvolutionState();
 
@@ -445,8 +447,8 @@ namespace Flash.IDA
                 {
                     try
                     {
-                        // Explicit MS2 deconvolution workflow (no tracked precursor mass)
-                        int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, 0.0);
+                        // Explicit MS2 deconvolution workflow (no tracked precursor info)
+                        int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, 0.0, 0);
                         bool detected = peakGroups > 0 && flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
                         flashIdaWrapper.ClearMS2DeconvolutionState();
 
@@ -471,7 +473,7 @@ namespace Flash.IDA
                             pendingMS3s.TryRemove(ms3TrackingId, out var pendingMs3))
                         {
                             // Deconvolve MS2 to find fragment masses for MS3
-                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, pendingMs3.MS2PrecursorMass);
+                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, pendingMs3.MS2PrecursorMass, pendingMs3.MS2Charge);
 
                             if (peakGroups > 0 && ms3Mode == 0)
                             {

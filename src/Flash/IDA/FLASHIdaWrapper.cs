@@ -74,7 +74,7 @@ namespace Flash.IDA
         static private extern int DeconvolveMS2(
             IntPtr pTestClassObject,
             double[] mzs, double[] ints, int length,
-            double rt_min, double precursor_mass);
+            double rt_min, double precursor_mass, int precursor_charge);
 
         [DllImport(dllName)]
         static private extern int GetBestMS2Masses(
@@ -383,8 +383,9 @@ namespace Flash.IDA
         /// </summary>
         /// <param name="msScan">MS2 scan object</param>
         /// <param name="precursorMass">Monoisotopic precursor mass from MS1 (0.0 if unknown)</param>
+        /// <param name="precursorCharge">Precursor charge state (0 if unknown)</param>
         /// <returns>Number of peak groups found</returns>
-        public int DeconvolveMS2(IMsScan msScan, double precursorMass)
+        public int DeconvolveMS2(IMsScan msScan, double precursorMass, int precursorCharge)
         {
             double rt = double.Parse(msScan.Header["StartTime"]);
             double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
@@ -392,7 +393,7 @@ namespace Flash.IDA
 
             try
             {
-                return DeconvolveMS2(m_pNativeObject, mzs, ints, mzs.Length, rt, precursorMass);
+                return DeconvolveMS2(m_pNativeObject, mzs, ints, mzs.Length, rt, precursorMass, precursorCharge);
             }
             catch (Exception ex)
             {
@@ -931,13 +932,14 @@ namespace Flash.IDA
                         if (ms2Mzs != null && l.Count > 0)
                         {
                             Console.WriteLine("aaaa");
-                            // Use first target's mass as simulated precursor
+                            // Use first target's mass and charge as simulated precursor
                             double simulatedPrecursorMass = l[0].MonoMass;
+                            int simulatedPrecursorCharge = l[0].Charge;
 
                             try
                             {
                                 // Explicit MS2 deconvolution workflow
-                                int ms2PeakGroups = DeconvolveMS2(w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length, rt, 14009.91);
+                                int ms2PeakGroups = DeconvolveMS2(w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length, rt, 14037.90457, 19);
                                 Console.WriteLine("MS2 Deconvolution: {0} peak groups found", ms2PeakGroups);
 
                                 if (ms2PeakGroups > 0)
