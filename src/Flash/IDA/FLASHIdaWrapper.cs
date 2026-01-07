@@ -98,7 +98,8 @@ namespace Flash.IDA
             string proteinSequence,
             int n,
             double[] masses, double[] qscores, int[] charges,
-            double[] window_starts, double[] window_ends);
+            double[] window_starts, double[] window_ends,
+            bool[] is_b_ions, int[] fragment_indices);
 
         [DllImport(dllName)]
         static private extern int GetAmbiguityEnclosingIons(
@@ -106,7 +107,8 @@ namespace Flash.IDA
             string proteinSequence,
             int n,
             double[] masses, double[] qscores, int[] charges,
-            double[] window_starts, double[] window_ends);
+            double[] window_starts, double[] window_ends,
+            bool[] is_b_ions, int[] fragment_indices);
 
         [DllImport(dllName)]
         static private extern int GetTerminalFragmentIons(
@@ -115,7 +117,7 @@ namespace Flash.IDA
             int n,
             double[] masses, double[] qscores, int[] charges,
             double[] window_starts, double[] window_ends,
-            bool[] is_b_ions);
+            bool[] is_b_ions, int[] fragment_indices);
 
         private IntPtr m_pNativeObject;
 
@@ -459,10 +461,18 @@ namespace Flash.IDA
             public int Charge { get; set; }
             public double WindowStart { get; set; }
             public double WindowEnd { get; set; }
-            public bool? IsBIon { get; set; }  // null for modes 0-2, true/false for mode 3
+            public bool? IsBIon { get; set; }  // null for mode 0, true/false for modes 1-3
+            public int? FragmentIndex { get; set; }  // 1-based position (b12 = 12, y5 = 5)
 
             public double IsolationMz => (WindowStart + WindowEnd) / 2;
             public double IsolationWidth => WindowEnd - WindowStart;
+
+            /// <summary>
+            /// Get ion name like "b12" or "y5". Returns null if ion info not available.
+            /// </summary>
+            public string IonName => IsBIon.HasValue && FragmentIndex.HasValue
+                ? String.Format("{0}{1}", IsBIon.Value ? "b" : "y", FragmentIndex.Value)
+                : null;
         }
 
         /// <summary>
@@ -538,11 +548,14 @@ namespace Flash.IDA
                 int[] charges = new int[requestCount];
                 double[] windowStarts = new double[requestCount];
                 double[] windowEnds = new double[requestCount];
+                bool[] isBIons = new bool[requestCount];
+                int[] fragmentIndices = new int[requestCount];
 
                 int actualCount = GetTopFragmentMatches(
                     m_pNativeObject, sequence, requestCount,
                     masses, qscores, charges,
-                    windowStarts, windowEnds);
+                    windowStarts, windowEnds,
+                    isBIons, fragmentIndices);
 
                 for (int i = 0; i < actualCount; i++)
                 {
@@ -552,7 +565,9 @@ namespace Flash.IDA
                         QScore = qscores[i],
                         Charge = charges[i],
                         WindowStart = windowStarts[i],
-                        WindowEnd = windowEnds[i]
+                        WindowEnd = windowEnds[i],
+                        IsBIon = isBIons[i],
+                        FragmentIndex = fragmentIndices[i]
                     });
                 }
             }
@@ -588,11 +603,14 @@ namespace Flash.IDA
                 int[] charges = new int[requestCount];
                 double[] windowStarts = new double[requestCount];
                 double[] windowEnds = new double[requestCount];
+                bool[] isBIons = new bool[requestCount];
+                int[] fragmentIndices = new int[requestCount];
 
                 int actualCount = GetAmbiguityEnclosingIons(
                     m_pNativeObject, sequence, requestCount,
                     masses, qscores, charges,
-                    windowStarts, windowEnds);
+                    windowStarts, windowEnds,
+                    isBIons, fragmentIndices);
 
                 for (int i = 0; i < actualCount; i++)
                 {
@@ -602,7 +620,9 @@ namespace Flash.IDA
                         QScore = qscores[i],
                         Charge = charges[i],
                         WindowStart = windowStarts[i],
-                        WindowEnd = windowEnds[i]
+                        WindowEnd = windowEnds[i],
+                        IsBIon = isBIons[i],
+                        FragmentIndex = fragmentIndices[i]
                     });
                 }
             }
@@ -640,11 +660,12 @@ namespace Flash.IDA
                 double[] windowStarts = new double[requestCount];
                 double[] windowEnds = new double[requestCount];
                 bool[] isBIons = new bool[requestCount];
+                int[] fragmentIndices = new int[requestCount];
 
                 int actualCount = GetTerminalFragmentIons(
                     m_pNativeObject, sequence, requestCount,
                     masses, qscores, charges,
-                    windowStarts, windowEnds, isBIons);
+                    windowStarts, windowEnds, isBIons, fragmentIndices);
 
                 for (int i = 0; i < actualCount; i++)
                 {
@@ -655,7 +676,8 @@ namespace Flash.IDA
                         Charge = charges[i],
                         WindowStart = windowStarts[i],
                         WindowEnd = windowEnds[i],
-                        IsBIon = isBIons[i]
+                        IsBIon = isBIons[i],
+                        FragmentIndex = fragmentIndices[i]
                     });
                 }
             }
@@ -981,9 +1003,12 @@ namespace Flash.IDA
                                     int[] fragCharges = new int[maxMs3];
                                     double[] fragWindowStarts = new double[maxMs3];
                                     double[] fragWindowEnds = new double[maxMs3];
+                                    bool[] fragIsBIons = new bool[maxMs3];
+                                    int[] fragIndices = new int[maxMs3];
 
                                     int fragCount = GetTopFragmentMatches(w.m_pNativeObject, testSequence, maxMs3,
-                                        fragMasses, fragQscores, fragCharges, fragWindowStarts, fragWindowEnds);
+                                        fragMasses, fragQscores, fragCharges, fragWindowStarts, fragWindowEnds,
+                                        fragIsBIons, fragIndices);
 
                                     Console.WriteLine("\nMS3 Targets from GetTopFragmentMatches ({0} found, seq length {1}):",
                                         fragCount, testSequence.Length);
@@ -991,8 +1016,9 @@ namespace Flash.IDA
                                     {
                                         double fragIsoMz = (fragWindowStarts[i] + fragWindowEnds[i]) / 2;
                                         double fragIsoWidth = fragWindowEnds[i] - fragWindowStarts[i];
-                                        Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
-                                            i + 1, fragMasses[i], fragQscores[i], fragCharges[i], fragIsoMz, fragIsoWidth);
+                                        string ionName = String.Format("{0}{1}", fragIsBIons[i] ? "b" : "y", fragIndices[i]);
+                                        Console.WriteLine("  [{0}] {1}: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
+                                            i + 1, ionName, fragMasses[i], fragQscores[i], fragCharges[i], fragIsoMz, fragIsoWidth);
                                     }
 
                                     // Test GetAmbiguityEnclosingIons for MS3 mode 2 (PTM ambiguity)
@@ -1001,17 +1027,21 @@ namespace Flash.IDA
                                     int[] ambigCharges = new int[maxMs3];
                                     double[] ambigWindowStarts = new double[maxMs3];
                                     double[] ambigWindowEnds = new double[maxMs3];
+                                    bool[] ambigIsBIons = new bool[maxMs3];
+                                    int[] ambigIndices = new int[maxMs3];
 
                                     int ambigCount = GetAmbiguityEnclosingIons(w.m_pNativeObject, testSequence, maxMs3,
-                                        ambigMasses, ambigQscores, ambigCharges, ambigWindowStarts, ambigWindowEnds);
+                                        ambigMasses, ambigQscores, ambigCharges, ambigWindowStarts, ambigWindowEnds,
+                                        ambigIsBIons, ambigIndices);
 
                                     Console.WriteLine("\nMS3 Targets from GetAmbiguityEnclosingIons ({0} found):", ambigCount);
                                     for (int i = 0; i < ambigCount; i++)
                                     {
                                         double ambigIsoMz = (ambigWindowStarts[i] + ambigWindowEnds[i]) / 2;
                                         double ambigIsoWidth = ambigWindowEnds[i] - ambigWindowStarts[i];
-                                        Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
-                                            i + 1, ambigMasses[i], ambigQscores[i], ambigCharges[i], ambigIsoMz, ambigIsoWidth);
+                                        string ionName = String.Format("{0}{1}", ambigIsBIons[i] ? "b" : "y", ambigIndices[i]);
+                                        Console.WriteLine("  [{0}] {1}: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
+                                            i + 1, ionName, ambigMasses[i], ambigQscores[i], ambigCharges[i], ambigIsoMz, ambigIsoWidth);
                                     }
 
                                     // Test GetTerminalFragmentIons for MS3 mode 3 (terminal b/y-ions)
@@ -1021,18 +1051,20 @@ namespace Flash.IDA
                                     double[] termWindowStarts = new double[maxMs3];
                                     double[] termWindowEnds = new double[maxMs3];
                                     bool[] termIsBIons = new bool[maxMs3];
+                                    int[] termIndices = new int[maxMs3];
 
                                     int termCount = GetTerminalFragmentIons(w.m_pNativeObject, testSequence, maxMs3,
-                                        termMasses, termQscores, termCharges, termWindowStarts, termWindowEnds, termIsBIons);
+                                        termMasses, termQscores, termCharges, termWindowStarts, termWindowEnds,
+                                        termIsBIons, termIndices);
 
                                     Console.WriteLine("\nMS3 Targets from GetTerminalFragmentIons ({0} found):", termCount);
                                     for (int i = 0; i < termCount; i++)
                                     {
                                         double termIsoMz = (termWindowStarts[i] + termWindowEnds[i]) / 2;
                                         double termIsoWidth = termWindowEnds[i] - termWindowStarts[i];
-                                        string ionType = termIsBIons[i] ? "b" : "y";
-                                        Console.WriteLine("  [{0}] {1}-ion: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
-                                            i + 1, ionType, termMasses[i], termQscores[i], termCharges[i], termIsoMz, termIsoWidth);
+                                        string ionName = String.Format("{0}{1}", termIsBIons[i] ? "b" : "y", termIndices[i]);
+                                        Console.WriteLine("  [{0}] {1}: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
+                                            i + 1, ionName, termMasses[i], termQscores[i], termCharges[i], termIsoMz, termIsoWidth);
                                     }
                                 }
 

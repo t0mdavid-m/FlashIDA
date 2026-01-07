@@ -86,8 +86,10 @@ namespace Flash.IDA
                 target.Charge,
                 target.QScore);
 
-            if (target.IsBIon.HasValue)
-                desc += target.IsBIon.Value ? "|B" : "|Y";
+            if (target.IonName != null)
+                desc += "|" + target.IonName.ToUpper();  // e.g., "|B12" or "|Y5"
+            else if (target.IsBIon.HasValue)
+                desc += target.IsBIon.Value ? "|B" : "|Y";  // fallback
 
             return desc;
         }
@@ -612,8 +614,9 @@ namespace Flash.IDA
 
                                             scans.Add(ms3Scan);
 
-                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} (seq match)",
-                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth));
+                                            string ionInfo = ms3Target.IonName ?? "fragment";
+                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} ({3})",
+                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth, ionInfo));
                                         }
                                     }
                                 }
@@ -687,8 +690,9 @@ namespace Flash.IDA
 
                                             scans.Add(ms3Scan);
 
-                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} (ambig enclosing)",
-                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth));
+                                            string ionInfo = ms3Target.IonName ?? "fragment";
+                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} ({3} ambig)",
+                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth, ionInfo));
                                         }
                                     }
                                 }
@@ -710,7 +714,7 @@ namespace Flash.IDA
 
                                     foreach (var ms3Target in ms3Targets)
                                     {
-                                        string ionType = ms3Target.IsBIon == true ? "b" : "y";
+                                        string ionInfo = ms3Target.IonName ?? (ms3Target.IsBIon == true ? "b" : "y");
 
                                         foreach (MS3Parameters ms3_params in methodParams.MS3)
                                         {
@@ -762,8 +766,8 @@ namespace Flash.IDA
 
                                             scans.Add(ms3Scan);
 
-                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} ({3}-ion terminal)",
-                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth, ionType));
+                                            log.Debug(String.Format("ADD MS3 MS2-precursor {0:f04} -> MS3-fragment {1:f04}/{2:f02} ({3} terminal)",
+                                                pendingMs3.MS2PrecursorMz, ms3Target.IsolationMz, ms3Target.IsolationWidth, ionInfo));
                                         }
                                     }
                                 }
