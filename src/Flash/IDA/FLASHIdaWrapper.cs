@@ -74,7 +74,7 @@ namespace Flash.IDA
         static private extern int DeconvolveMS2(
             IntPtr pTestClassObject,
             double[] mzs, double[] ints, int length,
-            double rt_min);
+            double rt_min, double precursor_mass);
 
         [DllImport(dllName)]
         static private extern int GetBestMS2Masses(
@@ -382,8 +382,9 @@ namespace Flash.IDA
         /// MUST be called before ProcessMS2ForTagBasedTargeting.
         /// </summary>
         /// <param name="msScan">MS2 scan object</param>
+        /// <param name="precursorMass">Monoisotopic precursor mass from MS1 (0.0 if unknown)</param>
         /// <returns>Number of peak groups found</returns>
-        public int DeconvolveMS2(IMsScan msScan)
+        public int DeconvolveMS2(IMsScan msScan, double precursorMass)
         {
             double rt = double.Parse(msScan.Header["StartTime"]);
             double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
@@ -391,7 +392,7 @@ namespace Flash.IDA
 
             try
             {
-                return DeconvolveMS2(m_pNativeObject, mzs, ints, mzs.Length, rt);
+                return DeconvolveMS2(m_pNativeObject, mzs, ints, mzs.Length, rt, precursorMass);
             }
             catch (Exception ex)
             {
@@ -936,7 +937,7 @@ namespace Flash.IDA
                             try
                             {
                                 // Explicit MS2 deconvolution workflow
-                                int ms2PeakGroups = DeconvolveMS2(w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length, rt);
+                                int ms2PeakGroups = DeconvolveMS2(w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length, rt, 14009.91);
                                 Console.WriteLine("MS2 Deconvolution: {0} peak groups found", ms2PeakGroups);
 
                                 if (ms2PeakGroups > 0)

@@ -45,6 +45,7 @@ namespace Flash.IDA
             public double PrecursorMz { get; set; }
             public double IsolationWidth { get; set; }
             public int Charge { get; set; }
+            public double MonoMass { get; set; }
         }
 
         /// <summary>
@@ -56,6 +57,55 @@ namespace Flash.IDA
             public double MS2IsolationWidth { get; set; }
             public int MS2Charge { get; set; }
             public double MS2PrecursorMass { get; set; }
+        }
+
+        /// <summary>
+        /// Builds scan description metadata string from precursor data
+        /// </summary>
+        private static string BuildMS2Description(string prefix, PrecursorTarget precursor)
+        {
+            return String.Format("{0}|M={1:F2}|Z={2}|Q={3:F3}|I={4:E2}|Mz={5:F4}|W={6:F2}",
+                prefix,
+                precursor.MonoMass,
+                precursor.Charge,
+                precursor.Score,
+                precursor.PrecursorIntensity,
+                precursor.Window.Center,
+                precursor.Window.Width);
+        }
+
+        /// <summary>
+        /// Builds MS3 scan description metadata string
+        /// </summary>
+        private static string BuildMS3Description(PendingMS3Info pending, FLASHIdaWrapper.MS3Target target)
+        {
+            string desc = String.Format("MS3|PM={0:F2}|PZ={1}|FM={2:F2}|FZ={3}|FQ={4:F3}",
+                pending.MS2PrecursorMass,
+                pending.MS2Charge,
+                target.Mass,
+                target.Charge,
+                target.QScore);
+
+            if (target.IsBIon.HasValue)
+                desc += target.IsBIon.Value ? "|B" : "|Y";
+
+            return desc;
+        }
+
+        /// <summary>
+        /// Extracts tracking ID from scan description (handles both old and new formats)
+        /// </summary>
+        private static bool TryExtractTrackingId(string scanDesc, string prefix, out int trackingId)
+        {
+            trackingId = -1;
+            if (string.IsNullOrEmpty(scanDesc) || !scanDesc.StartsWith(prefix))
+                return false;
+
+            string afterPrefix = scanDesc.Substring(prefix.Length);
+            int pipeIndex = afterPrefix.IndexOf('|');
+            string idPart = pipeIndex >= 0 ? afterPrefix.Substring(0, pipeIndex) : afterPrefix;
+
+            return int.TryParse(idPart, out trackingId);
         }
 
         /// <summary>
@@ -219,7 +269,7 @@ namespace Flash.IDA
                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                     DataType = firstMS2Params.DataType,
                                     ScanRangeMode = "DefineMZRange",
-                                    ScanDescription = String.Format("cond_{0}", trackingId)
+                                    ScanDescription = BuildMS2Description(String.Format("cond_{0}", trackingId), precursor)
                                 }, delay: 3);
 
                             scans.Add(firstScan);
@@ -231,7 +281,8 @@ namespace Flash.IDA
                                 {
                                     PrecursorMz = center,
                                     IsolationWidth = isolation,
-                                    Charge = z
+                                    Charge = z,
+                                    MonoMass = precursor.MonoMass
                                 };
                             }
 
@@ -249,7 +300,7 @@ namespace Flash.IDA
                             if (ms3Enabled)
                             {
                                 ms3TrackingId = System.Threading.Interlocked.Increment(ref ms3TrackingIdCounter);
-                                ms3ScanDesc = String.Format("ms3_{0}", ms3TrackingId);
+                                ms3ScanDesc = BuildMS2Description(String.Format("ms3_{0}", ms3TrackingId), precursor);
 
                                 pendingMS3s[ms3TrackingId] = new PendingMS3Info
                                 {
@@ -325,11 +376,15 @@ namespace Flash.IDA
                 {
                     try
                     {
-                        string trackingIdStr = scanDesc.Substring(5);
-                        if (int.TryParse(trackingIdStr, out int trackingId))
+                        if (TryExtractTrackingId(scanDesc, "cond_", out int trackingId))
                         {
-                            // Explicit MS2 deconvolution workflow
-                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan);
+                            // Get precursor mass from pending info for MS2 deconvolution
+                            double precursorMass = 0.0;
+                            if (pendingConditionalMS2s.TryGetValue(trackingId, out var pendingPeek))
+                            {
+                                precursorMass = pendingPeek.MonoMass;
+                            }
+                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, precursorMass);
                             bool tagsFound = peakGroups > 0 && flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
                             flashIdaWrapper.ClearMS2DeconvolutionState();
 
@@ -390,8 +445,8 @@ namespace Flash.IDA
                 {
                     try
                     {
-                        // Explicit MS2 deconvolution workflow
-                        int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan);
+                        // Explicit MS2 deconvolution workflow (no tracked precursor mass)
+                        int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, 0.0);
                         bool detected = peakGroups > 0 && flashIdaWrapper.ProcessMS2ForTagBasedTargeting(msScan);
                         flashIdaWrapper.ClearMS2DeconvolutionState();
 
@@ -412,12 +467,11 @@ namespace Flash.IDA
                 {
                     try
                     {
-                        string ms3IdStr = scanDesc.Substring(4);
-                        if (int.TryParse(ms3IdStr, out int ms3TrackingId) &&
+                        if (TryExtractTrackingId(scanDesc, "ms3_", out int ms3TrackingId) &&
                             pendingMS3s.TryRemove(ms3TrackingId, out var pendingMs3))
                         {
                             // Deconvolve MS2 to find fragment masses for MS3
-                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan);
+                            int peakGroups = flashIdaWrapper.DeconvolveMS2(msScan, pendingMs3.MS2PrecursorMass);
 
                             if (peakGroups > 0 && ms3Mode == 0)
                             {
@@ -477,6 +531,7 @@ namespace Flash.IDA
                                                 SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                 DataType = ms3_params.DataType,
                                                 ScanRangeMode = "DefineMZRange",
+                                                ScanDescription = BuildMS3Description(pendingMs3, ms3Target)
                                             }, delay: 3);
 
                                         scans.Add(ms3Scan);
@@ -549,7 +604,8 @@ namespace Flash.IDA
                                                     SourceCIDEnergy = methodParams.MS1.SourceCID,
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                     DataType = ms3_params.DataType,
-                                                    ScanRangeMode = "DefineMZRange"
+                                                    ScanRangeMode = "DefineMZRange",
+                                                    ScanDescription = BuildMS3Description(pendingMs3, ms3Target)
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
@@ -624,6 +680,7 @@ namespace Flash.IDA
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                     DataType = ms3_params.DataType,
                                                     ScanRangeMode = "DefineMZRange",
+                                                    ScanDescription = BuildMS3Description(pendingMs3, ms3Target)
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
@@ -698,6 +755,7 @@ namespace Flash.IDA
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                     DataType = ms3_params.DataType,
                                                     ScanRangeMode = "DefineMZRange",
+                                                    ScanDescription = BuildMS3Description(pendingMs3, ms3Target)
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
