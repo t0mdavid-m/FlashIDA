@@ -80,7 +80,7 @@ namespace Flash.IDA
         private static string BuildMS3Description(PendingMS3Info pending, FLASHIdaWrapper.MS3Target target)
         {
             string desc = String.Format("{0:F2}",
-                pending.MS2PrecursorMass,
+                target.Mass,
                 pending.MS2Charge,
                 target.Mass,
                 target.Charge,
