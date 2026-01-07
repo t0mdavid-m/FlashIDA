@@ -64,7 +64,7 @@ namespace Flash.IDA
         /// </summary>
         private static string BuildMS2Description(string prefix, PrecursorTarget precursor)
         {
-            return String.Format("{0}|PM={1:F2}",
+            return String.Format("{0}|{1:F2}",
                 prefix,
                 precursor.MonoMass,
                 precursor.Charge,
@@ -79,7 +79,7 @@ namespace Flash.IDA
         /// </summary>
         private static string BuildMS3Description(PendingMS3Info pending, FLASHIdaWrapper.MS3Target target)
         {
-            string desc = String.Format("PM={0:F2}",
+            string desc = String.Format("{0:F2}",
                 pending.MS2PrecursorMass,
                 pending.MS2Charge,
                 target.Mass,
@@ -87,9 +87,9 @@ namespace Flash.IDA
                 target.QScore);
 
             if (target.IonName != null)
-                desc += "|" + target.IonName.ToUpper();  // e.g., "|B12" or "|Y5"
+                desc += target.IonName.ToUpper();  // e.g., "|B12" or "|Y5"
             else if (target.IsBIon.HasValue)
-                desc += target.IsBIon.Value ? "|B" : "|Y";  // fallback
+                desc += target.IsBIon.Value ? "B" : "Y";  // fallback
 
             return desc;
         }
