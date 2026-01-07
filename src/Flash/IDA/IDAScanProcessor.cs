@@ -64,7 +64,7 @@ namespace Flash.IDA
         /// </summary>
         private static string BuildMS2Description(string prefix, PrecursorTarget precursor)
         {
-            return String.Format("{0}|M={1:F2}|Z={2}|Q={3:F3}|I={4:E2}|Mz={5:F4}|W={6:F2}",
+            return String.Format("{0}|PM={1:F2}",
                 prefix,
                 precursor.MonoMass,
                 precursor.Charge,
@@ -79,7 +79,7 @@ namespace Flash.IDA
         /// </summary>
         private static string BuildMS3Description(PendingMS3Info pending, FLASHIdaWrapper.MS3Target target)
         {
-            string desc = String.Format("MS3|PM={0:F2}|PZ={1}|FM={2:F2}|FZ={3}|FQ={4:F3}",
+            string desc = String.Format("PM={0:F2}",
                 pending.MS2PrecursorMass,
                 pending.MS2Charge,
                 target.Mass,
