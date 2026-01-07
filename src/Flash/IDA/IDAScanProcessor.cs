@@ -507,7 +507,7 @@ namespace Flash.IDA
                                                 },
                                                 IsolationWidth = new double[] {
                                                     pendingMs3.MS2IsolationWidth, // MS2 isolation width
-                                                    Math.Min(ms3Target.IsolationWidth, 2)       // MS3 isolation width
+                                                    Math.Max(ms3Target.IsolationWidth, 2)       // MS3 isolation width
                                                 },
                                                 ActivationType = new string[] {
                                                     methodParams.MS2.First().Activation, // MS2 activation
@@ -521,7 +521,7 @@ namespace Flash.IDA
                                                 Microscans = ms3_params.Microscans,
                                                 ChargeStates = new int[] {
                                                     Math.Min(pendingMs3.MS2Charge, 25), // MS2 charge
-                                                    Math.Max(1, ms3Target.Charge)       // MS3 fragment charge
+                                                    Math.Min(ms3Target.Charge, 25)       // MS3 fragment charge
                                                 },
                                                 MaxIT = ms3_params.MaxIT,
                                                 ReactionTime = ms3_params.ReactionTime != 0 ?
@@ -581,7 +581,7 @@ namespace Flash.IDA
                                                     },
                                                     IsolationWidth = new double[] {
                                                         pendingMs3.MS2IsolationWidth, // MS2 isolation width
-                                                        Math.Min(ms3Target.IsolationWidth, 2)     // MS3 isolation width
+                                                        Math.Max(ms3Target.IsolationWidth, 2)     // MS3 isolation width
                                                     },
                                                     ActivationType = new string[] {
                                                         methodParams.MS2.First().Activation, // MS2 activation
@@ -595,7 +595,7 @@ namespace Flash.IDA
                                                     Microscans = ms3_params.Microscans,
                                                     ChargeStates = new int[] {
                                                         Math.Min(pendingMs3.MS2Charge, 25), // MS2 charge
-                                                        Math.Max(1, ms3Target.Charge)       // MS3 fragment charge
+                                                        Math.Min(ms3Target.Charge, 25)       // MS3 fragment charge
                                                     },
                                                     MaxIT = ms3_params.MaxIT,
                                                     ReactionTime = ms3_params.ReactionTime != 0 ?
@@ -657,7 +657,7 @@ namespace Flash.IDA
                                                     },
                                                     IsolationWidth = new double[] {
                                                         pendingMs3.MS2IsolationWidth, // MS2 isolation width
-                                                        Math.Min(ms3Target.IsolationWidth, 2)       // MS3 isolation width
+                                                        Math.Max(ms3Target.IsolationWidth, 2)       // MS3 isolation width
                                                     },
                                                     ActivationType = new string[] {
                                                         methodParams.MS2.First().Activation, // MS2 activation
@@ -671,7 +671,7 @@ namespace Flash.IDA
                                                     Microscans = ms3_params.Microscans,
                                                     ChargeStates = new int[] {
                                                         Math.Min(pendingMs3.MS2Charge, 25), // MS2 charge
-                                                        Math.Max(1, ms3Target.Charge)       // MS3 fragment charge
+                                                        Math.Min(ms3Target.Charge, 25)       // MS3 fragment charge
                                                     },
                                                     MaxIT = ms3_params.MaxIT,
                                                     ReactionTime = ms3_params.ReactionTime != 0 ?
@@ -733,7 +733,7 @@ namespace Flash.IDA
                                                     },
                                                     IsolationWidth = new double[] {
                                                         pendingMs3.MS2IsolationWidth,
-                                                        Math.Min(ms3Target.IsolationWidth, 2)
+                                                        Math.Max(ms3Target.IsolationWidth, 2)
                                                     },
                                                     ActivationType = new string[] {
                                                         methodParams.MS2.First().Activation,
@@ -747,7 +747,7 @@ namespace Flash.IDA
                                                     Microscans = ms3_params.Microscans,
                                                     ChargeStates = new int[] {
                                                         Math.Min(pendingMs3.MS2Charge, 25),
-                                                        Math.Max(1, ms3Target.Charge)
+                                                        Math.Min(ms3Target.Charge, 25)
                                                     },
                                                     MaxIT = ms3_params.MaxIT,
                                                     ReactionTime = ms3_params.ReactionTime != 0 ?
