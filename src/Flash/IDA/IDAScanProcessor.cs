@@ -51,6 +51,10 @@ namespace Flash.IDA
             // Mode flags
             public bool IsConditional { get; set; }  // Needs tag check for follow-up MS2s
             public bool IsMS3Trigger { get; set; }   // Needs MS3 scheduling after deconv
+
+            // MS2 scan parameters for MS3 targeting
+            public string FragmentationMethod { get; set; }  // "HCD", "ETD", "UVPD"
+            public int CollisionEnergy { get; set; }
         }
 
         /// <summary>
@@ -58,7 +62,7 @@ namespace Flash.IDA
         /// </summary>
         private static string BuildMS2Description(string prefix, PrecursorTarget precursor)
         {
-            return String.Format("{0}|{1:F2}|{2}", prefix, precursor.MonoMass, precursor.Charge);
+            return String.Format("{0}|{1:F2}@{2}", prefix, precursor.MonoMass, precursor.Charge);
         }
 
         /// <summary>
@@ -66,11 +70,9 @@ namespace Flash.IDA
         /// </summary>
         private static string BuildMS3Description(PendingMS2Info pending, FLASHIdaWrapper.MS3Target target)
         {
-            string desc = String.Format("{0:F2}|{1}", target.Mass, target.Charge);
+            string desc = String.Format("{0:F2}@{1}", target.Mass, target.Charge);
             if (target.IonName != null)
-                desc += target.IonName.ToUpper();  // e.g., "|B12" or "|Y5"
-            else if (target.IsBIon.HasValue)
-                desc += target.IsBIon.Value ? "B" : "Y";  // fallback
+                desc += target.IonName;
             return desc;
         }
 
@@ -219,26 +221,28 @@ namespace Flash.IDA
                         double isolation = precursor.Window.Width;
                         int z = precursor.Charge;
 
-                        // Generate unified tracking ID for ALL MS2 scans
-                        int trackingId = System.Threading.Interlocked.Increment(ref ms2TrackingIdCounter);
-
-                        // Store precursor info with mode flags
-                        pendingMS2s[trackingId] = new PendingMS2Info
-                        {
-                            PrecursorMz = center,
-                            IsolationWidth = isolation,
-                            Charge = z,
-                            MonoMass = precursor.MonoMass,
-                            IsConditional = conditionalMS2Enabled,
-                            IsMS3Trigger = ms3Enabled
-                        };
-
-                        string scanDesc = BuildMS2Description(String.Format("_{0}", trackingId), precursor);
-
                         if (conditionalMS2Enabled)
                         {
                             // CONDITIONAL MODE: Only send first MS2 type
                             MS2Parameters firstMS2Params = methodParams.MS2.First();
+
+                            // Generate tracking ID for this MS2 scan
+                            int trackingId = System.Threading.Interlocked.Increment(ref ms2TrackingIdCounter);
+
+                            // Store precursor info with mode flags and scan parameters
+                            pendingMS2s[trackingId] = new PendingMS2Info
+                            {
+                                PrecursorMz = center,
+                                IsolationWidth = isolation,
+                                Charge = z,
+                                MonoMass = precursor.MonoMass,
+                                IsConditional = true,
+                                IsMS3Trigger = ms3Enabled,
+                                FragmentationMethod = firstMS2Params.Activation,
+                                CollisionEnergy = firstMS2Params.CollisionEnergy
+                            };
+
+                            string scanDesc = BuildMS2Description(String.Format("_{0}", trackingId), precursor);
 
                             IFusionCustomScan firstScan = scanFactory.CreateFusionCustomScan(
                                 new ScanParameters
@@ -276,9 +280,27 @@ namespace Flash.IDA
                         }
                         else
                         {
-                            // STANDARD MODE: Send all MS2 types
+                            // STANDARD MODE: Send all MS2 types - each gets its own tracking ID
                             foreach (MS2Parameters ms2_params in methodParams.MS2)
                             {
+                                // Generate tracking ID for THIS specific MS2 scan
+                                int trackingId = System.Threading.Interlocked.Increment(ref ms2TrackingIdCounter);
+
+                                // Store precursor info with mode flags and this scan's parameters
+                                pendingMS2s[trackingId] = new PendingMS2Info
+                                {
+                                    PrecursorMz = center,
+                                    IsolationWidth = isolation,
+                                    Charge = z,
+                                    MonoMass = precursor.MonoMass,
+                                    IsConditional = false,
+                                    IsMS3Trigger = ms3Enabled,
+                                    FragmentationMethod = ms2_params.Activation,
+                                    CollisionEnergy = ms2_params.CollisionEnergy
+                                };
+
+                                string scanDesc = BuildMS2Description(String.Format("_{0}", trackingId), precursor);
+
                                 Console.WriteLine(String.Format("MS2 Settings: PrecursorMass={0}, IsolationWidth={1}, ChargeStates={2}", center, isolation, z));
                                 IFusionCustomScan repScan = scanFactory.CreateFusionCustomScan(
                                     new ScanParameters
@@ -442,11 +464,11 @@ namespace Flash.IDA
                                                     Math.Max(ms3Target.IsolationWidth, 2)       // MS3 isolation width
                                                 },
                                                 ActivationType = new string[] {
-                                                    methodParams.MS2.First().Activation, // MS2 activation
+                                                    pending.FragmentationMethod, // MS2 activation
                                                     ms3_params.Activation                // MS3 activation
                                                 },
                                                 CollisionEnergy = new int[] {
-                                                    methodParams.MS2.First().CollisionEnergy, // MS2 energy
+                                                    pending.CollisionEnergy, // MS2 energy
                                                     ms3_params.CollisionEnergy                // MS3 energy
                                                 },
                                                 ScanType = "MSn",
@@ -487,7 +509,7 @@ namespace Flash.IDA
                                 else
                                 {
                                     List<FLASHIdaWrapper.MS3Target> ms3Targets =
-                                        flashIdaWrapper.GetTopFragmentMatches(ms3ProteinSequence, maxMs3PerMs2);
+                                        flashIdaWrapper.GetTopFragmentMatches(ms3ProteinSequence, maxMs3PerMs2, pending.FragmentationMethod);
 
                                     IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Scheduling {2} MS3 scans (fragment matches)",
                                         msScan.Header["Scan"], rt, ms3Targets.Count));
@@ -516,11 +538,11 @@ namespace Flash.IDA
                                                         Math.Max(ms3Target.IsolationWidth, 2)     // MS3 isolation width
                                                     },
                                                     ActivationType = new string[] {
-                                                        methodParams.MS2.First().Activation, // MS2 activation
+                                                        pending.FragmentationMethod, // MS2 activation
                                                         ms3_params.Activation                // MS3 activation
                                                     },
                                                     CollisionEnergy = new int[] {
-                                                        methodParams.MS2.First().CollisionEnergy, // MS2 energy
+                                                        pending.CollisionEnergy, // MS2 energy
                                                         ms3_params.CollisionEnergy                // MS3 energy
                                                     },
                                                     ScanType = "MSn",
@@ -563,7 +585,7 @@ namespace Flash.IDA
                                 else
                                 {
                                     List<FLASHIdaWrapper.MS3Target> ms3Targets =
-                                        flashIdaWrapper.GetAmbiguityEnclosingIons(ms3ProteinSequence, maxMs3PerMs2);
+                                        flashIdaWrapper.GetAmbiguityEnclosingIons(ms3ProteinSequence, maxMs3PerMs2, pending.FragmentationMethod);
 
                                     IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Scheduling {2} MS3 scans (ambiguity enclosing)",
                                         msScan.Header["Scan"], rt, ms3Targets.Count));
@@ -592,11 +614,11 @@ namespace Flash.IDA
                                                         Math.Max(ms3Target.IsolationWidth, 2)       // MS3 isolation width
                                                     },
                                                     ActivationType = new string[] {
-                                                        methodParams.MS2.First().Activation, // MS2 activation
+                                                        pending.FragmentationMethod, // MS2 activation
                                                         ms3_params.Activation                // MS3 activation
                                                     },
                                                     CollisionEnergy = new int[] {
-                                                        methodParams.MS2.First().CollisionEnergy, // MS2 energy
+                                                        pending.CollisionEnergy, // MS2 energy
                                                         ms3_params.CollisionEnergy                // MS3 energy
                                                     },
                                                     ScanType = "MSn",
@@ -639,14 +661,14 @@ namespace Flash.IDA
                                 else
                                 {
                                     List<FLASHIdaWrapper.MS3Target> ms3Targets =
-                                        flashIdaWrapper.GetTerminalFragmentIons(ms3ProteinSequence, maxMs3PerMs2);
+                                        flashIdaWrapper.GetTerminalFragmentIons(ms3ProteinSequence, maxMs3PerMs2, pending.FragmentationMethod);
 
                                     IDAlog.Info(String.Format("MS2 Scan# {0} RT {1:f02} - Scheduling {2} MS3 scans (terminal fragments)",
                                         msScan.Header["Scan"], rt, ms3Targets.Count));
 
                                     foreach (var ms3Target in ms3Targets)
                                     {
-                                        string ionInfo = ms3Target.IonName ?? (ms3Target.IsBIon == true ? "b" : "y");
+                                        string ionInfo = ms3Target.IonName ?? (ms3Target.IonType.HasValue ? ms3Target.IonType.Value.ToString() : "?");
 
                                         foreach (MS3Parameters ms3_params in methodParams.MS3)
                                         {
@@ -668,11 +690,11 @@ namespace Flash.IDA
                                                         Math.Max(ms3Target.IsolationWidth, 2)
                                                     },
                                                     ActivationType = new string[] {
-                                                        methodParams.MS2.First().Activation,
+                                                        pending.FragmentationMethod,
                                                         ms3_params.Activation
                                                     },
                                                     CollisionEnergy = new int[] {
-                                                        methodParams.MS2.First().CollisionEnergy,
+                                                        pending.CollisionEnergy,
                                                         ms3_params.CollisionEnergy
                                                     },
                                                     ScanType = "MSn",
