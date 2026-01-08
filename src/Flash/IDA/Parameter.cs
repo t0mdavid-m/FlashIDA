@@ -64,6 +64,7 @@ namespace Flash.IDA
         public int MS3Mode { set; get; }
         public int MaxMs3PerMs2 { set; get; }
         public string MS3ProteinSequence { set; get; }
+        public bool MS3AllCharges { set; get; }
 
         /// <summary>
         /// Complete constructor
@@ -86,7 +87,7 @@ namespace Flash.IDA
                              bool strictInclusion = false, string inclusionList = null, string ptmList = null,
                              bool ms2Tagging = false, string fastaFile = null, int maxPtmCount = 3, int minTagLength = 3, int maxTagLength = 8, double maxFlankingMassDiff = 50000.0,
                              bool conditionalMS2 = false,
-                             bool enableMS3 = false, int ms3Mode = 0, int maxMs3PerMs2 = 4, string ms3ProteinSequence = null)
+                             bool enableMS3 = false, int ms3Mode = 0, int maxMs3PerMs2 = 4, string ms3ProteinSequence = null, bool ms3AllCharges = false)
         {
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
@@ -125,6 +126,7 @@ namespace Flash.IDA
             MS3Mode = ms3Mode;
             MaxMs3PerMs2 = maxMs3PerMs2;
             MS3ProteinSequence = ms3ProteinSequence;
+            MS3AllCharges = ms3AllCharges;
         }
 
         /// <summary>
@@ -141,8 +143,8 @@ namespace Flash.IDA
         /// <returns></returns>
         public string ToFLASHDeconvInput()
         {
-            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} IDScore {10} AllCharges {11} HCDEnergy {12} strict_inclusion {13} tie_threshold {14} ",
-                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode, UseIDScore ? 1 : 0, ConsiderAllChargeStates ? 1 : 0, HCDEnergy, StrictInclusion ? 1 : 0, TieThreshold);
+            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} IDScore {10} AllCharges {11} HCDEnergy {12} strict_inclusion {13} tie_threshold {14} MS3AllCharges {15} ",
+                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode, UseIDScore ? 1 : 0, ConsiderAllChargeStates ? 1 : 0, HCDEnergy, StrictInclusion ? 1 : 0, TieThreshold, MS3AllCharges ? 1 : 0);
 
             // min_tag_length and max_ptm_count must come before file paths
             if (MinTagLength > 0)
