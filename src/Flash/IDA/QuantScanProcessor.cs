@@ -22,6 +22,9 @@ namespace Flash.IDA
         private ScanFactory scanFactory;
         private ScanScheduler scanScheduler;
 
+        // Static FAIMS CV mode
+        private double? staticFaimsCV;
+
         /// <summary>
         /// Create an instance of the scan processor using <paramref name="parameters"/>, connected to existing <see cref="ScanFactory"/> <paramref name="factory"/>
         /// and <see cref="ScanScheduler"/> <paramref name="scheduler"/>
@@ -29,7 +32,8 @@ namespace Flash.IDA
         /// <param name="parameters">Parameters for scan processor</param>
         /// <param name="factory">An instance of <see cref="scanFactory"/></param>
         /// <param name="scheduler">An instance of <see cref="scanScheduler"/></param>
-        public QuantScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler)
+        /// <param name="staticCV">Optional static FAIMS CV to apply to all MS2 scans</param>
+        public QuantScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler, double? staticCV = null)
         {
             //initialize loggers
             log = LogManager.GetLogger("General");
@@ -44,6 +48,13 @@ namespace Flash.IDA
             if (methodParams.MS2.Count() != 2)
             {
                 throw new ArgumentException("The MS2 parameter list must contain exactly two sets of MS2 parameters.");
+            }
+
+            // Initialize static FAIMS CV mode
+            staticFaimsCV = staticCV;
+            if (staticFaimsCV.HasValue)
+            {
+                log.Info(String.Format("Static FAIMS CV mode ENABLED with CV={0}", staticFaimsCV.Value));
             }
         }
 
@@ -124,6 +135,8 @@ namespace Flash.IDA
                             DataType = ms2_params.DataType,
                             ScanDescription = "quant",
                             ScanRangeMode = "DefineMZRange",
+                            FAIMS_CV = staticFaimsCV,
+                            FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                         }, delay: 3);
 
                         scans.Add(repScan);
@@ -192,6 +205,8 @@ namespace Flash.IDA
                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                         DataType = ms2_params.DataType,
                         ScanRangeMode = "DefineMZRange",
+                        FAIMS_CV = staticFaimsCV,
+                        FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                     }, delay: 3);
 
                     scans.Add(repScan);

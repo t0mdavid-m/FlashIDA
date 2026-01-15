@@ -409,7 +409,7 @@ namespace Flash
                     flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
                 }
                 else if (isobaricQuant) {
-                    flashIDAProcessor = new QuantScanProcessor(methodParams, scanFactory, scanScheduler);
+                    flashIDAProcessor = new QuantScanProcessor(methodParams, scanFactory, scanScheduler, staticFaimsCV);
                 }
                 else
                 {
