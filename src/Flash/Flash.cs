@@ -285,6 +285,13 @@ namespace Flash
             Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
             bool isobaricQuant = methodParams.isobaricQuantification;
 
+            // Static FAIMS mode: FAIMS detected but only one CV configured - use normal IDA with constant CV
+            bool useStaticFaims = useFAIMS && CVs.Length == 1;
+            double? staticFaimsCV = useStaticFaims ? CVs[0] : (double?)null;
+            if (useStaticFaims)
+            {
+                log.Info(String.Format("Static FAIMS mode enabled with CV={0}", staticFaimsCV.Value));
+            }
 
             try
             {
@@ -304,7 +311,8 @@ namespace Flash
                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                         DataType = "Profile",
                         ScanType = "Full",
-                        FAIMS_Voltages = "off"
+                        FAIMS_CV = staticFaimsCV,
+                        FAIMS_Voltages = useStaticFaims ? "on" : "off"
                     }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
 
                 //default MS1 scan
@@ -323,7 +331,8 @@ namespace Flash
                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                         DataType = methodParams.MS1.DataType,
                         ScanType = "Full",
-                        FAIMS_Voltages = "off",
+                        FAIMS_CV = staticFaimsCV,
+                        FAIMS_Voltages = useStaticFaims ? "on" : "off",
                         ScanRangeMode = "DefineMZRange",
                     }, delay: 3); 
                 
@@ -382,7 +391,8 @@ namespace Flash
             //create instance of custom scan queue and scheduler
             try
             {
-                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS);
+                // In static FAIMS mode, pass useFAIMS=false to disable CV cycling in scheduler
+                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS && !useStaticFaims);
                 log.Info("ScanScheduler created");
             }
             catch (Exception ex)
@@ -393,8 +403,9 @@ namespace Flash
             //Initialize FLASHIDA Processor
             try
             {
-                if (useFAIMS)
+                if (useFAIMS && CVs.Length > 1)
                 {
+                    // Multiple CVs = FAIMS cycling mode
                     flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
                 }
                 else if (isobaricQuant) {
@@ -402,7 +413,8 @@ namespace Flash
                 }
                 else
                 {
-                    flashIDAProcessor = new IDAScanProcessor(methodParams, scanFactory, scanScheduler); 
+                    // Normal IDA or static FAIMS mode (single CV)
+                    flashIDAProcessor = new IDAScanProcessor(methodParams, scanFactory, scanScheduler, staticFaimsCV);
                 }
                 log.Info("Created FLASHIDA processor");
             }

@@ -33,6 +33,9 @@ namespace Flash.IDA
         private int maxMs3PerMs2;
         private string ms3ProteinSequence;
 
+        // Static FAIMS CV mode (when FAIMS detected but only one CV configured)
+        private double? staticFaimsCV;
+
         // MS2 tracking
         private ConcurrentDictionary<int, PendingMS2Info> pendingMS2s;
         private int ms2TrackingIdCounter = 0;
@@ -99,7 +102,8 @@ namespace Flash.IDA
         /// <param name="parameters">Parameters for scan processor</param>
         /// <param name="factory">An instance of <see cref="scanFactory"/></param>
         /// <param name="scheduler">An instance of <see cref="scanScheduler"/></param>
-        public IDAScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler)
+        /// <param name="staticCV">Optional static FAIMS CV to apply to all MS2/MS3 scans</param>
+        public IDAScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler, double? staticCV = null)
         {
             //initialize loggers
             log = LogManager.GetLogger("General");
@@ -167,6 +171,13 @@ namespace Flash.IDA
                     log.Info(String.Format("MS3 mode {0} ENABLED - MaxMs3PerMs2: {1}, MS3 types: {2}{3}",
                         ms3Mode, maxMs3PerMs2, methodParams.MS3.Count, modeInfo));
                 }
+            }
+
+            // Initialize static FAIMS CV mode
+            staticFaimsCV = staticCV;
+            if (staticFaimsCV.HasValue)
+            {
+                log.Info(String.Format("Static FAIMS CV mode ENABLED with CV={0}", staticFaimsCV.Value));
             }
         }
 
@@ -269,7 +280,9 @@ namespace Flash.IDA
                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                     DataType = firstMS2Params.DataType,
                                     ScanRangeMode = "DefineMZRange",
-                                    ScanDescription = scanDesc
+                                    ScanDescription = scanDesc,
+                                    FAIMS_CV = staticFaimsCV,
+                                    FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                                 }, delay: 3);
 
                             scans.Add(firstScan);
@@ -327,7 +340,9 @@ namespace Flash.IDA
                                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                         DataType = ms2_params.DataType,
                                         ScanRangeMode = "DefineMZRange",
-                                        ScanDescription = scanDesc
+                                        ScanDescription = scanDesc,
+                                        FAIMS_CV = staticFaimsCV,
+                                        FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                                     }, delay: 3);
 
                                 scans.Add(repScan);
@@ -404,6 +419,8 @@ namespace Flash.IDA
                                             SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                             DataType = ms2_params.DataType,
                                             ScanRangeMode = "DefineMZRange",
+                                            FAIMS_CV = staticFaimsCV,
+                                            FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                                         }, delay: 3);
 
                                     scans.Add(followUpScan);
@@ -489,7 +506,9 @@ namespace Flash.IDA
                                                 SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                 DataType = ms3_params.DataType,
                                                 ScanRangeMode = "DefineMZRange",
-                                                ScanDescription = BuildMS3Description(pending, ms3Target)
+                                                ScanDescription = BuildMS3Description(pending, ms3Target),
+                                                FAIMS_CV = staticFaimsCV,
+                                                FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                                             }, delay: 3);
 
                                         scans.Add(ms3Scan);
@@ -563,7 +582,9 @@ namespace Flash.IDA
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                     DataType = ms3_params.DataType,
                                                     ScanRangeMode = "DefineMZRange",
-                                                    ScanDescription = BuildMS3Description(pending, ms3Target)
+                                                    ScanDescription = BuildMS3Description(pending, ms3Target),
+                                                    FAIMS_CV = staticFaimsCV,
+                                                    FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
@@ -639,7 +660,9 @@ namespace Flash.IDA
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                     DataType = ms3_params.DataType,
                                                     ScanRangeMode = "DefineMZRange",
-                                                    ScanDescription = BuildMS3Description(pending, ms3Target)
+                                                    ScanDescription = BuildMS3Description(pending, ms3Target),
+                                                    FAIMS_CV = staticFaimsCV,
+                                                    FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
@@ -715,7 +738,9 @@ namespace Flash.IDA
                                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                                     DataType = ms3_params.DataType,
                                                     ScanRangeMode = "DefineMZRange",
-                                                    ScanDescription = BuildMS3Description(pending, ms3Target)
+                                                    ScanDescription = BuildMS3Description(pending, ms3Target),
+                                                    FAIMS_CV = staticFaimsCV,
+                                                    FAIMS_Voltages = staticFaimsCV.HasValue ? "on" : null
                                                 }, delay: 3);
 
                                             scans.Add(ms3Scan);
