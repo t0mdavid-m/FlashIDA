@@ -123,6 +123,7 @@ namespace Flash.IDA
                             SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                             DataType = ms2_params.DataType,
                             ScanDescription = "quant",
+                            ScanRangeMode = "DefineMZRange",
                         }, delay: 3);
 
                         scans.Add(repScan);
@@ -190,6 +191,7 @@ namespace Flash.IDA
                         SourceCIDEnergy = methodParams.MS1.SourceCID,
                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                         DataType = ms2_params.DataType,
+                        ScanRangeMode = "DefineMZRange",
                     }, delay: 3);
 
                     scans.Add(repScan);

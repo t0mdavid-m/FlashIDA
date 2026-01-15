@@ -136,7 +136,8 @@ namespace Flash.IDA
                                     SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                                     DataType = ms2_params.DataType,
                                     FAIMS_CV = cv,
-                                    FAIMS_Voltages = "on"
+                                    FAIMS_Voltages = "on",
+                                    ScanRangeMode = "DefineMZRange",
                                 }, delay: 3, AGCgroup: scanScheduler.faimsPagcGroups[cv]);
 
                             int queue_pos = scanScheduler.AddScan(repScan, 2, accepted);

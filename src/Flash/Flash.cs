@@ -323,7 +323,8 @@ namespace Flash
                         SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
                         DataType = methodParams.MS1.DataType,
                         ScanType = "Full",
-                        FAIMS_Voltages = "off"
+                        FAIMS_Voltages = "off",
+                        ScanRangeMode = "DefineMZRange",
                     }, delay: 3); 
                 
                 // Rinse and repeat for each CV
@@ -345,7 +346,7 @@ namespace Flash
                             DataType = "Profile",
                             ScanType = "Full",
                             FAIMS_CV = CVs[i],
-                            FAIMS_Voltages = "on"
+                            FAIMS_Voltages = "on",
                         }, id: 41, IsAGC: true, delay: 3, AGCgroup: i+1); //41 is the magic scan identifier
 
                     //default MS1 scan
@@ -365,7 +366,8 @@ namespace Flash
                             DataType = methodParams.MS1.DataType,
                             ScanType = "Full",
                             FAIMS_CV = CVs[i],
-                            FAIMS_Voltages = "on"
+                            FAIMS_Voltages = "on",
+                            ScanRangeMode = "DefineMZRange",
                         }, delay: 3, AGCgroup: i+1);
                     faimsPAGCGroups.Add(CVs[i], i + 1);
                 }
