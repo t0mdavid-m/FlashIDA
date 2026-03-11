@@ -878,7 +878,7 @@ namespace Flash.IDA
             {
                 MethodParameters methodParams = MethodParameters.Load(args[2]);
                 param = methodParams.IDA;
-                //Console.WriteLine(methodParams.IDA.TargetLog);
+                Console.WriteLine(methodParams.ToLogString());
             }
             catch (Exception ex)
             {

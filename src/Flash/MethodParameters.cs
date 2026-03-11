@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Text;
 using System.Xml.Serialization;
 using Flash.IDA;
 
@@ -215,6 +216,99 @@ namespace Flash
 
             // From MSSettings.FAIMS
             IDA.CVValues = MSSettings?.FAIMS?.CVValues ?? new double[] { -50.0 };
+        }
+
+        /// <summary>
+        /// Returns a concise multi-line summary of all method parameters for logging
+        /// </summary>
+        public string ToLogString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("--- Method Parameters ---");
+
+            // Global
+            sb.AppendFormat("Global: Duration={0}min\n", Duration);
+
+            // Precursor selection
+            var ida = IDA;
+            sb.AppendFormat("Precursor: QScore>={0}, TQScore>={1}, Charge=[{2},{3}], Mass=[{4},{5}], RTWindow={6}s, HCDEnergy={7}, Tol=[{8}]\n",
+                ida.QScoreThreshold, ida.TQScoreThreshold, ida.MinCharge, ida.MaxCharge,
+                ida.MinMass, ida.MaxMass, ida.RTWindow, ida.HCDEnergy,
+                String.Join(",", ida.Tolerances));
+
+            // Targeting mode
+            var targetMode = AcquisitionModes?.TargetingMode ?? "None";
+            sb.AppendFormat("Targeting: {0}\n", targetMode);
+
+            // Inclusion
+            sb.AppendFormat("Inclusion: Strict={0}, TieThreshold={1}\n", ida.StrictInclusion, ida.TieThreshold);
+
+            // MS2 Tagging
+            if (ida.MS2Tagging)
+                sb.AppendFormat("MS2Tagging: ConditionalMS2={0}, Fasta={1}, Tags=[{2},{3}], MaxPtm={4}\n",
+                    ida.ConditionalMS2, ida.FastaFile ?? "", ida.MinTagLength, ida.MaxTagLength, ida.MaxPtmCount);
+            else
+                sb.AppendLine("MS2Tagging: Off");
+
+            // Quant
+            if (isobaricQuantification)
+                sb.AppendFormat("Quant: MZTol={0}, FoldChange={1}, OneCondition={2}\n",
+                    ida.quantReporterMZTol, ida.quantFoldChangeThreshold, ida.quantOnlyOneCondition);
+            else
+                sb.AppendLine("Quant: Off");
+
+            // MS3
+            if (ida.EnableMS3)
+                sb.AppendFormat("MS3: Mode={0}, MaxPerMS2={1}, AllCharges={2}, Seq={3}\n",
+                    ida.MS3Mode, ida.MaxMs3PerMs2, ida.MS3AllCharges, ida.MS3ProteinSequence ?? "");
+            else
+                sb.AppendLine("MS3: Off");
+
+            // Developer
+            sb.AppendFormat("Developer: IDScore={0}, AllCharges={1}, MaxCVSkip={2}, MassThreshold={3}\n",
+                ida.UseIDScore, ida.ConsiderAllChargeStates, ida.MaxCVSkip, ida.MassThreshold);
+
+            // MS settings
+            sb.AppendFormat("MS: MaxMS2/MS1={0}, CV=[{1}]\n",
+                ida.MaxMs2CountPerMs1, String.Join(",", ida.CVValues));
+
+            // MS1
+            var ms1 = MS1;
+            sb.AppendFormat("MS1: {0} {1}k, mz=[{2},{3}], AGC={4}, MaxIT={5}ms, uScans={6}, {7}, RF={8}, sCID={9}\n",
+                ms1.Analyzer, ms1.OrbitrapResolution / 1000, ms1.FirstMass, ms1.LastMass,
+                ms1.AGCTarget, ms1.MaxIT, ms1.Microscans, ms1.DataType, ms1.RFLens, ms1.SourceCID);
+
+            // MS2 entries
+            for (int i = 0; i < MS2.Count; i++)
+            {
+                var m = MS2[i];
+                var activation = m.Activation ?? "";
+                if (activation.Equals("ETD", StringComparison.OrdinalIgnoreCase))
+                    sb.AppendFormat("MS2[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} RT={10}ms\n",
+                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
+                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.ReactionTime);
+                else
+                    sb.AppendFormat("MS2[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} CE={10}\n",
+                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
+                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.CollisionEnergy);
+            }
+
+            // MS3 entries
+            for (int i = 0; i < MS3.Count; i++)
+            {
+                var m = MS3[i];
+                var activation = m.Activation ?? "";
+                if (activation.Equals("ETD", StringComparison.OrdinalIgnoreCase))
+                    sb.AppendFormat("MS3[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} RT={10}ms\n",
+                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
+                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.ReactionTime);
+                else
+                    sb.AppendFormat("MS3[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} CE={10}\n",
+                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
+                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.CollisionEnergy);
+            }
+
+            return sb.ToString().TrimEnd();
         }
 
         /// <summary>

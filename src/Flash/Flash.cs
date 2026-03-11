@@ -270,6 +270,7 @@ namespace Flash
             {
                 methodParams = MethodParameters.Load(cliArgs.MethodPath);
                 log.Info("Read method");
+                log.Info(methodParams.ToLogString());
             }
             catch (Exception ex)
             {
