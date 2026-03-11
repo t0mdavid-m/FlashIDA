@@ -37,9 +37,6 @@ namespace Flash.IDA
         
         public double RTWindow { set; get; }
 
-        public double CycleTime { set; get; }
-
-        public bool UseCVQScore { set; get; }
         public int MaxCVSkip { set; get; }
         public int MassThreshold { set; get; }
 
@@ -81,7 +78,7 @@ namespace Flash.IDA
         /// <param name="targetMode">If set to 1, inclusive targeted mode if 2, exclusive targeted mode. If 0, normal exclusion list mode</param> 
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
         public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double tieThreshold = 0.1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100,
-                             double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null, double cycletime = 180, bool usecvqscore = true,
+                             double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null,
                              int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false,
                              bool UseIDScore_ = false, bool ConsiderAllChargeStates_ = false, int HCDEnergy_ = 29,
                              bool strictInclusion = false, string inclusionList = null, string ptmList = null,
@@ -102,8 +99,6 @@ namespace Flash.IDA
             TQScoreThreshold = tqScoreThreshold;
             TargetLogs = targetLogs;
             TargetMode = targetMode;
-            CycleTime = cycletime;
-            UseCVQScore = usecvqscore;
             MaxCVSkip = MaxCVSkip_;
             MassThreshold = MassThreshold_;
             quantReporterMZTol = quantReporterMZTol_;

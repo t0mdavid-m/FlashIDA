@@ -115,6 +115,7 @@
     <Compile Include="IDA\Parameter.cs" />
     <Compile Include="IDA\QuantScanProcessor.cs" />
     <Compile Include="IScanProcessor.cs" />
+    <Compile Include="MethodConfig.cs" />
     <Compile Include="MethodParameters.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ScanFactory.cs" />
