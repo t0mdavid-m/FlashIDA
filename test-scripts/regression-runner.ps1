@@ -34,7 +34,7 @@ foreach ($cfg in $configs) {
         $flashArgs += $ms2File
     }
 
-    & $FlashExe -t @flashArgs
+    & $FlashExe @flashArgs
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "FAIL: Flash.exe exited with code $LASTEXITCODE for $($cfg.name)"

@@ -59,7 +59,7 @@ namespace Flash.Tests
                 var psi = new ProcessStartInfo
                 {
                     FileName = FlashExePath,
-                    Arguments = $"-t \"{SmokeSpectrumPath}\" \"{outputPath}\" \"{DefaultMethodPath}\"",
+                    Arguments = $"\"{SmokeSpectrumPath}\" \"{outputPath}\" \"{DefaultMethodPath}\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
@@ -96,7 +96,7 @@ namespace Flash.Tests
                 var psi = new ProcessStartInfo
                 {
                     FileName = FlashExePath,
-                    Arguments = $"-t \"{SmokeSpectrumPath}\" \"{outputPath}\" \"{DefaultMethodPath}\"",
+                    Arguments = $"\"{SmokeSpectrumPath}\" \"{outputPath}\" \"{DefaultMethodPath}\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
