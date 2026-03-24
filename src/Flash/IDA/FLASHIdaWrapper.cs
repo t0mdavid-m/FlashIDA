@@ -824,65 +824,75 @@ namespace Flash.IDA
         }
 
         /// <summary>
-        /// Extra execution entry point
+        /// Process a single scan: deconvolve, write TSV rows, optionally run MS2 pipeline.
+        /// </summary>
+        /// <returns>Sum of qScores for targets found in this scan.</returns>
+        static double ProcessScan(
+            FLASHIdaWrapper w, List<double> mzs, List<double> ints,
+            double rt, int msLevel, string scanName,
+            StreamWriter wfile,
+            double[] ms2Mzs, double[] ms2Ints)
+        {
+            if (mzs.Count == 0) return 0.0;
+
+            var targets = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, scanName);
+            double scoreSum = 0.0;
+
+            foreach (var item in targets)
+            {
+                wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}",
+                    rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
+                    item.Snr, item.ChargeScore, item.PpmError,
+                    item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Hcd);
+                scoreSum += item.Score;
+            }
+
+            if (ms2Mzs != null && targets.Count > 0)
+            {
+                int ms2PeakGroups = DeconvolveMS2(w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length, rt, targets[0].MonoMass, targets[0].Charge);
+                if (ms2PeakGroups > 0)
+                {
+                    ProcessMS2ForTagBasedTargeting(w.m_pNativeObject, targets[0].MonoMass);
+                }
+                ClearMS2Deconvolution(w.m_pNativeObject);
+            }
+
+            return scoreSum;
+        }
+
+        /// <summary>
+        /// Test harness entry point for offline deconvolution.
         /// </summary>
         /// <remarks>
-        /// Used internally for testing
+        /// Usage: Flash.exe input_file output_file method.xml [ms2_spectrum_file]
         /// </remarks>
         /// <param name="args">Command line arguments</param>
         static public void Main(string[] args)
         {
-            Console.WriteLine("Start");
-
-            string line;
-
-            StreamReader file;
-            StreamWriter wfile;
-
-            //parse command args
             if (args.Length < 3)
             {
                 Console.WriteLine("Usage: input_file output_file method.xml [ms2_spectrum_file]");
                 Environment.Exit(1);
             }
 
-            try
-            {
-                file = new StreamReader(args[0]);
-            }
-            catch
-            {
-                Console.WriteLine("Cannot open input file: {0}", args[0]);
-                Environment.Exit(1);
-                return;
-            }
+            StreamReader file;
+            StreamWriter wfile;
 
-            try
-            {
-                wfile = new StreamWriter(args[1]);
-            }
-            catch
-            {
-                Console.WriteLine("Cannot open output file: {0}", args[1]);
-                Environment.Exit(1);
-                return;
-            }
-            Console.WriteLine('a');
+            try { file = new StreamReader(args[0]); }
+            catch { Console.WriteLine("Cannot open input file: {0}", args[0]); Environment.Exit(1); return; }
 
-            //create Wrapper
-            var tolerances = new double[] { 10, 10 };
+            try { wfile = new StreamWriter(args[1]); }
+            catch { Console.WriteLine("Cannot open output file: {0}", args[1]); Environment.Exit(1); return; }
+
             IDAParameters param = new IDAParameters();
-            Console.WriteLine('b');
-
             try
             {
                 MethodParameters methodParams = MethodParameters.Load(args[2]);
                 param = methodParams.IDA;
-                Console.WriteLine(methodParams.ToLogString());
             }
             catch (Exception ex)
             {
-                Console.WriteLine(String.Format("Error loading method file: {0}\n{1}", ex.Message, ex.StackTrace));
+                Console.WriteLine("Error loading method file: {0}\n{1}", ex.Message, ex.StackTrace);
                 Environment.Exit(1);
             }
 
@@ -896,213 +906,52 @@ namespace Flash.IDA
                     var (loadedMzs, loadedInts, loadedRt) = LoadSpectrum(args[3]);
                     ms2Mzs = loadedMzs;
                     ms2Ints = loadedInts;
-                    Console.WriteLine("Loaded MS2 spectrum: {0} peaks", ms2Mzs.Length);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(String.Format("Cannot load MS2 file: {0}. Error: {1}", args[3], ex.Message));
+                    Console.WriteLine("Cannot load MS2 file: {0}. Error: {1}", args[3], ex.Message);
                     Environment.Exit(1);
                 }
             }
 
-            FLASHIdaWrapper w;
-            Console.WriteLine('1');
-            w = new FLASHIdaWrapper(param);
-            Console.WriteLine('2');
-            // Read the file and display it line by line.  
+            var w = new FLASHIdaWrapper(param);
             var mzs = new List<double>();
             var ints = new List<double>();
-            var rt = .0;
+            var rt = 0.0;
             var msLevel = 1;
-            var totalScore = .0;
-            bool start = false;
+            var totalScore = 0.0;
+            var scanName = "";
+            bool started = false;
+
             wfile.WriteLine("rt\tmz1\tmz2\tqScore\tcharges\tmonoMasses\tccos\tcsnr\tcos\tsnr\tcScore\tppm\tprecursorIntensity\tmassIntensity\thcd");
 
-            Console.WriteLine("aa");
+            string line;
             while ((line = file.ReadLine()) != null)
             {
                 var token = line.Split('\t');
 
-
-                if (line.StartsWith(@"Spec") || (start && line.StartsWith(@"Running FLASHDeconv ... ")))
+                if (line.StartsWith("Spec"))
                 {
-                    start = true;
-                    if (mzs.Count > 0)
-                    {
-                        var l = w.GetIsolationWindows(mzs.ToArray(), ints.ToArray(), rt, msLevel, line);
-                        //var l = w.IsDifferentiallyAbundant(mzs.ToArray(), ints.ToArray(), rt, 2, line, 0.002, 1.5, true);
-                        Console.WriteLine(l);
-                        
-
-                        List<double> monoMasses = w.GetAllMonoisotopicMasses();
-
-                        Console.WriteLine(rt);
-                        if (l.Count > 0) Console.WriteLine(String.Join<PrecursorTarget>("\n", l.ToArray()));
-
-                        if (monoMasses.Count > 0)
-                        {
-                            Console.WriteLine(String.Format("AllMass={0}", String.Join<double>(" ", monoMasses.ToArray()))); ;
-                        }
-
-                        mzs.Clear();
-                        ints.Clear();
-
-                        foreach (var item in l)
-                        {
-                            wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}",
-                                rt, item.Window.Start, item.Window.End, item.Score, item.Charge, item.MonoMass, item.ChargeCos, item.ChargeSnr, item.IsoCos,
-                                item.Snr, item.ChargeScore, item.PpmError,
-                                item.PrecursorIntensity, item.PrecursorPeakGroupIntensity, item.Hcd);
-                            //   Console.WriteLine(item);
-                            totalScore += item.Score;
-                        }
-
-                        // Send MS2 spectrum for tag-based targeting if MS1 had targets
-                        Console.WriteLine(ms2Mzs != null);
-                        Console.WriteLine(l.Count > 0);
-                        if (ms2Mzs != null && l.Count > 0)
-                        {
-                            Console.WriteLine("aaaa");
-                            // Use first target's mass and charge as simulated precursor
-                            double simulatedPrecursorMass = l[0].MonoMass;
-                            int simulatedPrecursorCharge = l[0].Charge;
-
-                            try
-                            {
-                                // Explicit MS2 deconvolution workflow
-                                int ms2PeakGroups = DeconvolveMS2(w.m_pNativeObject, ms2Mzs, ms2Ints, ms2Mzs.Length, rt, 14037.90457, 19);
-                                Console.WriteLine("MS2 Deconvolution: {0} peak groups found", ms2PeakGroups);
-
-                                if (ms2PeakGroups > 0)
-                                {
-                                    // New simplified signature - only needs precursor mass
-                                    bool detected = ProcessMS2ForTagBasedTargeting(w.m_pNativeObject, simulatedPrecursorMass);
-
-                                    if (detected)
-                                    {
-                                        Console.WriteLine("RT {0:f02} - Protein family detected (precursor {1:f02} Da), inclusion list expanded", rt, simulatedPrecursorMass);
-                                    }
-
-                                    // Test GetBestMS2Masses for MS3 targeting
-                                    int maxMs3 = 100;  // Request top 4 masses
-                                    double[] masses = new double[maxMs3];
-                                    double[] qscores = new double[maxMs3];
-                                    int[] charges = new int[maxMs3];
-                                    double[] windowStarts = new double[maxMs3];
-                                    double[] windowEnds = new double[maxMs3];
-
-                                    int ms3Count = GetBestMS2Masses(w.m_pNativeObject, maxMs3,
-                                        masses, qscores, charges, windowStarts, windowEnds);
-
-                                    Console.WriteLine("\nMS3 Targets from GetBestMS2Masses ({0} found):", ms3Count);
-                                    for (int i = 0; i < ms3Count; i++)
-                                    {
-                                        double isoMz = (windowStarts[i] + windowEnds[i]) / 2;
-                                        double isoWidth = windowEnds[i] - windowStarts[i];
-                                        //Console.WriteLine("  [{0}] Mass={1:f02} Da, QScore={2:f04}, Charge={3}+, IsoMz={4:f04}, IsoWidth={5:f02}",
-                                        //    i + 1, masses[i], qscores[i], charges[i], isoMz, isoWidth);
-                                        Console.WriteLine(masses[i]);
-                                    }
-
-                                    // Test GetTopFragmentMatches for MS3 mode 1 (fragment matching)
-                                    string testSequence = "VTAMDVVYALKRQGRTLYGFGG";
-                                    testSequence = "SGRGKQGGKARAKAKTRSSRAGLQFPVGRVHRLLRKGNYSERVGAGAPVYLAAVLEYLTAEILELAGNAARDNKKTRIIPRHLQLAIRNDEELNKLLGKVTIAQGGVLPNIQAVLLPKKTESHHKAKGK";
-                                    double[] fragMasses = new double[maxMs3];
-                                    double[] fragQscores = new double[maxMs3];
-                                    int[] fragCharges = new int[maxMs3];
-                                    double[] fragWindowStarts = new double[maxMs3];
-                                    double[] fragWindowEnds = new double[maxMs3];
-                                    byte[] fragIonTypes = new byte[maxMs3];
-                                    int[] fragIndices = new int[maxMs3];
-
-                                    int fragCount = GetTopFragmentMatches(w.m_pNativeObject, testSequence, maxMs3,
-                                        fragMasses, fragQscores, fragCharges, fragWindowStarts, fragWindowEnds,
-                                        fragIonTypes, fragIndices, "HCD");
-
-                                    Console.WriteLine("\nMS3 Targets from GetTopFragmentMatches ({0} found, seq length {1}):",
-                                        fragCount, testSequence.Length);
-                                    for (int i = 0; i < fragCount; i++)
-                                    {
-                                        double fragIsoMz = (fragWindowStarts[i] + fragWindowEnds[i]) / 2;
-                                        double fragIsoWidth = fragWindowEnds[i] - fragWindowStarts[i];
-                                        string ionName = String.Format("{0}{1}", (char)fragIonTypes[i], fragIndices[i]);
-                                        Console.WriteLine("  [{0}] {1}: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
-                                            i + 1, ionName, fragMasses[i], fragQscores[i], fragCharges[i], fragIsoMz, fragIsoWidth);
-                                    }
-
-                                    // Test GetAmbiguityEnclosingIons for MS3 mode 2 (PTM ambiguity)
-                                    double[] ambigMasses = new double[maxMs3];
-                                    double[] ambigQscores = new double[maxMs3];
-                                    int[] ambigCharges = new int[maxMs3];
-                                    double[] ambigWindowStarts = new double[maxMs3];
-                                    double[] ambigWindowEnds = new double[maxMs3];
-                                    byte[] ambigIonTypes = new byte[maxMs3];
-                                    int[] ambigIndices = new int[maxMs3];
-
-                                    int ambigCount = GetAmbiguityEnclosingIons(w.m_pNativeObject, testSequence, maxMs3,
-                                        ambigMasses, ambigQscores, ambigCharges, ambigWindowStarts, ambigWindowEnds,
-                                        ambigIonTypes, ambigIndices, "HCD");
-
-                                    Console.WriteLine("\nMS3 Targets from GetAmbiguityEnclosingIons ({0} found):", ambigCount);
-                                    for (int i = 0; i < ambigCount; i++)
-                                    {
-                                        double ambigIsoMz = (ambigWindowStarts[i] + ambigWindowEnds[i]) / 2;
-                                        double ambigIsoWidth = ambigWindowEnds[i] - ambigWindowStarts[i];
-                                        string ionName = String.Format("{0}{1}", (char)ambigIonTypes[i], ambigIndices[i]);
-                                        Console.WriteLine("  [{0}] {1}: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
-                                            i + 1, ionName, ambigMasses[i], ambigQscores[i], ambigCharges[i], ambigIsoMz, ambigIsoWidth);
-                                    }
-
-                                    // Test GetTerminalFragmentIons for MS3 mode 3 (terminal ions)
-                                    double[] termMasses = new double[maxMs3];
-                                    double[] termQscores = new double[maxMs3];
-                                    int[] termCharges = new int[maxMs3];
-                                    double[] termWindowStarts = new double[maxMs3];
-                                    double[] termWindowEnds = new double[maxMs3];
-                                    byte[] termIonTypes = new byte[maxMs3];
-                                    int[] termIndices = new int[maxMs3];
-
-                                    int termCount = GetTerminalFragmentIons(w.m_pNativeObject, testSequence, maxMs3,
-                                        termMasses, termQscores, termCharges, termWindowStarts, termWindowEnds,
-                                        termIonTypes, termIndices, "HCD");
-
-                                    Console.WriteLine("\nMS3 Targets from GetTerminalFragmentIons ({0} found):", termCount);
-                                    for (int i = 0; i < termCount; i++)
-                                    {
-                                        double termIsoMz = (termWindowStarts[i] + termWindowEnds[i]) / 2;
-                                        double termIsoWidth = termWindowEnds[i] - termWindowStarts[i];
-                                        string ionName = String.Format("{0}{1}", (char)termIonTypes[i], termIndices[i]);
-                                        Console.WriteLine("  [{0}] {1}: Mass={2:f02} Da, QScore={3:f04}, Charge={4}+, IsoMz={5:f04}, IsoWidth={6:f02}",
-                                            i + 1, ionName, termMasses[i], termQscores[i], termCharges[i], termIsoMz, termIsoWidth);
-                                    }
-                                }
-
-                                // Clear MS2 deconvolution state
-                                ClearMS2Deconvolution(w.m_pNativeObject);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine("MS2 tag processing failed: {0}", ex.Message);
-                            }
-                        }
-                    }
-
+                    if (started)
+                        totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints);
+                    mzs.Clear();
+                    ints.Clear();
                     rt = double.Parse(token[1]) / 60.0;
-                    //rt = double.Parse(token[1]);
-
-                    if (start && line.StartsWith(@"Running FLASHDeconv ... "))
-                    {
-                        break;
-                    }
+                    scanName = line;
+                    started = true;
                 }
-
-                else if (start)
+                else if (started && token.Length >= 2)
                 {
                     mzs.Add(double.Parse(token[0]));
                     ints.Add(double.Parse(token[1]));
                 }
             }
-            Console.WriteLine(@"Total QScore (i.e., expected number of PrSM identification): {0}", totalScore);
+
+            // Process the last scan (previously missed — no subsequent Spec header to trigger it)
+            if (started)
+                totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints);
+
+            Console.WriteLine("Total QScore (i.e., expected number of PrSM identification): {0}", totalScore);
 
             wfile.Close();
             file.Close();

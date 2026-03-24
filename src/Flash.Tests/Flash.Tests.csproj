@@ -68,6 +68,7 @@
   <ItemGroup>
     <Compile Include="SmokeTests.cs" />
     <Compile Include="BridgeSmokeTests.cs" />
+    <Compile Include="BridgeMS2Tests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
