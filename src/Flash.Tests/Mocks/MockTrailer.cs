@@ -1,11 +1,5 @@
 using System.Collections.Generic;
-// Try all plausible Thermo namespaces for IInformationSourceAccess
-using Thermo.Interfaces.InstrumentAccess_V1;
-using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
-using Thermo.Interfaces.FusionAccess_V1;
-using Thermo.Interfaces.FusionAccess_V1.MsScanContainer;
-using Thermo.TNG.Client.API;
-using Thermo.TNG.Client.API.MsScanContainer;
+using Thermo.Interfaces.SpectrumFormat_V1;
 
 namespace Flash.Tests.Mocks
 {
