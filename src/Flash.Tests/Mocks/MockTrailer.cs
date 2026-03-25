@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Thermo.Interfaces.InstrumentAccess_V1;
+using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
 
 namespace Flash.Tests.Mocks
 {

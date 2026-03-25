@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Flash.DataObjects;
-using Thermo.Interfaces.InstrumentAccess_V1;
 using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
 using Thermo.Interfaces.SpectrumFormat_V1;
 
@@ -37,10 +36,10 @@ namespace Flash.Tests.Mocks
         public IInformationSourceAccess Trailer => _trailerAccess;
 
         /// <summary>Tune data (not used by Flash code)</summary>
-        public IDictionary<string, string> TuneData => null;
+        public IInformationSourceAccess TuneData => null;
 
         /// <summary>Status log (not used by Flash code)</summary>
-        public IDictionary<string, string> StatusLog => null;
+        public IInformationSourceAccess StatusLog => null;
 
         /// <summary>Detector name</summary>
         public string DetectorName => "MockDetector";
@@ -57,10 +56,10 @@ namespace Flash.Tests.Mocks
         public int? NoiseCount => null;
 
         /// <summary>Noise band data (not used by Flash code)</summary>
-        public INoise[] NoiseBand => null;
+        public IEnumerable<INoiseNode> NoiseBand => null;
 
         /// <summary>Charge envelopes (not used by Flash code)</summary>
-        public IChargeEnvelope[] ChargeEnvelopes => null;
+        public IEnumerable<IChargeEnvelope> ChargeEnvelopes => null;
 
         // === Constructor ===
 
