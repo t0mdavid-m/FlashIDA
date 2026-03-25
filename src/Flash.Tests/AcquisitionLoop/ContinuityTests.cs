@@ -251,12 +251,15 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT08_MS2Count_RespectsMaxMs2CountPerMs1()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default_topn5.xml"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
                 int maxPerMs1 = harness.MethodParams.IDA.MaxMs2CountPerMs1;
                 int ms2Types = harness.MethodParams.MS2.Count;
+
+                Assert.AreEqual(5, maxPerMs1,
+                    "Config should have MaxMs2CountPerMs1=5");
 
                 // Total MS2 scans should not exceed MaxMs2CountPerMs1 * MS2Types
                 // (each precursor gets one scan per MS2 parameter set)
@@ -357,31 +360,27 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT12_DeepMode_MorePrecursors()
         {
-            // Compare standard vs deep mode precursor counts
             int standardCount, deepCount;
 
-            using (var harness = CreateHarness("method_default.xml"))
+            // Run standard DDA with TopN=5
+            using (var harness = CreateHarness("method_default_topn5.xml"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 standardCount = results.Count;
             }
 
-            // Deep mode: load default config and modify targeting mode programmatically
-            // For this test, we use a modified config with higher MaxMs2CountPerMs1
-            // and TargetingMode=Deep. Since we don't have a separate XML for deep mode,
-            // we test with the default config that has MaxMs2CountPerMs1=1.
-            // Deep mode in the C++ engine returns more precursors when target_mode=3.
-            // We verify this by checking count with a higher MaxMs2CountPerMs1 setting.
-            using (var harness = CreateHarness("method_default.xml"))
+            // Run deep mode with TopN=5
+            using (var harness = CreateHarness("method_deep.xml"))
             {
-                // The default config has MaxMs2CountPerMs1=1, so standard DDA gives 1 MS2.
-                // Deep mode should find the same or more precursors in the C++ engine.
-                // Since we can't easily modify TargetingMode programmatically after loading,
-                // we verify the MaxMs2CountPerMs1 constraint is working.
-                Assert.That(standardCount, Is.LessThanOrEqualTo(
-                    harness.MethodParams.IDA.MaxMs2CountPerMs1 * harness.MethodParams.MS2.Count),
-                    "Standard DDA should respect MaxMs2CountPerMs1 limit");
+                var results = PushSmokeSpectrumAndCollect(harness);
+                deepCount = results.Count;
             }
+
+            // Deep mode should produce at least as many MS2 scans as standard DDA
+            // for the same input spectrum and TopN setting
+            Assert.That(deepCount, Is.GreaterThanOrEqualTo(standardCount),
+                string.Format("Deep mode ({0}) should produce >= standard DDA ({1}) MS2 scans",
+                    deepCount, standardCount));
         }
 
         [Test, Category("Tier2")]
