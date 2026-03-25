@@ -59,7 +59,7 @@ namespace Flash.Tests.Mocks
         public IEnumerable<INoiseNode> NoiseBand => null;
 
         /// <summary>Charge envelopes (not used by Flash code)</summary>
-        public IEnumerable<IChargeEnvelope> ChargeEnvelopes => null;
+        public IChargeEnvelope[] ChargeEnvelopes => null;
 
         // === Constructor ===
 
