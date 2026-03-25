@@ -31,7 +31,7 @@ namespace Flash.IDA
         /// <param name="parameters">Parameters for scan processor</param>
         /// <param name="factory">An instance of <see cref="scanFactory"/></param>
         /// <param name="scheduler">An instance of <see cref="scanScheduler"/></param>
-        public FAIMSScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler)
+        public FAIMSScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler, FLASHIdaWrapper wrapper = null)
         {
             //initialize loggers
             log = LogManager.GetLogger("General");
@@ -41,7 +41,7 @@ namespace Flash.IDA
             scanScheduler = scheduler;
             scanFactory = factory;
 
-            flashIdaWrapper = new FLASHIdaWrapper(methodParams.IDA);
+            flashIdaWrapper = wrapper ?? new FLASHIdaWrapper(methodParams.IDA);
         }
 
         /// <summary>

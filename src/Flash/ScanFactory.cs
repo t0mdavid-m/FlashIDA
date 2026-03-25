@@ -97,7 +97,7 @@ namespace Flash
         /// <param name="AGCgroup">Identifier of the AGC group, AGC scan (i.e. the one with <paramref name="IsAGC"/> = true) will 
         /// be used for AGC of all the scans in the same group</param>
         /// <returns></returns>
-        public IFusionCustomScan CreateFusionCustomScan(ScanParameters parameters, int id = 0, double delay = 0, bool IsAGC = false, int AGCgroup = 1)
+        public virtual IFusionCustomScan CreateFusionCustomScan(ScanParameters parameters, int id = 0, double delay = 0, bool IsAGC = false, int AGCgroup = 1)
         {
             IFusionCustomScan newScan = new FusionCustomScan();
             FillParameters(newScan, parameters);

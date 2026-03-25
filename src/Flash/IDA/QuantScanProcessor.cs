@@ -33,7 +33,7 @@ namespace Flash.IDA
         /// <param name="factory">An instance of <see cref="scanFactory"/></param>
         /// <param name="scheduler">An instance of <see cref="scanScheduler"/></param>
         /// <param name="staticCV">Optional static FAIMS CV to apply to all MS2 scans</param>
-        public QuantScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler, double? staticCV = null)
+        public QuantScanProcessor(MethodParameters parameters, ScanFactory factory, ScanScheduler scheduler, double? staticCV = null, FLASHIdaWrapper wrapper = null)
         {
             //initialize loggers
             log = LogManager.GetLogger("General");
@@ -43,7 +43,7 @@ namespace Flash.IDA
             scanScheduler = scheduler;
             scanFactory = factory;
 
-            flashIdaWrapper = new FLASHIdaWrapper(methodParams.IDA);
+            flashIdaWrapper = wrapper ?? new FLASHIdaWrapper(methodParams.IDA);
 
             if (methodParams.MS2.Count() != 2)
             {

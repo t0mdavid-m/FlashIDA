@@ -55,6 +55,9 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="log4net, Version=2.0.12.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
+      <HintPath>..\packages\log4net.2.0.12\lib\net45\log4net.dll</HintPath>
+    </Reference>
     <Reference Include="nunit.framework">
       <HintPath>..\packages\NUnit.3.13.3\lib\net45\nunit.framework.dll</HintPath>
     </Reference>
@@ -69,6 +72,13 @@
     <Compile Include="SmokeTests.cs" />
     <Compile Include="BridgeSmokeTests.cs" />
     <Compile Include="BridgeMS2Tests.cs" />
+    <Compile Include="Mocks\MockTrailer.cs" />
+    <Compile Include="Mocks\MockMsScan.cs" />
+    <Compile Include="Mocks\MockCustomScan.cs" />
+    <Compile Include="Mocks\MockScanFactory.cs" />
+    <Compile Include="Mocks\ScanCommandRecord.cs" />
+    <Compile Include="Mocks\ContinuityTestHarness.cs" />
+    <Compile Include="AcquisitionLoop\ContinuityTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
