@@ -1,28 +1,20 @@
 using System.Collections.Generic;
-using System.Linq;
+using Thermo.Interfaces.InstrumentAccess_V1;
 
 namespace Flash.Tests.Mocks
 {
     /// <summary>
-    /// Dictionary wrapper that serves as both Header and Trailer for MockMsScan.
+    /// Mock implementation of IInformationSourceAccess for IMsScan.Trailer.
+    /// IInformationSourceAccess is the return type of IMsScan.Trailer
+    /// (discovered from CI error CS0738).
     ///
-    /// CI FIXUP NOTE: This class likely needs to implement a Thermo interface
-    /// (e.g. IInfoContainer from Thermo.Interfaces.InstrumentAccess_V1).
-    /// If MockMsScan fails to compile because Header/Trailer return types don't match,
-    /// add the correct interface here and implement any missing members.
+    /// CI FIXUP NOTE: If IInformationSourceAccess is not in
+    /// Thermo.Interfaces.InstrumentAccess_V1, or has additional members
+    /// beyond TryGetValue, compilation errors will indicate what to fix.
     /// </summary>
-    public class MockInfoContainer
+    public class MockTrailerAccess : IInformationSourceAccess
     {
         private readonly Dictionary<string, string> _data = new Dictionary<string, string>();
-
-        /// <summary>
-        /// String indexer matching IMsScan.Header["key"] usage pattern
-        /// </summary>
-        public string this[string name]
-        {
-            get => _data[name]; // Throws KeyNotFoundException for missing keys (matches Thermo behavior)
-            set => _data[name] = value;
-        }
 
         /// <summary>
         /// TryGetValue matching IMsScan.Trailer.TryGetValue() usage pattern
@@ -33,29 +25,11 @@ namespace Flash.Tests.Mocks
         }
 
         /// <summary>
-        /// Enumeration of all key names (potential IInfoContainer member)
-        /// </summary>
-        public IEnumerable<string> Names => _data.Keys;
-
-        /// <summary>
-        /// Count of entries
-        /// </summary>
-        public int Count => _data.Count;
-
-        /// <summary>
         /// Set a value for test setup
         /// </summary>
         public void Set(string name, string value)
         {
             _data[name] = value;
-        }
-
-        /// <summary>
-        /// Check if a key exists
-        /// </summary>
-        public bool ContainsKey(string name)
-        {
-            return _data.ContainsKey(name);
         }
     }
 }

@@ -7,10 +7,7 @@ namespace Flash.Tests.Mocks
     /// Mock implementation of IFusionCustomScan for continuity tests.
     /// Replaces the Thermo FusionCustomScan concrete class.
     ///
-    /// CI FIXUP NOTE: IFusionCustomScan extends IScanDefinition (from
-    /// Thermo.Interfaces.InstrumentAccess_V1.Control.Scans). If there are additional
-    /// interface members beyond Values/RunningNumber/SingleProcessingDelay/IsPAGCScan/PAGCGroupIndex,
-    /// compilation errors will list them.
+    /// IScanDefinition.RunningNumber and IFusionCustomScan.PAGCGroupIndex are long (not int).
     /// </summary>
     public class MockCustomScan : IFusionCustomScan
     {
@@ -20,9 +17,9 @@ namespace Flash.Tests.Mocks
         public IDictionary<string, string> Values { get; } = new Dictionary<string, string>();
 
         /// <summary>
-        /// Running number identifier for this scan
+        /// Running number identifier for this scan (IScanDefinition uses long)
         /// </summary>
-        public int RunningNumber { get; set; }
+        public long RunningNumber { get; set; }
 
         /// <summary>
         /// Processing delay in seconds
@@ -35,8 +32,8 @@ namespace Flash.Tests.Mocks
         public bool IsPAGCScan { get; set; }
 
         /// <summary>
-        /// PAGC group index for grouping AGC measurements
+        /// PAGC group index for grouping AGC measurements (IFusionCustomScan uses long)
         /// </summary>
-        public int PAGCGroupIndex { get; set; }
+        public long PAGCGroupIndex { get; set; }
     }
 }
