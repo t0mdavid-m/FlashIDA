@@ -88,6 +88,7 @@
     <Compile Include="SmokeTests.cs" />
     <Compile Include="BridgeSmokeTests.cs" />
     <Compile Include="BridgeMS2Tests.cs" />
+    <Compile Include="DiagnosticTests.cs" />
     <Compile Include="Mocks\MockTrailer.cs" />
     <Compile Include="Mocks\MockMsScan.cs" />
     <Compile Include="Mocks\MockCustomScan.cs" />

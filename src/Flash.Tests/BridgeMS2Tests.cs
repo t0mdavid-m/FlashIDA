@@ -293,56 +293,6 @@ namespace Flash.Tests
         }
 
         /// <summary>
-        /// Standalone diagnostic test — independent of OneTimeSetUp.
-        /// Logs every step to help diagnose why GetPeakGroupSize returns 0
-        /// in the NUnit process but works in Flash.exe standalone.
-        /// </summary>
-        [Test, Category("Tier2")]
-        public void P0_DIAG_DeconvolutionDiagnostic()
-        {
-            string ms1Path = Path.Combine(SpectraDir, "ms1_smoke_test.txt");
-            Console.Error.WriteLine("[DIAG] ms1Path: " + ms1Path);
-            Console.Error.WriteLine("[DIAG] File exists: " + File.Exists(ms1Path));
-
-            // Load spectrum
-            var (mzs, ints, rt) = LoadSpectrum(ms1Path);
-            Console.Error.WriteLine("[DIAG] Spectrum peaks: " + mzs.Length);
-            Console.Error.WriteLine("[DIAG] RT (minutes): " + rt);
-            if (mzs.Length > 0)
-            {
-                Console.Error.WriteLine("[DIAG] First mz: " + mzs[0] + ", intensity: " + ints[0]);
-                Console.Error.WriteLine("[DIAG] Last mz: " + mzs[mzs.Length - 1] + ", intensity: " + ints[ints.Length - 1]);
-            }
-
-            // Create engine
-            string config = BridgeSmokeTests_BuildLegacyConfigString();
-            Console.Error.WriteLine("[DIAG] Config: " + config);
-            IntPtr ptr = CreateFLASHIda(config);
-            Console.Error.WriteLine("[DIAG] Ptr: " + ptr);
-            Assert.AreNotEqual(IntPtr.Zero, ptr, "CreateFLASHIda returned null");
-
-            try
-            {
-                // Call GetPeakGroupSize
-                int size = GetPeakGroupSize(ptr, mzs, ints, mzs.Length, rt, 1, "diag_test", null);
-                Console.Error.WriteLine("[DIAG] GetPeakGroupSize returned: " + size);
-
-                // Verify spectrum data integrity
-                Assert.AreEqual(6610, mzs.Length, "Spectrum should have 6610 peaks");
-                Assert.That(mzs[0], Is.EqualTo(501.707581).Within(0.001), "First m/z mismatch");
-                Assert.That(ints[0], Is.EqualTo(148213.16).Within(1.0), "First intensity mismatch");
-                Assert.That(rt, Is.EqualTo(70.5841 / 60.0).Within(0.0001), "RT mismatch");
-
-                Assert.That(size, Is.GreaterThan(0),
-                    "GetPeakGroupSize returned 0 — deconvolution found no targets");
-            }
-            finally
-            {
-                DisposeFLASHIda(ptr);
-            }
-        }
-
-        /// <summary>
         /// Same config string as BridgeSmokeTests.BuildLegacyConfigString().
         /// Duplicated here to avoid coupling test fixtures.
         /// </summary>
