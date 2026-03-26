@@ -47,6 +47,7 @@ namespace Flash.Tests
                 var token = line.Split('\t');
                 if (line.StartsWith("Spec"))
                 {
+                    if (started) break; // Only read the first scan
                     rt = double.Parse(token[1]) / 60.0;
                     started = true;
                 }

@@ -175,6 +175,7 @@ namespace Flash.Tests.Mocks
                 var tokens = line.Split('\t');
                 if (line.StartsWith("Spec"))
                 {
+                    if (started) break; // Only read the first scan
                     double rtSeconds = double.Parse(tokens[1]);
                     scan._headerDict["StartTime"] = (rtSeconds / 60.0).ToString();
                     string scanNum = tokens[0].Replace("Spec scan=", "");
