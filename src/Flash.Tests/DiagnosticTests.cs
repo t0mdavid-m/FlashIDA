@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 
@@ -10,6 +11,7 @@ namespace Flash.Tests
     /// Standalone diagnostic test — no OneTimeSetUp dependency.
     /// Logs every step to diagnose why GetPeakGroupSize returns 0
     /// in the NUnit process but works in Flash.exe standalone.
+    /// Uses Console.WriteLine (captured in NUnit output element).
     /// </summary>
     [TestFixture]
     public class DiagnosticTests
@@ -62,28 +64,19 @@ namespace Flash.Tests
         public void P0_DIAG_DeconvolutionDiagnostic()
         {
             string ms1Path = Path.Combine(SpectraDir, "ms1_smoke_test.txt");
-            TestContext.Error.WriteLine("[DIAG] ms1Path: " + ms1Path);
-            TestContext.Error.WriteLine("[DIAG] File exists: " + File.Exists(ms1Path));
+            Console.WriteLine("[DIAG] ms1Path: " + ms1Path);
+            Console.WriteLine("[DIAG] File exists: " + File.Exists(ms1Path));
             Assume.That(File.Exists(ms1Path), "ms1_smoke_test.txt not found");
 
             // Load spectrum
             var (mzs, ints, rt) = LoadSpectrum(ms1Path);
-            TestContext.Error.WriteLine("[DIAG] Spectrum peaks: " + mzs.Length);
-            TestContext.Error.WriteLine("[DIAG] RT (minutes): " + rt);
-            if (mzs.Length > 0)
-            {
-                TestContext.Error.WriteLine("[DIAG] First mz: " + mzs[0] + ", intensity: " + ints[0]);
-                TestContext.Error.WriteLine("[DIAG] Last mz: " + mzs[mzs.Length - 1] + ", intensity: " + ints[ints.Length - 1]);
-            }
+            Console.WriteLine("[DIAG] Spectrum peaks: " + mzs.Length);
+            Console.WriteLine("[DIAG] RT (minutes): " + rt);
+            Console.WriteLine("[DIAG] mzs[0]=" + mzs[0] + ", ints[0]=" + ints[0]);
+            Console.WriteLine("[DIAG] mzs[last]=" + mzs[mzs.Length - 1] + ", ints[last]=" + ints[ints.Length - 1]);
+            Console.WriteLine("[DIAG] Sum(ints)=" + ints.Sum());
+            Console.WriteLine("[DIAG] OMP_NUM_THREADS=" + Environment.GetEnvironmentVariable("OMP_NUM_THREADS"));
 
-            // Log spectrum data integrity (non-blocking)
-            TestContext.Error.WriteLine("[DIAG] Expected ~6610 peaks, got: " + mzs.Length);
-            if (mzs.Length > 0)
-            {
-                TestContext.Error.WriteLine("[DIAG] mzs[0]=" + mzs[0] + " (expect ~501.7)");
-                TestContext.Error.WriteLine("[DIAG] ints[0]=" + ints[0] + " (expect ~148213)");
-            }
-            TestContext.Error.WriteLine("[DIAG] rt=" + rt + " (expect ~1.1764)");
             Assert.That(mzs.Length, Is.GreaterThan(6000), "Spectrum too small");
 
             // Create engine
@@ -92,31 +85,25 @@ namespace Flash.Tests
                    "tqscore_threshold 0.9 target_mode 0 IDScore 0 AllCharges 0 " +
                    "HCDEnergy 29 strict_inclusion 0 tie_threshold 0.1 MS3AllCharges 1 " +
                    "min_tag_length 3 max_tag_length 8 max_ptm_count 3 max_flanking_mass_diff 50000 ";
-            TestContext.Error.WriteLine("[DIAG] Config: " + config);
+            Console.WriteLine("[DIAG] Config length: " + config.Length);
             IntPtr ptr = CreateFLASHIda(config);
-            TestContext.Error.WriteLine("[DIAG] Ptr: " + ptr);
+            Console.WriteLine("[DIAG] Ptr: " + ptr);
             Assert.AreNotEqual(IntPtr.Zero, ptr, "CreateFLASHIda returned null");
 
             try
             {
-                // Pre-deconvolution state
                 int preSize = GetAllPeakGroupSize(ptr);
-                TestContext.Error.WriteLine("[DIAG] GetAllPeakGroupSize (pre): " + preSize);
+                Console.WriteLine("[DIAG] GetAllPeakGroupSize (pre): " + preSize);
 
-                // Call GetPeakGroupSize
                 int size = GetPeakGroupSize(ptr, mzs, ints, mzs.Length, rt, 1, "diag_test", null);
-                TestContext.Error.WriteLine("[DIAG] GetPeakGroupSize returned: " + size);
+                Console.WriteLine("[DIAG] GetPeakGroupSize returned: " + size);
 
-                // Post-deconvolution state
                 int postSize = GetAllPeakGroupSize(ptr);
-                TestContext.Error.WriteLine("[DIAG] GetAllPeakGroupSize (post): " + postSize);
-
-                TestContext.Error.WriteLine("[DIAG] OMP_NUM_THREADS=" +
-                    Environment.GetEnvironmentVariable("OMP_NUM_THREADS"));
+                Console.WriteLine("[DIAG] GetAllPeakGroupSize (post): " + postSize);
 
                 Assert.That(size, Is.GreaterThan(0),
-                    string.Format("GetPeakGroupSize returned {0}, GetAllPeakGroupSize pre={1} post={2}",
-                        size, preSize, postSize));
+                    string.Format("GetPeakGroupSize={0}, AllPeakGroupSize pre={1} post={2}, peaks={3}, rt={4}",
+                        size, preSize, postSize, mzs.Length, rt));
             }
             finally
             {
