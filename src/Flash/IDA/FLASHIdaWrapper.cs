@@ -143,7 +143,6 @@ namespace Flash.IDA
         public FLASHIdaWrapper(MethodParameters mp)
         {
             string arg = mp.IDA.ToJSON(mp);
-            Console.WriteLine(arg);
             m_pNativeObject = CreateFLASHIda(arg);
         }
 
