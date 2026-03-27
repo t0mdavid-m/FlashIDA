@@ -15,7 +15,7 @@ namespace Flash.Tests
     public class JsonConfigTests
     {
         private static readonly string TestDataDir = Path.Combine(
-            TestContext.CurrentContext.TestDirectory, "..", "..", "test-data");
+            TestContext.CurrentContext.TestDirectory, "..", "test-data");
 
         private static readonly string ConfigsDir = Path.Combine(TestDataDir, "configs");
 

@@ -121,7 +121,7 @@ namespace Flash.Tests
         public void P1_I03_CreateFLASHIda_RoundtripJson_DoesNotCrash()
         {
             string configsDir = Path.Combine(
-                TestContext.CurrentContext.TestDirectory, "..", "..", "test-data", "configs");
+                TestContext.CurrentContext.TestDirectory, "..", "test-data", "configs");
             string roundtripPath = Path.Combine(configsDir, "method_json_roundtrip.xml");
 
             if (!File.Exists(roundtripPath))
