@@ -157,7 +157,7 @@ namespace Flash.Tests.Mocks
             ResolveRelativePath(configDir, () => MethodParams.IDA.PtmList, v => MethodParams.IDA.PtmList = v);
 
             // Create FLASHIdaWrapper (real C++ engine)
-            Wrapper = new FLASHIdaWrapper(MethodParams);
+            Wrapper = new FLASHIdaWrapper(MethodParams.IDA);
 
             // Clear setup scans from capture list so only test-produced scans are tracked
             Factory.CreatedScans.Clear();
