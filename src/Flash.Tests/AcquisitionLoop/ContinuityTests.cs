@@ -713,10 +713,10 @@ namespace Flash.Tests.AcquisitionLoop
 
                 // Verify that the processor ran without error
                 var results = harness.CollectResults();
-                // Adaptive skip verification: CVs that produced fewer precursors
-                // should appear less frequently. This is a behavioral property that
-                // the golden file captures.
-                Assert.Pass("FAIMS adaptive skip processed without errors");
+                // Adaptive skip verification: with identical spectra across all CVs,
+                // the engine should produce results for at least one CV.
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "FAIMS adaptive skip should produce scan commands from 5 rounds of 3 CVs");
             }
         }
 

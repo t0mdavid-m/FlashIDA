@@ -179,8 +179,8 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void P0_I03_DeconvolveMS2_ReturnsNonNegativePeakGroups()
         {
-            Assert.That(_ms2PeakGroups, Is.GreaterThanOrEqualTo(0),
-                "DeconvolveMS2 returned a negative peak group count");
+            Assert.That(_ms2PeakGroups, Is.GreaterThan(0),
+                "DeconvolveMS2 should return at least one peak group for ms2_smoke_test.txt");
         }
 
         [Test, Category("Tier2")]
