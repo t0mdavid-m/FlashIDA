@@ -15,7 +15,14 @@ $configs = @(
         ms2    = $null
         golden = "baseline_phase0.tsv"
     }
-    # Subsequent phases add entries here.
+    # Phase 1: JSON config path (same golden as Phase 0 — must produce identical output)
+    @{
+        name   = "p1_json"
+        method = "method_default.xml"
+        ms1    = "ms1_smoke_test.txt"
+        ms2    = $null
+        golden = "baseline_phase0.tsv"
+    }
 )
 
 $failures = 0

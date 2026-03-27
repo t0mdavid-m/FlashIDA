@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Web.Script.Serialization;
 using System.Xml.Serialization;
 
 namespace Flash.IDA
@@ -185,6 +187,101 @@ namespace Flash.IDA
             }
 
             return ret;
+        }
+
+        /// <summary>
+        /// Serialize full method configuration as JSON for C++ engine (Phase 1).
+        /// Falls back to <see cref="ToFLASHDeconvInput()"/> if mp is null.
+        /// </summary>
+        public string ToJSON(MethodParameters mp)
+        {
+            if (mp == null)
+                return ToFLASHDeconvInput();
+
+            var ms2List = mp.MS2 ?? new System.Collections.Generic.List<MS2Parameters>();
+
+            var config = new JsonMethodConfig
+            {
+                deconvolution = new JsonDeconvolutionConfig
+                {
+                    score_threshold = QScoreThreshold,
+                    tqscore_threshold = TQScoreThreshold,
+                    min_charge = MinCharge,
+                    max_charge = MaxCharge,
+                    min_mass = MinMass,
+                    max_mass = MaxMass,
+                    tol = Tolerances
+                },
+                precursor_selection = new JsonPrecursorSelectionConfig
+                {
+                    max_mass_count = new int[] { MaxMs2CountPerMs1 },
+                    RT_window = RTWindow,
+                    target_mode = TargetMode,
+                    IDScore = UseIDScore,
+                    AllCharges = ConsiderAllChargeStates,
+                    MS3AllCharges = MS3AllCharges,
+                    HCDEnergy = HCDEnergy,
+                    strict_inclusion = StrictInclusion,
+                    tie_threshold = TieThreshold
+                },
+                tagging = new JsonTaggingConfig
+                {
+                    min_tag_length = MinTagLength,
+                    max_tag_length = MaxTagLength,
+                    max_ptm_count = MaxPtmCount,
+                    max_flanking_mass_diff = MaxFlankingMassDiff
+                },
+                quantification = new JsonQuantificationConfig
+                {
+                    enabled = mp.isobaricQuantification,
+                    reporter_mz_tol = quantReporterMZTol,
+                    fold_change_threshold = quantFoldChangeThreshold
+                },
+                faims = new JsonFaimsConfig
+                {
+                    cv_values = CVValues,
+                    max_cv_skip = MaxCVSkip
+                },
+                ms_settings = new JsonMsSettingsConfig
+                {
+                    ms1 = new JsonMs1Config
+                    {
+                        analyzer = mp.MS1.Analyzer ?? "",
+                        first_mass = mp.MS1.FirstMass,
+                        last_mass = mp.MS1.LastMass,
+                        resolution = mp.MS1.OrbitrapResolution,
+                        agc_target = mp.MS1.AGCTarget,
+                        max_it = mp.MS1.MaxIT
+                    },
+                    ms2 = ms2List.Select(m => new JsonMs2Config
+                    {
+                        analyzer = m.Analyzer ?? "",
+                        activation = m.Activation ?? "",
+                        collision_energy = m.CollisionEnergy,
+                        resolution = m.OrbitrapResolution
+                    }).ToArray()
+                },
+                scheduling = new JsonSchedulingConfig
+                {
+                    cycle_time = new JsonCycleTimeConfig { enabled = false, value_ms = 60000 },
+                    scan_timeout = new JsonScanTimeoutConfig { enabled = false, value_ms = 30000 }
+                },
+                exploration = new JsonExplorationConfig
+                {
+                    enabled = false,
+                    max_depth = 1,
+                    max_variants = 5
+                },
+                files = new JsonFilesConfig
+                {
+                    target_logs = (TargetLogs ?? new List<string>()).ToArray(),
+                    fasta = FastaFile ?? "",
+                    inclusion_list = InclusionList ?? "",
+                    ptm_list = PtmList ?? ""
+                }
+            };
+
+            return new JavaScriptSerializer().Serialize(config);
         }
 
     }

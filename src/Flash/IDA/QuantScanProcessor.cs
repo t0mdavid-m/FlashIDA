@@ -43,7 +43,7 @@ namespace Flash.IDA
             scanScheduler = scheduler;
             scanFactory = factory;
 
-            flashIdaWrapper = wrapper ?? new FLASHIdaWrapper(methodParams.IDA);
+            flashIdaWrapper = wrapper ?? new FLASHIdaWrapper(methodParams);
 
             if (methodParams.MS2.Count() != 2)
             {

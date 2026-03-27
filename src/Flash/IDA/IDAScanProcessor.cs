@@ -113,7 +113,7 @@ namespace Flash.IDA
             scanScheduler = scheduler;
             scanFactory = factory;
 
-            flashIdaWrapper = wrapper ?? new FLASHIdaWrapper(methodParams.IDA);
+            flashIdaWrapper = wrapper ?? new FLASHIdaWrapper(methodParams);
 
             // Validate MS2Tagging requirements
             ms2TaggingEnabled = methodParams.IDA.MS2Tagging;

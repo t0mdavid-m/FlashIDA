@@ -137,6 +137,17 @@ namespace Flash.IDA
         }
 
         /// <summary>
+        /// Construct wrapping object using JSON configuration (Phase 1)
+        /// </summary>
+        /// <param name="mp">Full method parameters — serialized to JSON for C++ engine</param>
+        public FLASHIdaWrapper(MethodParameters mp)
+        {
+            string arg = mp.IDA.ToJSON(mp);
+            Console.WriteLine(arg);
+            m_pNativeObject = CreateFLASHIda(arg);
+        }
+
+        /// <summary>
         /// Destroy wrapping object
         /// </summary>
         public void Dispose()
@@ -884,11 +895,10 @@ namespace Flash.IDA
             try { wfile = new StreamWriter(args[1]); }
             catch { Console.WriteLine("Cannot open output file: {0}", args[1]); Environment.Exit(1); return; }
 
-            IDAParameters param = new IDAParameters();
+            MethodParameters methodParams = null;
             try
             {
-                MethodParameters methodParams = MethodParameters.Load(args[2]);
-                param = methodParams.IDA;
+                methodParams = MethodParameters.Load(args[2]);
             }
             catch (Exception ex)
             {
@@ -914,7 +924,7 @@ namespace Flash.IDA
                 }
             }
 
-            var w = new FLASHIdaWrapper(param);
+            var w = new FLASHIdaWrapper(methodParams);
             var mzs = new List<double>();
             var ints = new List<double>();
             var rt = 0.0;

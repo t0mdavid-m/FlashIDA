@@ -107,4 +107,121 @@ namespace Flash
         public List<MS2Parameters> MS2;
         public List<MS3Parameters> MS3;
     }
+
+    // --- Phase 1: JSON serialization classes for C++ bridge ---
+
+    public class JsonDeconvolutionConfig
+    {
+        public double score_threshold { get; set; }
+        public double tqscore_threshold { get; set; }
+        public int min_charge { get; set; }
+        public int max_charge { get; set; }
+        public double min_mass { get; set; }
+        public double max_mass { get; set; }
+        public double[] tol { get; set; }
+    }
+
+    public class JsonPrecursorSelectionConfig
+    {
+        public int[] max_mass_count { get; set; }
+        public double RT_window { get; set; }
+        public int target_mode { get; set; }
+        public bool IDScore { get; set; }
+        public bool AllCharges { get; set; }
+        public bool MS3AllCharges { get; set; }
+        public int HCDEnergy { get; set; }
+        public bool strict_inclusion { get; set; }
+        public double tie_threshold { get; set; }
+    }
+
+    public class JsonTaggingConfig
+    {
+        public int min_tag_length { get; set; }
+        public int max_tag_length { get; set; }
+        public int max_ptm_count { get; set; }
+        public double max_flanking_mass_diff { get; set; }
+    }
+
+    public class JsonQuantificationConfig
+    {
+        public bool enabled { get; set; }
+        public double reporter_mz_tol { get; set; }
+        public double fold_change_threshold { get; set; }
+    }
+
+    public class JsonFaimsConfig
+    {
+        public double[] cv_values { get; set; }
+        public int max_cv_skip { get; set; }
+    }
+
+    public class JsonMs1Config
+    {
+        public string analyzer { get; set; }
+        public double first_mass { get; set; }
+        public double last_mass { get; set; }
+        public int resolution { get; set; }
+        public int agc_target { get; set; }
+        public double max_it { get; set; }
+    }
+
+    public class JsonMs2Config
+    {
+        public string analyzer { get; set; }
+        public string activation { get; set; }
+        public int collision_energy { get; set; }
+        public int resolution { get; set; }
+    }
+
+    public class JsonMsSettingsConfig
+    {
+        public JsonMs1Config ms1 { get; set; }
+        public JsonMs2Config[] ms2 { get; set; }
+    }
+
+    public class JsonCycleTimeConfig
+    {
+        public bool enabled { get; set; }
+        public double value_ms { get; set; }
+    }
+
+    public class JsonScanTimeoutConfig
+    {
+        public bool enabled { get; set; }
+        public double value_ms { get; set; }
+    }
+
+    public class JsonSchedulingConfig
+    {
+        public JsonCycleTimeConfig cycle_time { get; set; }
+        public JsonScanTimeoutConfig scan_timeout { get; set; }
+    }
+
+    public class JsonExplorationConfig
+    {
+        public bool enabled { get; set; }
+        public int max_depth { get; set; }
+        public int max_variants { get; set; }
+    }
+
+    public class JsonFilesConfig
+    {
+        public string[] target_logs { get; set; }
+        public string fasta { get; set; }
+        public string inclusion_list { get; set; }
+        public string ptm_list { get; set; }
+    }
+
+    public class JsonMethodConfig
+    {
+        public JsonDeconvolutionConfig deconvolution { get; set; }
+        public JsonPrecursorSelectionConfig precursor_selection { get; set; }
+        public JsonTaggingConfig tagging { get; set; }
+        public JsonQuantificationConfig quantification { get; set; }
+        public JsonFaimsConfig faims { get; set; }
+        public JsonMsSettingsConfig ms_settings { get; set; }
+        public JsonSchedulingConfig scheduling { get; set; }
+        public JsonExplorationConfig exploration { get; set; }
+        public JsonFilesConfig files { get; set; }
+    }
 }
