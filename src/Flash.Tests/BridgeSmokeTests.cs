@@ -23,6 +23,12 @@ namespace Flash.Tests
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         private static extern void DisposeFLASHIda(IntPtr ptr);
 
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private static extern int GetConfigInt(IntPtr pObject, string key);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private static extern double GetConfigDouble(IntPtr pObject, string key);
+
         // P0-I01: CreateFLASHIda() returns a non-null pointer and does not crash.
         [Test]
         [Category("Tier2")]
@@ -144,7 +150,26 @@ namespace Flash.Tests
                 "CreateFLASHIda returned null for roundtrip JSON. JSON was: " + jsonConfig);
 
             if (ptr != IntPtr.Zero)
-                DisposeFLASHIda(ptr);
+            {
+                try
+                {
+                    int targetingMode = GetConfigInt(ptr, "targeting_mode");
+                    double rtWindow = GetConfigDouble(ptr, "rt_window");
+                    int hcdEnergy = GetConfigInt(ptr, "hcd_energy");
+
+                    Assert.AreEqual(mp.IDA.TargetingMode, targetingMode, "targeting_mode mismatch");
+                    Assert.AreEqual(mp.IDA.RTWindow, rtWindow, 0.001, "RT_window mismatch");
+                    Assert.AreEqual(mp.IDA.HCDEnergy, hcdEnergy, "HCDEnergy mismatch");
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    TestContext.WriteLine("SKIP diagnostic: GetConfigInt/GetConfigDouble not in current DLL");
+                }
+                finally
+                {
+                    DisposeFLASHIda(ptr);
+                }
+            }
         }
 
         private static string BuildLegacyConfigString()
