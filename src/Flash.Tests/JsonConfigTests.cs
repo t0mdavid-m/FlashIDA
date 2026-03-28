@@ -92,11 +92,13 @@ namespace Flash.Tests
                 var expected = serializer.Deserialize<Dictionary<string, object>>(goldenJson);
 
                 CompareJsonSection(actual, expected, "deconvolution",
-                    "score_threshold", "tqscore_threshold", "min_charge", "max_charge", "min_mass", "max_mass");
+                    "score_threshold", "tqscore_threshold", "min_charge", "max_charge",
+                    "min_mass", "max_mass", "tol");
                 CompareJsonSection(actual, expected, "precursor_selection",
-                    "RT_window", "target_mode", "HCDEnergy", "IDScore", "AllCharges");
+                    "max_mass_count", "RT_window", "target_mode", "IDScore", "AllCharges",
+                    "MS3AllCharges", "HCDEnergy", "strict_inclusion", "tie_threshold");
                 CompareJsonSection(actual, expected, "tagging",
-                    "min_tag_length", "max_tag_length", "max_ptm_count");
+                    "min_tag_length", "max_tag_length", "max_ptm_count", "max_flanking_mass_diff");
             }
             else
             {
@@ -120,12 +122,26 @@ namespace Flash.Tests
             var expSection = (Dictionary<string, object>)expected[section];
             foreach (var field in fields)
             {
-                Assert.AreEqual(
-                    Convert.ToDouble(expSection[field]),
-                    Convert.ToDouble(actSection[field]),
-                    0.001,
-                    string.Format("{0}.{1} mismatch", section, field));
+                var exp = expSection[field];
+                var act = actSection[field];
+                if (exp is bool)
+                    Assert.AreEqual((bool)exp, (bool)act, string.Format("{0}.{1} mismatch", section, field));
+                else if (exp is System.Collections.ArrayList)
+                    CompareJsonArray((System.Collections.ArrayList)exp, (System.Collections.ArrayList)act,
+                        string.Format("{0}.{1}", section, field));
+                else
+                    Assert.AreEqual(Convert.ToDouble(exp), Convert.ToDouble(act), 0.001,
+                        string.Format("{0}.{1} mismatch", section, field));
             }
+        }
+
+        private static void CompareJsonArray(System.Collections.ArrayList expected,
+            System.Collections.ArrayList actual, string path)
+        {
+            Assert.AreEqual(expected.Count, actual.Count, path + " array length mismatch");
+            for (int i = 0; i < expected.Count; i++)
+                Assert.AreEqual(Convert.ToDouble(expected[i]), Convert.ToDouble(actual[i]), 0.001,
+                    string.Format("{0}[{1}] mismatch", path, i));
         }
 
         // P1-U04: ms_settings.ms2 is an array matching XML MS2 count
@@ -168,6 +184,7 @@ namespace Flash.Tests
             var cvValues = (System.Collections.ArrayList)faims["cv_values"];
             Assert.IsNotNull(cvValues, "faims.cv_values should be an array");
             Assert.IsTrue(cvValues.Count > 0, "faims.cv_values should not be empty");
+            Assert.AreEqual(-50.0, Convert.ToDouble(cvValues[0]), 0.001, "First FAIMS CV should be -50");
 
             // scheduling should have nested cycle_time and scan_timeout
             var scheduling = (Dictionary<string, object>)parsed["scheduling"];
@@ -177,6 +194,12 @@ namespace Flash.Tests
             var cycleTime = (Dictionary<string, object>)scheduling["cycle_time"];
             Assert.IsTrue(cycleTime.ContainsKey("enabled"), "cycle_time must have enabled");
             Assert.IsTrue(cycleTime.ContainsKey("value_ms"), "cycle_time must have value_ms");
+            Assert.AreEqual(false, cycleTime["enabled"], "cycle_time.enabled should be false");
+            Assert.AreEqual(60000, Convert.ToInt32(cycleTime["value_ms"]), "cycle_time.value_ms should be 60000");
+
+            var scanTimeout = (Dictionary<string, object>)scheduling["scan_timeout"];
+            Assert.AreEqual(false, scanTimeout["enabled"], "scan_timeout.enabled should be false");
+            Assert.AreEqual(30000, Convert.ToInt32(scanTimeout["value_ms"]), "scan_timeout.value_ms should be 30000");
         }
 
         // P1-U05b: Round-trip with multi-MS2 config (method_json_roundtrip.xml)

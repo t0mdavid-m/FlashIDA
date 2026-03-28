@@ -25,8 +25,8 @@ namespace Flash.Tests
         {
             var mp = MethodParameters.Load(Path.Combine(TestDataDir, "configs", "method_default.xml"));
             string json = mp.IDA.ToJSON(mp);
+            Assert.IsTrue(json.StartsWith("{"), "JSON must start with '{'");
             File.WriteAllText(Path.Combine(OutputDir, "config_default.json"), json);
-            Assert.IsTrue(json.StartsWith("{"));
         }
 
         [Test]
@@ -36,8 +36,8 @@ namespace Flash.Tests
             if (!File.Exists(xmlPath)) { Assert.Ignore("method_json_roundtrip.xml not present"); return; }
             var mp = MethodParameters.Load(xmlPath);
             string json = mp.IDA.ToJSON(mp);
+            Assert.IsTrue(json.StartsWith("{"), "JSON must start with '{'");
             File.WriteAllText(Path.Combine(OutputDir, "config_full.json"), json);
-            Assert.IsTrue(json.StartsWith("{"));
         }
     }
 }
