@@ -157,7 +157,7 @@ namespace Flash.Tests
                     double rtWindow = GetConfigDouble(ptr, "rt_window");
                     int hcdEnergy = GetConfigInt(ptr, "hcd_energy");
 
-                    Assert.AreEqual(mp.IDA.TargetingMode, targetingMode, "targeting_mode mismatch");
+                    Assert.AreEqual(mp.IDA.TargetMode, targetingMode, "targeting_mode mismatch");
                     Assert.AreEqual(mp.IDA.RTWindow, rtWindow, 0.001, "RT_window mismatch");
                     Assert.AreEqual(mp.IDA.HCDEnergy, hcdEnergy, "HCDEnergy mismatch");
                 }
