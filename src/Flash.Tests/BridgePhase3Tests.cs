@@ -12,7 +12,6 @@ namespace Flash.Tests
     /// GetNextTrackingId across the P/Invoke boundary.
     /// </summary>
     [TestFixture]
-    [Ignore("Requires Phase 3 OpenMS.dll with ProcessScan/GetNextScanCommand/GetNextTrackingId exports")]
     public class BridgePhase3Tests
     {
         private const string DllName = "OpenMS.dll";

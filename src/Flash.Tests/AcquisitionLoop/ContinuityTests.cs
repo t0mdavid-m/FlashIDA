@@ -791,7 +791,6 @@ namespace Flash.Tests.AcquisitionLoop
         #region AL-CT31 through CT32: Stress Tests (Phase 3)
 
         [Test, Category("Tier4")]
-        [Ignore("Requires Phase 3 OpenMS.dll with ProcessScan/GetNextScanCommand/GetNextTrackingId exports")]
         public void P3_AL_CT31_StressTest_1000ScansSequential()
         {
             string configsDir = Path.Combine(TestDir, "..", "test-data", "configs");
@@ -835,7 +834,6 @@ namespace Flash.Tests.AcquisitionLoop
         }
 
         [Test, Category("Tier4")]
-        [Ignore("Requires Phase 3 OpenMS.dll with ProcessScan/GetNextScanCommand/GetNextTrackingId exports")]
         public void P3_AL_CT32_StressTest_ConcurrentProcessing()
         {
             string configsDir = Path.Combine(TestDir, "..", "test-data", "configs");
