@@ -34,3 +34,10 @@ PR reviewers must verify:
   scoring logic changed, same scores if only refactoring occurred).
 - No golden file changes occur in phases that claim zero behavioral change
   (e.g., Phase 0, Phase 2, Phase 3).
+
+## File Index
+
+| File | Phase | Source | Notes |
+|------|-------|--------|-------|
+| `baseline_phase0.tsv` | 0 | `ms1_smoke_test.txt` + `method_default.xml` | Initial baseline |
+| `baseline_phase3.tsv` | 3 | `ms1_smoke_test.txt` + `method_default.xml` | Identical to Phase 0 (shadow-only, no behavioral change) |
