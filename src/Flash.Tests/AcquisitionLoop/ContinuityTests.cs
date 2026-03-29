@@ -430,20 +430,25 @@ namespace Flash.Tests.AcquisitionLoop
                 exclusionResults = PushSmokeSpectrumAndCollect(exclHarness);
             }
 
-            // Exclusion mode should run without error
-            Assert.That(exclusionResults.Count, Is.GreaterThanOrEqualTo(0),
-                "Exclusion mode should not crash");
+            // Exclusion mode should produce results (smoke spectrum has many precursors)
+            Assert.That(exclusionResults.Count, Is.GreaterThan(0),
+                "Exclusion mode should produce results with smoke test data");
 
-            // If both produce results, verify they differ (exclusion suppresses some targets)
-            if (standardResults.Count > 0 && exclusionResults.Count > 0)
+            // Verify exclusion produces fewer or different results than standard DDA
+            if (standardResults.Count > 0)
             {
-                var stdMasses = standardResults.Select(r => r.PrecursorMz).OrderBy(x => x).ToList();
-                var exclMasses = exclusionResults.Select(r => r.PrecursorMz).OrderBy(x => x).ToList();
+                var stdMasses = new HashSet<double>(standardResults.Select(r => r.PrecursorMz));
+                var exclMasses = new HashSet<double>(exclusionResults.Select(r => r.PrecursorMz));
 
-                // At minimum, verify both modes produce valid precursor m/z values
-                Assert.IsTrue(exclusionResults.All(r => r.PrecursorMz > 0),
-                    "All exclusion mode results should have valid precursor m/z");
+                bool fewerResults = exclusionResults.Count < standardResults.Count;
+                bool differentTargets = !exclMasses.SetEquals(stdMasses);
+                Assert.IsTrue(fewerResults || differentTargets,
+                    "Exclusion mode should produce fewer or different targets than standard DDA");
             }
+
+            // All exclusion mode results should have valid precursor m/z values
+            Assert.IsTrue(exclusionResults.All(r => r.PrecursorMz > 0),
+                "All exclusion mode results should have valid precursor m/z");
         }
 
         [Test, Category("Tier2")]
@@ -588,11 +593,13 @@ namespace Flash.Tests.AcquisitionLoop
                     var allResults = harness.CollectResults();
                     var ms3Results = allResults.Where(r => r.MsnLevel == 3).ToList();
 
-                    // MS3 scans should exist if MS2 deconvolution found peak groups
-                    // and the protein sequence matched. This is data-dependent.
-                    // Verify that if MS3 results exist, they have correct level
-                    Assert.That(ms3Results.Count, Is.GreaterThanOrEqualTo(0),
-                        "MS3 pipeline should not crash");
+                    // Verify MS1→MS2 pipeline works (prerequisite for MS3)
+                    Assert.That(ms2Commands.Count, Is.GreaterThan(0),
+                        "MS1 should produce MS2 commands for MS3 pipeline");
+
+                    // MS3 results are data-dependent: require MS2 deconvolution to find
+                    // peak groups matching the protein sequence. The real behavioral check
+                    // is in CT24 (golden file comparison). Here we just verify structure.
                     if (ms3Results.Count > 0)
                     {
                         Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),

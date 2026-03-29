@@ -64,7 +64,7 @@ namespace Flash.Tests
             }
         }
 
-        // P3-I01: GetNextScanCommand returns struct with non-empty Analyzer
+        // P3-I01: GetNextScanCommand returns struct with correct MS1 fallback fields
         [Test, Category("Tier2")]
         public void P3_I01_ScanCommand_MarshalingRoundTrip()
         {
@@ -73,6 +73,12 @@ namespace Flash.Tests
             Assert.AreEqual(1, result, "GetNextScanCommand should return 1");
             Assert.IsNotNull(cmd.Analyzer, "Analyzer should not be null");
             Assert.IsNotEmpty(cmd.Analyzer, "Analyzer should not be empty");
+            Assert.AreEqual(1, cmd.MsnLevel, "MS1 fallback should have MsnLevel==1");
+            Assert.That(cmd.FirstMass, Is.GreaterThan(0), "FirstMass should be > 0");
+            Assert.That(cmd.LastMass, Is.GreaterThan(cmd.FirstMass), "LastMass should be > FirstMass");
+            Assert.That(cmd.OrbitrapResolution, Is.GreaterThan(0), "OrbitrapResolution should be > 0");
+            Assert.AreEqual(0, cmd.NumStages, "MS1 fallback should have NumStages==0");
+            Assert.AreEqual(0, cmd.IsAgc, "MS1 fallback should have IsAgc==0");
         }
 
         // P3-I02: ProcessScan returns 0 with synthetic peaks (stub behavior)
@@ -116,12 +122,24 @@ namespace Flash.Tests
         public void P3_I05_DllExports_IncludeNewFunctions()
         {
             // Actual DLL export verification is performed by the CI dumpbin step.
-            // This test verifies that the P/Invoke bindings resolve at runtime.
+            // This test verifies that all 3 P/Invoke bindings resolve at runtime.
+            Assert.DoesNotThrow(() =>
+            {
+                double[] mzs = { 500.0 };
+                double[] ints = { 1000.0 };
+                ProcessScan(nativePtr, mzs, ints, 1, 1.0, 1, "export_test");
+            }, "ProcessScan P/Invoke binding should resolve");
+
+            Assert.DoesNotThrow(() =>
+            {
+                var cmd = new ScanCommand();
+                GetNextScanCommand(nativePtr, ref cmd);
+            }, "GetNextScanCommand P/Invoke binding should resolve");
+
             Assert.DoesNotThrow(() =>
             {
                 GetNextTrackingId(nativePtr);
             }, "GetNextTrackingId P/Invoke binding should resolve");
-            Assert.Pass("DLL export verification is handled by CI dumpbin step");
         }
     }
 }
