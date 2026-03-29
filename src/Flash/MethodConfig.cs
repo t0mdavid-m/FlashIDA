@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 
@@ -106,6 +107,33 @@ namespace Flash
         public MS1Parameters MS1;
         public List<MS2Parameters> MS2;
         public List<MS3Parameters> MS3;
+    }
+
+    // --- Phase 1 deferrals resolved in Phase 3 ---
+
+    /// <summary>
+    /// Scan scheduling configuration — cycle time and timeout settings.
+    /// Phase 1 deferral: stored for future scan command construction.
+    /// </summary>
+    [Serializable]
+    public class ScanSchedulingConfig
+    {
+        public bool CycleTimeEnabled;
+        public double CycleTimeMs = 60000.0;
+        public bool TimeoutEnabled;
+        public double TimeoutMs = 30000.0;
+    }
+
+    /// <summary>
+    /// Parameter optimization configuration — exploration and variant settings.
+    /// Phase 1 deferral: stored for future parameter optimization.
+    /// </summary>
+    [Serializable]
+    public class ParameterOptimizationConfig
+    {
+        public bool ExplorationEnabled;
+        public int MaxDepth = 1;
+        public int MaxVariants = 5;
     }
 
     // --- Phase 1: JSON serialization classes for C++ bridge ---

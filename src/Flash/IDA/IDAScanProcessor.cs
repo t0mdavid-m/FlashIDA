@@ -220,6 +220,22 @@ namespace Flash.IDA
                 {
                     List<PrecursorTarget> targets = flashIdaWrapper.GetIsolationWindows(msScan);
                     List<double> monoMasses = flashIdaWrapper.GetAllMonoisotopicMasses();
+
+                    // Phase 3: Shadow validation — call ProcessScan for tracking
+                    try
+                    {
+                        double[] shadowMzs = msScan.Centroids.Select(c => c.Mz).ToArray();
+                        double[] shadowInts = msScan.Centroids.Select(c => c.Intensity).ToArray();
+                        double shadowRt = double.Parse(msScan.Header["StartTime"]);
+                        int shadowMsLevel = int.Parse(msScan.Header["MSOrder"]);
+                        int shadowResult = flashIdaWrapper.ProcessScan(shadowMzs, shadowInts, shadowRt, shadowMsLevel, msScan.Header["Scan"]);
+                        IDAlog.Debug(String.Format("[SHADOW] ProcessScan returned {0} for scan {1}", shadowResult, msScan.Header["Scan"]));
+                    }
+                    catch (Exception shadowEx)
+                    {
+                        IDAlog.Debug(String.Format("[SHADOW] ProcessScan error: {0}", shadowEx.Message));
+                    }
+
                     //logging of targets
                     IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} (Access ID {2}) - {3} targets",
                         msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count));

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Linq;
 using System.Reflection;
+using Flash.IDA;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 using Thermo.Interfaces.InstrumentAccess_V1.Control.Scans;
 using Thermo.TNG.Client.API.Control.Scans;
@@ -140,6 +141,72 @@ namespace Flash
                     else
                         scan.Values.Add(field.Name.Replace("_", " "), field.GetValue(parameters).ToString());
             }
+        }
+
+        /// <summary>
+        /// Build a Fusion custom scan from a ScanCommand struct returned by the C++ engine.
+        /// Maps blittable struct fields to ScanParameters and creates the scan via existing API.
+        /// </summary>
+        /// <param name="cmd">ScanCommand from GetNextScanCommand</param>
+        /// <returns>IFusionCustomScan ready for submission</returns>
+        public virtual IFusionCustomScan BuildFromCommand(ScanCommand cmd)
+        {
+            var p = new ScanParameters();
+
+            // Analyzer
+            if (!string.IsNullOrEmpty(cmd.Analyzer))
+                p.Analyzer = cmd.Analyzer;
+
+            // Mass range
+            if (cmd.FirstMass > 0)
+                p.FirstMass = new double[] { cmd.FirstMass };
+            if (cmd.LastMass > 0)
+                p.LastMass = new double[] { cmd.LastMass };
+
+            // Orbitrap resolution (nullable — leave null if 0 = not set)
+            if (cmd.OrbitrapResolution > 0)
+                p.OrbitrapResolution = cmd.OrbitrapResolution;
+
+            // AGC target (nullable)
+            if (cmd.AgcTarget > 0)
+                p.AGCTarget = cmd.AgcTarget;
+
+            // Max injection time (nullable)
+            if (cmd.MaxIt > 0)
+                p.MaxIT = cmd.MaxIt;
+
+            // MSn scan type
+            if (cmd.MsnLevel > 1)
+                p.ScanType = "MSn";
+
+            // Isolation stages
+            if (cmd.NumStages > 0 && cmd.Stages != null)
+            {
+                var stage = cmd.Stages[0];
+                if (stage.PrecursorMz > 0)
+                    p.PrecursorMass = new double[] { stage.PrecursorMz };
+                if (stage.IsolationWidth > 0)
+                    p.IsolationWidth = new double[] { stage.IsolationWidth };
+                if (stage.CollisionEnergy > 0)
+                    p.CollisionEnergy = new int[] { (int)stage.CollisionEnergy };
+                if (!string.IsNullOrEmpty(stage.ActivationType))
+                    p.ActivationType = new string[] { stage.ActivationType };
+                if (stage.ChargeState > 0)
+                    p.ChargeStates = new int[] { Math.Min(stage.ChargeState, 25) };
+                if (stage.ReactionTime > 0)
+                    p.ReactionTime = new double[] { stage.ReactionTime };
+                if (stage.ReagentMaxIt > 0)
+                    p.ReagentMaxIT = new double[] { stage.ReagentMaxIt };
+                if (stage.ReagentAgcTarget > 0)
+                    p.ReagentAGCTarget = new int[] { stage.ReagentAgcTarget };
+            }
+
+            // Scan description
+            if (!string.IsNullOrEmpty(cmd.ScanDescription))
+                p.ScanDescription = cmd.ScanDescription;
+
+            bool isAgc = cmd.IsAgc != 0;
+            return CreateFusionCustomScan(p, cmd.ScanId, delay: 0.0, IsAGC: isAgc, AGCgroup: 1);
         }
 
         /// <summary>

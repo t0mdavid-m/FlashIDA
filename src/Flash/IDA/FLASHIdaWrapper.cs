@@ -19,6 +19,50 @@ using System.Threading;
 namespace Flash.IDA
 {
     /// <summary>
+    /// Blittable struct matching C++ IsolationStage (80 bytes).
+    /// Layout: 5 doubles (40) + 2 int32 (8) + char[32] (32) = 80.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+    public struct IsolationStage
+    {
+        public double PrecursorMz;
+        public double IsolationWidth;
+        public double CollisionEnergy;
+        public double ReactionTime;
+        public double ReagentMaxIt;
+        public int ReagentAgcTarget;
+        public int ChargeState;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string ActivationType;
+    }
+
+    /// <summary>
+    /// Blittable struct matching C++ ScanCommand (1144 bytes).
+    /// Layout: 8 int32 (32) + 3 doubles (24) + char[32] + char[256] + IsolationStage[10] (800) = 1144.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
+    public struct ScanCommand
+    {
+        public int ScanId;
+        public int MsnLevel;
+        public int Priority;
+        public int IsAgc;
+        public int NumStages;
+        public int OrbitrapResolution;
+        public int AgcTarget;
+        public int Pad1;
+        public double FirstMass;
+        public double LastMass;
+        public double MaxIt;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string Analyzer;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string ScanDescription;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
+        public IsolationStage[] Stages;
+    }
+
+    /// <summary>
     /// Wrapper for FLASHIda C++ engine
     /// </summary>
     public class FLASHIdaWrapper : IDisposable
@@ -121,6 +165,17 @@ namespace Flash.IDA
             double[] window_starts, double[] window_ends,
             byte[] ion_types, int[] fragment_indices,
             string fragmentation_method);
+
+        [DllImport(dllName, CharSet = CharSet.Ansi)]
+        static private extern int ProcessScan(
+            IntPtr pObject, double[] mzs, double[] ints, int length,
+            double rt_min, int ms_level, string scan_description);
+
+        [DllImport(dllName)]
+        static private extern int GetNextScanCommand(IntPtr pObject, ref ScanCommand output);
+
+        [DllImport(dllName)]
+        static private extern int GetNextTrackingId(IntPtr pObject);
 
         private IntPtr m_pNativeObject;
 
@@ -706,6 +761,54 @@ namespace Flash.IDA
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Process an incoming scan for shadow validation (Phase 3 stub).
+        /// </summary>
+        public int ProcessScan(double[] mzs, double[] ints, double rt, int msLevel, string scanDesc)
+        {
+            try
+            {
+                return ProcessScan(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, scanDesc ?? "");
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("ProcessScan error: {0}\n{1}", ex.Message, ex.StackTrace));
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Dequeue the next scan command by priority.
+        /// </summary>
+        public int GetNextScanCommand(ref ScanCommand cmd)
+        {
+            try
+            {
+                return GetNextScanCommand(m_pNativeObject, ref cmd);
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("GetNextScanCommand error: {0}\n{1}", ex.Message, ex.StackTrace));
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Get the next monotonically increasing tracking ID.
+        /// </summary>
+        public int GetNextTrackingId()
+        {
+            try
+            {
+                return GetNextTrackingId(m_pNativeObject);
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("GetNextTrackingId error: {0}\n{1}", ex.Message, ex.StackTrace));
+                return -1;
+            }
         }
 
         /// <summary>
