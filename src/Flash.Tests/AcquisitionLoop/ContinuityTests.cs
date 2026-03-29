@@ -387,27 +387,28 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT13_InclusionList_OnlyListedMasses()
         {
-            // Inclusion list masses from test_inclusion_list.txt
-            double[] inclusionMasses = { 10000, 15000, 20000, 25000, 30000 };
-            double toleranceDa = 50.0; // generous tolerance for monoisotopic mass matching
-
+            // Non-strict inclusion: targets get priority but non-targets can fill remaining slots.
+            // With this test spectrum, no masses match the inclusion list (10k, 15k, 20k, 25k, 30k),
+            // so all results are non-target fill-ins. Verify it runs and produces results.
             using (var harness = CreateHarness("method_inclusion.xml"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
-                // Verify inclusion mode produces results
                 Assert.That(results.Count, Is.GreaterThan(0),
-                    "Inclusion mode should produce scan commands");
+                    "Non-strict inclusion mode should produce scan commands even when no targets match");
+                Assert.IsTrue(results.All(r => r.PrecursorMz > 0),
+                    "All results should have valid precursor m/z");
+            }
 
-                // Verify that precursor masses (PrecursorMz * ChargeState) are near inclusion list masses
-                foreach (var r in results)
-                {
-                    double monoMass = r.PrecursorMz * r.ChargeState;
-                    bool matchesInclusion = inclusionMasses.Any(m => Math.Abs(monoMass - m) < toleranceDa);
-                    Assert.IsTrue(matchesInclusion,
-                        string.Format("Precursor mono mass {0:F1} (mz={1:F4} z={2}) should match an inclusion list mass within {3} Da",
-                            monoMass, r.PrecursorMz, r.ChargeState, toleranceDa));
-                }
+            // Strict inclusion: only inclusion-list masses are selected.
+            // With this test spectrum, no masses match the inclusion list,
+            // so strict mode should produce zero results.
+            using (var harness = CreateHarness("method_inclusion_strict.xml"))
+            {
+                var results = PushSmokeSpectrumAndCollect(harness);
+
+                Assert.That(results.Count, Is.EqualTo(0),
+                    "Strict inclusion should produce zero commands when no targets match the spectrum");
             }
         }
 
