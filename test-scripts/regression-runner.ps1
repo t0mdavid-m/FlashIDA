@@ -7,6 +7,13 @@ param (
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
+# Copy supporting config files (inclusion lists, FASTA) to working directory
+# so C++ engine can resolve bare filenames in method XML
+$configDir = Join-Path $TestDataDir "configs"
+Get-ChildItem -Path $configDir -Include "*.txt","*.fasta","*.tsv" -File | ForEach-Object {
+    Copy-Item $_.FullName . -Force -ErrorAction SilentlyContinue
+}
+
 $configs = @(
     @{
         name   = "baseline_phase0"
