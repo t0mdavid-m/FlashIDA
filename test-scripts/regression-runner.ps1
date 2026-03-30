@@ -12,6 +12,7 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 $configDir = Join-Path $TestDataDir "configs"
 Copy-Item (Join-Path $configDir "test_inclusion_list.txt") . -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $configDir "test_fasta.fasta") . -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $configDir "test_target_log.log") . -Force -ErrorAction SilentlyContinue
 Write-Host "Copied supporting files from $configDir to $(Get-Location)"
 
 $configs = @(
@@ -51,6 +52,13 @@ $configs = @(
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase4_inclusion.tsv"
+    }
+    @{
+        name   = "phase4_inclusion_strict"
+        method = "method_inclusion_strict.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = $null
+        golden = "phase4_inclusion_strict.tsv"
     }
     @{
         name   = "phase4_exclusion"

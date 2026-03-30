@@ -21,7 +21,9 @@
   </PrecursorSelection>
   <AcquisitionModes>
     <TargetingMode>Exclusion</TargetingMode>
-    <TargetLogs />
+    <TargetLogs>
+      <string>test_target_log.log</string>
+    </TargetLogs>
     <TargetedInclusion>
       <StrictInclusion>false</StrictInclusion>
       <TieThreshold>0.1</TieThreshold>

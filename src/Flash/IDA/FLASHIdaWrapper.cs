@@ -944,7 +944,8 @@ namespace Flash.IDA
             FLASHIdaWrapper w, List<double> mzs, List<double> ints,
             double rt, int msLevel, string scanName,
             StreamWriter wfile,
-            double[] ms2Mzs, double[] ms2Ints)
+            double[] ms2Mzs, double[] ms2Ints,
+            MethodParameters methodParams)
         {
             if (mzs.Count == 0) return 0.0;
 
@@ -966,12 +967,47 @@ namespace Flash.IDA
                 if (ms2PeakGroups > 0)
                 {
                     ProcessMS2ForTagBasedTargeting(w.m_pNativeObject, targets[0].MonoMass);
+
+                    // Quant mode: test IsDifferentiallyAbundant on MS2 data
+                    if (methodParams.isobaricQuantification)
+                    {
+                        var quant = methodParams.AcquisitionModes.LabelingBasedQuantification;
+                        bool isDiff = IsDifferentiallyAbundant(w.m_pNativeObject,
+                            ms2Mzs, ms2Ints, ms2Mzs.Length, rt, 2, scanName,
+                            quant.ReporterMZTol, quant.FoldChangeThreshold, quant.OnlyOneCondition);
+                        Console.WriteLine("[QUANT] rt={0:F4} precursor={1:F2} isDiff={2}", rt, targets[0].MonoMass, isDiff);
+                    }
+
+                    // MS3 mode: test GetBestMS2Masses for fragment targeting
+                    var ms3Config = methodParams.AcquisitionModes?.MS3Characterization;
+                    if (ms3Config != null && IsActive(ms3Config.Active))
+                    {
+                        int maxMs3 = ms3Config.MaxMs3PerMs2;
+                        var ms3Targets = w.GetBestMS2Masses(maxMs3);
+                        Console.WriteLine("[MS3] rt={0:F4} mode={1} ms2PeakGroups={2} ms3Targets={3}",
+                            rt, ms3Config.MS3Mode, ms2PeakGroups, ms3Targets.Count);
+                        foreach (var t in ms3Targets)
+                        {
+                            Console.WriteLine("[MS3-TARGET] mass={0:F4} charge={1} qscore={2:F4}",
+                                t.Mass, t.Charge, t.QScore);
+                        }
+
+                        // MS3 mode-specific fragment matching
+                        if (!String.IsNullOrEmpty(ms3Config.MS3ProteinSequence))
+                        {
+                            var fragMatches = w.GetTopFragmentMatches(ms3Config.MS3ProteinSequence, maxMs3);
+                            Console.WriteLine("[MS3-FRAG] mode={0} fragmentMatches={1}", ms3Config.MS3Mode, fragMatches.Count);
+                        }
+                    }
                 }
                 ClearMS2Deconvolution(w.m_pNativeObject);
             }
 
             return scoreSum;
         }
+
+        private static bool IsActive(string val) =>
+            !String.IsNullOrEmpty(val) && val.Equals("True", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Test harness entry point for offline deconvolution.
@@ -1045,7 +1081,7 @@ namespace Flash.IDA
                 if (line.StartsWith("Spec"))
                 {
                     if (started)
-                        totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints);
+                        totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
                     mzs.Clear();
                     ints.Clear();
                     rt = double.Parse(token[1]) / 60.0;
@@ -1061,7 +1097,7 @@ namespace Flash.IDA
 
             // Process the last scan (previously missed — no subsequent Spec header to trigger it)
             if (started)
-                totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints);
+                totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
 
             Console.WriteLine("Total QScore (i.e., expected number of PrSM identification): {0}", totalScore);
 
