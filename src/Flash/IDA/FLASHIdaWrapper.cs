@@ -991,13 +991,6 @@ namespace Flash.IDA
                             Console.WriteLine("[MS3-TARGET] mass={0:F4} charge={1} qscore={2:F4}",
                                 t.Mass, t.Charge, t.QScore);
                         }
-
-                        // MS3 mode-specific fragment matching
-                        if (!String.IsNullOrEmpty(ms3Config.MS3ProteinSequence))
-                        {
-                            var fragMatches = w.GetTopFragmentMatches(ms3Config.MS3ProteinSequence, maxMs3);
-                            Console.WriteLine("[MS3-FRAG] mode={0} fragmentMatches={1}", ms3Config.MS3Mode, fragMatches.Count);
-                        }
                     }
                 }
                 ClearMS2Deconvolution(w.m_pNativeObject);
