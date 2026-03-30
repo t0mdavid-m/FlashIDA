@@ -872,46 +872,69 @@ namespace Flash.Tests.AcquisitionLoop
         }
 
         // --- CT34: Conditional MS2 Follow-Up (structural assertion) ---
+        // Proves conditionality: initial MS2 commands (from MS1) are ETD with tracking-ID
+        // descriptions ("_N|mass@charge"). Follow-up HCD scans have empty descriptions and
+        // only appear AFTER MS2 return, proving they were triggered by tag detection.
 
         [Test, Category("Tier2")]
         public void P4_AL_CT34_ConditionalMS2_FollowUp()
         {
             using (var harness = CreateHarness("method_tag_targeting.xml"))
             {
-                var results = PushMS1ThenMS2Return(
-                    harness,
-                    Path.Combine(SpectraDir, "ms1_standard.txt"),
-                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"));
+                // Step 1: push MS1 only, before any MS2 return
+                var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
+                foreach (var s in ms1Scans) { harness.PushScan(s); s.Dispose(); }
 
-                Assert.That(results.Count, Is.GreaterThan(0),
-                    "MS1→MS2 return pipeline must produce results");
+                // Initial MS2 commands from MS1 should be ETD only (no HCD yet)
+                var initialResults = harness.CollectResults();
+                Assert.That(initialResults.Count, Is.GreaterThan(0),
+                    "MS1 processing must produce MS2 commands");
+                Assert.IsTrue(initialResults.All(r => r.ActivationType == "ETD"),
+                    "Initial MS2 commands should all be ETD (HCD is conditional on tag detection)");
+                Assert.IsTrue(initialResults.All(r => r.ScanDescription.StartsWith("_")),
+                    "Initial MS2 commands should have tracking-ID scan descriptions");
 
-                // Look for follow-up HCD scans that share a PrecursorMz with an initial ETD scan
-                // but have a different ActivationType
-                var etdScans = results.Where(r => r.ActivationType == "ETD" && r.MsnLevel == 2).ToList();
-                var hcdScans = results.Where(r => r.ActivationType == "HCD" && r.MsnLevel == 2).ToList();
-
-                int followUpCount = 0;
-                foreach (var hcd in hcdScans)
+                // Step 2: push MS2 back with real fragments to trigger tag detection
+                var ms2Commands = harness.Factory.CreatedScans
+                    .Select(s => ScanCommandRecord.FromCustomScan(s))
+                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
+                    .ToList();
+                string ms2File = Path.Combine(SpectraDir, "ms2_hcd_fragment.txt");
+                foreach (var cmd in ms2Commands)
                 {
-                    if (etdScans.Any(etd => Math.Abs(etd.PrecursorMz - hcd.PrecursorMz) < 0.01))
-                    {
-                        followUpCount++;
-                    }
+                    var ms2Scan = MockMsScan.FromTsvAsMS2(
+                        ms2File, cmd.ScanDescription, cmd.PrecursorMz, cmd.ChargeState);
+                    harness.PushScan(ms2Scan);
+                    ms2Scan.Dispose();
                 }
 
-                Assert.That(followUpCount, Is.GreaterThan(0),
-                    "Follow-up HCD scans should exist with same PrecursorMz as initial ETD scans");
+                // Collect ALL results (initial ETD + any follow-up HCD)
+                var allResults = harness.CollectResults();
+                var hcdFollowUps = allResults.Where(r =>
+                    r.ActivationType == "HCD" && r.MsnLevel == 2 &&
+                    string.IsNullOrEmpty(r.ScanDescription)).ToList();
+
+                Assert.That(hcdFollowUps.Count, Is.GreaterThan(0),
+                    "Tag detection should trigger follow-up HCD scans (empty ScanDescription)");
+
+                // Each HCD follow-up should match a precursor from an initial ETD scan
+                foreach (var hcd in hcdFollowUps)
+                {
+                    Assert.IsTrue(
+                        initialResults.Any(etd => Math.Abs(etd.PrecursorMz - hcd.PrecursorMz) < 0.01),
+                        string.Format("HCD follow-up at m/z {0:F4} should match an initial ETD precursor",
+                            hcd.PrecursorMz));
+                }
             }
         }
 
-        // --- CT35: MS3 Mode 1 with real fragments ---
-        // MS3 generation is data-dependent: DeconvolveMS2 must return peak groups > 0
-        // AND fragment matching must find targets. The golden file captures the actual
-        // behavior; regressions will be caught by golden comparison, not hard assertions.
+        // --- CT35: MS3 Mode 1 MS2 return pipeline ---
+        // Exercises MS1→MS2→MS2-return path with MS3 mode 1 config and real HCD fragments.
+        // MS3 generation is data-dependent (requires DeconvolveMS2 peak groups + fragment
+        // matching); golden file captures actual behavior including whether MS3 fires.
 
         [Test, Category("Tier2")]
-        public void P4_AL_CT35_MS3Mode1_RealFragments()
+        public void P4_AL_CT35_MS3Mode1_MS2ReturnPipeline()
         {
             using (var harness = CreateHarness("method_ms3_mode1_hcd.xml"))
             {
@@ -927,10 +950,10 @@ namespace Flash.Tests.AcquisitionLoop
             }
         }
 
-        // --- CT36: MS3 Mode 2 with real fragments ---
+        // --- CT36: MS3 Mode 2 MS2 return pipeline ---
 
         [Test, Category("Tier2")]
-        public void P4_AL_CT36_MS3Mode2_RealFragments()
+        public void P4_AL_CT36_MS3Mode2_MS2ReturnPipeline()
         {
             using (var harness = CreateHarness("method_ms3_mode2_hcd.xml"))
             {
@@ -946,10 +969,10 @@ namespace Flash.Tests.AcquisitionLoop
             }
         }
 
-        // --- CT37: MS3 Mode 3 with real fragments ---
+        // --- CT37: MS3 Mode 3 MS2 return pipeline ---
 
         [Test, Category("Tier2")]
-        public void P4_AL_CT37_MS3Mode3_RealFragments()
+        public void P4_AL_CT37_MS3Mode3_MS2ReturnPipeline()
         {
             using (var harness = CreateHarness("method_ms3_mode3_hcd.xml"))
             {
@@ -1037,8 +1060,9 @@ namespace Flash.Tests.AcquisitionLoop
                 // With ms1_standard.txt, some (not all) deconvolved masses should match targets.
                 // Strict means non-matching masses are excluded entirely.
 
-                // All results should have precursor m/z corresponding to inclusion targets
-                // (the m/z will be a charge state envelope peak of the target monoisotopic mass)
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "Strict inclusion should find at least one matching target in ms1_standard");
+
                 Assert.That(results.Count, Is.LessThanOrEqualTo(
                     5 * harness.MethodParams.MS2.Count), // at most 5 targets * MS2 types
                     "Strict inclusion should produce at most target_count * MS2_types results");
@@ -1067,14 +1091,17 @@ namespace Flash.Tests.AcquisitionLoop
         }
 
         // --- CT42: Deep Mode target log deprioritization effect ---
+        // Uses same TopN=5 for both runs so only the target log causes differences.
+        // Target log has masses 2063.606, 2277.254, 5315.129 — deep mode should
+        // deprioritize these, producing different precursor selections.
 
         [Test, Category("Tier2")]
         public void P4_AL_CT42_DeepMode_TargetLogEffect()
         {
-            // Standard DDA with rich spectrum as baseline
+            // Standard DDA with TopN=5 as baseline (same TopN as deep mode config)
             int standardCount;
             List<double> standardMasses;
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default_topn5.xml"))
             {
                 var results = PushStandardSpectrumAndCollect(harness);
                 standardCount = results.Count;
@@ -1082,7 +1109,7 @@ namespace Flash.Tests.AcquisitionLoop
             }
 
             Assert.That(standardCount, Is.GreaterThan(0),
-                "Standard DDA must produce results for deep mode comparison");
+                "Standard DDA (TopN=5) must produce results for deep mode comparison");
 
             // Deep mode with target log — previously seen masses should be deprioritized
             int deepCount;
