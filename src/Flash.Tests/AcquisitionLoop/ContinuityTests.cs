@@ -910,7 +910,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT35_MS3Mode1_RealFragments()
         {
-            using (var harness = CreateHarness("method_ms3_mode1.xml"))
+            using (var harness = CreateHarness("method_ms3_mode1_hcd.xml"))
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
@@ -934,7 +934,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT36_MS3Mode2_RealFragments()
         {
-            using (var harness = CreateHarness("method_ms3_mode2.xml"))
+            using (var harness = CreateHarness("method_ms3_mode2_hcd.xml"))
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
@@ -958,7 +958,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT37_MS3Mode3_RealFragments()
         {
-            using (var harness = CreateHarness("method_ms3_mode3.xml"))
+            using (var harness = CreateHarness("method_ms3_mode3_hcd.xml"))
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
