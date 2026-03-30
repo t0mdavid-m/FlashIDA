@@ -914,7 +914,7 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
-                    Path.Combine(SpectraDir, "ms1_smoke_test.txt"),
+                    Path.Combine(SpectraDir, "ms1_standard.txt"),
                     Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
                     maxMS2Returns: 1);
 
@@ -938,7 +938,7 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
-                    Path.Combine(SpectraDir, "ms1_smoke_test.txt"),
+                    Path.Combine(SpectraDir, "ms1_standard.txt"),
                     Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
                     maxMS2Returns: 1);
 
@@ -962,7 +962,7 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
-                    Path.Combine(SpectraDir, "ms1_smoke_test.txt"),
+                    Path.Combine(SpectraDir, "ms1_standard.txt"),
                     Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
                     maxMS2Returns: 1);
 
@@ -984,10 +984,13 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_quant.xml"))
             {
-                // Push MS1 to get initial quant MS2 commands
-                var ms1Scan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_standard.txt"));
-                harness.PushScan(ms1Scan);
-                ms1Scan.Dispose();
+                // Push all MS1 scans to get initial quant MS2 commands
+                var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
+                foreach (var scan in ms1Scans)
+                {
+                    harness.PushScan(scan);
+                    scan.Dispose();
+                }
 
                 // Extract the quant MS2 commands (first MS2 param set = ETD with "quant" description)
                 var ms2Commands = harness.Factory.CreatedScans

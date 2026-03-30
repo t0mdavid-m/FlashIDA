@@ -156,6 +156,23 @@ namespace Flash.Tests.Mocks
             ResolveRelativePath(configDir, () => MethodParams.IDA.FastaFile, v => MethodParams.IDA.FastaFile = v);
             ResolveRelativePath(configDir, () => MethodParams.IDA.PtmList, v => MethodParams.IDA.PtmList = v);
 
+            // Resolve target log paths (List<string>)
+            if (MethodParams.IDA.TargetLogs != null)
+            {
+                for (int i = 0; i < MethodParams.IDA.TargetLogs.Count; i++)
+                {
+                    string path = MethodParams.IDA.TargetLogs[i];
+                    if (!string.IsNullOrEmpty(path) && !Path.IsPathRooted(path))
+                    {
+                        string resolved = Path.Combine(configDir, path);
+                        if (File.Exists(resolved))
+                        {
+                            MethodParams.IDA.TargetLogs[i] = Path.GetFullPath(resolved);
+                        }
+                    }
+                }
+            }
+
             // Create FLASHIdaWrapper (real C++ engine)
             Wrapper = new FLASHIdaWrapper(MethodParams);
 
