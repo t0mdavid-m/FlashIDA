@@ -23,6 +23,70 @@ $configs = @(
         ms2    = $null
         golden = "baseline_phase0.tsv"
     }
+    # Phase 4: Pre-switch golden baselines (old bridge path, ms1_standard.txt)
+    @{
+        name   = "phase4_standard_dda"
+        method = "method_default.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = $null
+        golden = "phase4_standard_dda.tsv"
+    }
+    @{
+        name   = "phase4_deep_mode"
+        method = "method_deep.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = $null
+        golden = "phase4_deep_mode.tsv"
+    }
+    @{
+        name   = "phase4_inclusion"
+        method = "method_inclusion.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = $null
+        golden = "phase4_inclusion.tsv"
+    }
+    @{
+        name   = "phase4_exclusion"
+        method = "method_exclusion.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = $null
+        golden = "phase4_exclusion.tsv"
+    }
+    @{
+        name   = "phase4_tag_targeting"
+        method = "method_tag_targeting.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = "ms2_hcd_fragment.txt"
+        golden = "phase4_tag_targeting.tsv"
+    }
+    @{
+        name   = "phase4_quant"
+        method = "method_quant.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = "ms2_quant_tmt.txt"
+        golden = "phase4_quant.tsv"
+    }
+    @{
+        name   = "phase4_ms3_mode1"
+        method = "method_ms3_mode1.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = "ms2_hcd_fragment.txt"
+        golden = "phase4_ms3_mode1.tsv"
+    }
+    @{
+        name   = "phase4_ms3_mode2"
+        method = "method_ms3_mode2.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = "ms2_hcd_fragment.txt"
+        golden = "phase4_ms3_mode2.tsv"
+    }
+    @{
+        name   = "phase4_ms3_mode3"
+        method = "method_ms3_mode3.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = "ms2_hcd_fragment.txt"
+        golden = "phase4_ms3_mode3.tsv"
+    }
 )
 
 $failures = 0
