@@ -116,6 +116,7 @@ namespace Flash.Tests.Mocks
             scan._headerDict["StartTime"] = rt.ToString();
             scan._headerDict["Scan"] = scanNumber;
             scan._headerDict["PrecursorMass[0]"] = precursorMz.ToString();
+            scan._headerDict["IsolationWidth[0]"] = "2";
 
             scan._trailerAccess.Set("Access ID", scanNumber);
             scan._trailerAccess.Set("Scan Description", scanDescription);
@@ -124,6 +125,48 @@ namespace Flash.Tests.Mocks
             foreach (var peak in peaks)
             {
                 scan._centroids.Add(new Centroid(peak.mz, peak.intensity, 0, 120000));
+            }
+
+            return scan;
+        }
+
+        /// <summary>
+        /// Load an MS2 scan from a TSV spectrum file with the given precursor metadata.
+        /// Used for MS2 return path tests where real fragment peak data (thousands of peaks)
+        /// is too large to pass as inline tuples.
+        /// </summary>
+        public static MockMsScan FromTsvAsMS2(string filePath, string scanDescription,
+            double precursorMz, int chargeState, double isolationWidth = 2.0)
+        {
+            var scan = new MockMsScan();
+            scan._headerDict["MSOrder"] = "2";
+            scan._headerDict["MassAnalyzer"] = "FTMS";
+            scan._headerDict["PrecursorMass[0]"] = precursorMz.ToString();
+            scan._headerDict["IsolationWidth[0]"] = isolationWidth.ToString();
+
+            scan._trailerAccess.Set("Scan Description", scanDescription);
+            scan._trailerAccess.Set("Charge State", chargeState.ToString());
+
+            bool started = false;
+            foreach (var line in File.ReadAllLines(filePath))
+            {
+                var tokens = line.Split('\t');
+                if (line.StartsWith("Spec"))
+                {
+                    if (started) break; // Only read the first scan
+                    double rtSeconds = double.Parse(tokens[1]);
+                    scan._headerDict["StartTime"] = (rtSeconds / 60.0).ToString();
+                    string scanNum = tokens[0].Replace("Spec scan=", "");
+                    scan._headerDict["Scan"] = scanNum;
+                    scan._trailerAccess.Set("Access ID", scanNum);
+                    started = true;
+                }
+                else if (started && tokens.Length >= 2)
+                {
+                    double mz = double.Parse(tokens[0]);
+                    double intensity = double.Parse(tokens[1]);
+                    scan._centroids.Add(new Centroid(mz, intensity, 0, 120000));
+                }
             }
 
             return scan;

@@ -795,6 +795,328 @@ namespace Flash.Tests.AcquisitionLoop
 
         #endregion
 
+        #region Phase 4 MS2 Return Path Tests (CT33–CT42)
+
+        /// <summary>
+        /// Push MS1 spectrum through harness, then push MS2 responses back using real TSV fragment data.
+        /// Extracts ScanDescription, PrecursorMz, and ChargeState from each MS2 command produced by MS1
+        /// processing, loads MS2 TSV data with those parameters, and pushes the MS2 scans back through
+        /// the processor to exercise the full MS1→MS2→follow-up pipeline.
+        /// </summary>
+        /// <param name="harness">Test harness with processor already configured</param>
+        /// <param name="ms1File">Path to MS1 TSV spectrum file</param>
+        /// <param name="ms2File">Path to MS2 TSV spectrum file (real fragment peaks)</param>
+        /// <param name="maxMS2Returns">Max number of MS2 scans to push back (-1 = all)</param>
+        /// <returns>All scan command records including MS2 follow-ups and MS3 commands</returns>
+        private List<ScanCommandRecord> PushMS1ThenMS2Return(
+            ContinuityTestHarness harness, string ms1File, string ms2File, int maxMS2Returns = -1)
+        {
+            // Step 1: Push MS1 to get initial MS2 commands
+            var ms1Scan = MockMsScan.FromTsv(ms1File);
+            harness.PushScan(ms1Scan);
+            ms1Scan.Dispose();
+
+            // Step 2: Extract MS2 commands from factory
+            var ms2Commands = harness.Factory.CreatedScans
+                .Select(s => ScanCommandRecord.FromCustomScan(s))
+                .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
+                .ToList();
+
+            // Step 3: For each MS2 command, create an MS2 scan from TSV and push it back
+            int count = maxMS2Returns >= 0 ? Math.Min(maxMS2Returns, ms2Commands.Count) : ms2Commands.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var cmd = ms2Commands[i];
+                var ms2Scan = MockMsScan.FromTsvAsMS2(
+                    ms2File,
+                    cmd.ScanDescription,
+                    cmd.PrecursorMz,
+                    cmd.ChargeState);
+                harness.PushScan(ms2Scan);
+                ms2Scan.Dispose();
+            }
+
+            // Step 4: Collect all results (includes initial MS2 + follow-ups + MS3)
+            return harness.CollectResults();
+        }
+
+        /// <summary>
+        /// Load MS1 standard spectrum and push through harness. Returns scan commands.
+        /// </summary>
+        private List<ScanCommandRecord> PushStandardSpectrumAndCollect(ContinuityTestHarness harness)
+        {
+            var scan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_standard.txt"));
+            harness.PushScan(scan);
+            scan.Dispose();
+            return harness.CollectResults();
+        }
+
+        // --- CT33: Tag Targeting MS2 Return (golden) ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT33_TagTargeting_MS2Return()
+        {
+            using (var harness = CreateHarness("method_tag_targeting.xml"))
+            {
+                var results = PushMS1ThenMS2Return(
+                    harness,
+                    Path.Combine(SpectraDir, "ms1_standard.txt"),
+                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"));
+
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "MS1→MS2 return pipeline must produce results");
+
+                AssertGolden("continuity_tag_ms2return.json", results);
+            }
+        }
+
+        // --- CT34: Conditional MS2 Follow-Up (structural assertion) ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT34_ConditionalMS2_FollowUp()
+        {
+            using (var harness = CreateHarness("method_tag_targeting.xml"))
+            {
+                var results = PushMS1ThenMS2Return(
+                    harness,
+                    Path.Combine(SpectraDir, "ms1_standard.txt"),
+                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"));
+
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "MS1→MS2 return pipeline must produce results");
+
+                // Look for follow-up HCD scans that share a PrecursorMz with an initial ETD scan
+                // but have a different ActivationType
+                var etdScans = results.Where(r => r.ActivationType == "ETD" && r.MsnLevel == 2).ToList();
+                var hcdScans = results.Where(r => r.ActivationType == "HCD" && r.MsnLevel == 2).ToList();
+
+                int followUpCount = 0;
+                foreach (var hcd in hcdScans)
+                {
+                    if (etdScans.Any(etd => Math.Abs(etd.PrecursorMz - hcd.PrecursorMz) < 0.01))
+                    {
+                        followUpCount++;
+                    }
+                }
+
+                Assert.That(followUpCount, Is.GreaterThan(0),
+                    "Follow-up HCD scans should exist with same PrecursorMz as initial ETD scans");
+            }
+        }
+
+        // --- CT35: MS3 Mode 1 with real fragments ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT35_MS3Mode1_RealFragments()
+        {
+            using (var harness = CreateHarness("method_ms3_mode1.xml"))
+            {
+                var results = PushMS1ThenMS2Return(
+                    harness,
+                    Path.Combine(SpectraDir, "ms1_smoke_test.txt"),
+                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
+                    maxMS2Returns: 1);
+
+                var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
+
+                Assert.That(ms3Results.Count, Is.GreaterThan(0),
+                    "MS3 Mode 1 (GetTopFragmentMatches) should produce MS3 commands from real fragment data");
+                Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
+                    "All MS3 results should have MsnLevel == 3");
+
+                AssertGolden("continuity_ms3_mode1_real.json", results);
+            }
+        }
+
+        // --- CT36: MS3 Mode 2 with real fragments ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT36_MS3Mode2_RealFragments()
+        {
+            using (var harness = CreateHarness("method_ms3_mode2.xml"))
+            {
+                var results = PushMS1ThenMS2Return(
+                    harness,
+                    Path.Combine(SpectraDir, "ms1_smoke_test.txt"),
+                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
+                    maxMS2Returns: 1);
+
+                var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
+
+                Assert.That(ms3Results.Count, Is.GreaterThan(0),
+                    "MS3 Mode 2 (GetAmbiguityEnclosingIons) should produce MS3 commands");
+                Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
+                    "All MS3 results should have MsnLevel == 3");
+
+                AssertGolden("continuity_ms3_mode2_real.json", results);
+            }
+        }
+
+        // --- CT37: MS3 Mode 3 with real fragments ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT37_MS3Mode3_RealFragments()
+        {
+            using (var harness = CreateHarness("method_ms3_mode3.xml"))
+            {
+                var results = PushMS1ThenMS2Return(
+                    harness,
+                    Path.Combine(SpectraDir, "ms1_smoke_test.txt"),
+                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
+                    maxMS2Returns: 1);
+
+                var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
+
+                Assert.That(ms3Results.Count, Is.GreaterThan(0),
+                    "MS3 Mode 3 (GetTerminalFragmentIons) should produce MS3 commands");
+                Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
+                    "All MS3 results should have MsnLevel == 3");
+
+                AssertGolden("continuity_ms3_mode3_real.json", results);
+            }
+        }
+
+        // --- CT38: Quant Mode MS2 Return ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT38_QuantMode_MS2Return()
+        {
+            using (var harness = CreateHarness("method_quant.xml"))
+            {
+                // Push MS1 to get initial quant MS2 commands
+                var ms1Scan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_standard.txt"));
+                harness.PushScan(ms1Scan);
+                ms1Scan.Dispose();
+
+                // Extract the quant MS2 commands (first MS2 param set = ETD with "quant" description)
+                var ms2Commands = harness.Factory.CreatedScans
+                    .Select(s => ScanCommandRecord.FromCustomScan(s))
+                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
+                    .ToList();
+
+                Assert.That(ms2Commands.Count, Is.GreaterThan(0),
+                    "MS1 must produce MS2 commands for quant mode");
+
+                // Push TMT reporter MS2 data back for each quant command
+                string ms2File = Path.Combine(SpectraDir, "ms2_quant_tmt.txt");
+                foreach (var cmd in ms2Commands)
+                {
+                    var ms2Scan = MockMsScan.FromTsvAsMS2(
+                        ms2File,
+                        cmd.ScanDescription,
+                        cmd.PrecursorMz,
+                        cmd.ChargeState);
+                    harness.PushScan(ms2Scan);
+                    ms2Scan.Dispose();
+                }
+
+                var results = harness.CollectResults();
+                AssertGolden("continuity_quant_ms2return.json", results);
+            }
+        }
+
+        // --- CT39: Inclusion with matching targets (golden) ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT39_Inclusion_MatchingTargets()
+        {
+            using (var harness = CreateHarness("method_inclusion.xml"))
+            {
+                var results = PushStandardSpectrumAndCollect(harness);
+
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "Deconvolution must find precursors in ms1_standard spectrum");
+
+                AssertGolden("continuity_inclusion_matching.json", results);
+            }
+        }
+
+        // --- CT40: Strict inclusion with matching targets ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT40_StrictInclusion_Matching()
+        {
+            using (var harness = CreateHarness("method_inclusion_strict.xml"))
+            {
+                var results = PushStandardSpectrumAndCollect(harness);
+
+                // Strict inclusion: only target-matched masses survive.
+                // Inclusion targets: 2063.606, 2277.254, 4297.177, 5315.129, 12358.31
+                // With ms1_standard.txt, some (not all) deconvolved masses should match targets.
+                // Strict means non-matching masses are excluded entirely.
+
+                // All results should have precursor m/z corresponding to inclusion targets
+                // (the m/z will be a charge state envelope peak of the target monoisotopic mass)
+                Assert.That(results.Count, Is.LessThanOrEqualTo(
+                    5 * harness.MethodParams.MS2.Count), // at most 5 targets * MS2 types
+                    "Strict inclusion should produce at most target_count * MS2_types results");
+
+                Assert.IsTrue(results.All(r => r.PrecursorMz > 0),
+                    "All results should have valid precursor m/z");
+
+                AssertGolden("continuity_inclusion_strict_matching.json", results);
+            }
+        }
+
+        // --- CT41: Standard DDA with rich spectrum (golden) ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT41_StandardDDA_RichSpectrum()
+        {
+            using (var harness = CreateHarness("method_default.xml"))
+            {
+                var results = PushStandardSpectrumAndCollect(harness);
+
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "Deconvolution must find precursors in ms1_standard spectrum");
+
+                AssertGolden("continuity_standard_dda_rich.json", results);
+            }
+        }
+
+        // --- CT42: Deep Mode target log deprioritization effect ---
+
+        [Test, Category("Tier2")]
+        public void P4_AL_CT42_DeepMode_TargetLogEffect()
+        {
+            // Standard DDA with rich spectrum as baseline
+            int standardCount;
+            List<double> standardMasses;
+            using (var harness = CreateHarness("method_default.xml"))
+            {
+                var results = PushStandardSpectrumAndCollect(harness);
+                standardCount = results.Count;
+                standardMasses = results.Select(r => r.PrecursorMz).ToList();
+            }
+
+            Assert.That(standardCount, Is.GreaterThan(0),
+                "Standard DDA must produce results for deep mode comparison");
+
+            // Deep mode with target log — previously seen masses should be deprioritized
+            int deepCount;
+            List<double> deepMasses;
+            using (var harness = CreateHarness("method_deep.xml"))
+            {
+                var results = PushStandardSpectrumAndCollect(harness);
+                deepCount = results.Count;
+                deepMasses = results.Select(r => r.PrecursorMz).ToList();
+            }
+
+            // Deep mode should produce fewer results or different mass selections
+            // because target log masses (2063.6, 2277.3, 5315.1) are deprioritized
+            bool fewerResults = deepCount < standardCount;
+            bool differentMasses = !new HashSet<double>(deepMasses).SetEquals(standardMasses);
+
+            Assert.IsTrue(fewerResults || differentMasses,
+                string.Format("Deep mode ({0} results) should differ from standard DDA ({1} results) " +
+                    "due to target log deprioritization. Standard masses: [{2}], Deep masses: [{3}]",
+                    deepCount, standardCount,
+                    string.Join(", ", standardMasses.Select(m => m.ToString("F2"))),
+                    string.Join(", ", deepMasses.Select(m => m.ToString("F2")))));
+        }
+
+        #endregion
+
         #region AL-CT31 through CT32: Stress Tests (Phase 3)
 
         [Test, Category("Tier4")]
