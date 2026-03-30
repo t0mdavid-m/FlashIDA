@@ -912,20 +912,48 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_ms3_mode1_hcd.xml"))
             {
-                var results = PushMS1ThenMS2Return(
-                    harness,
-                    Path.Combine(SpectraDir, "ms1_standard.txt"),
-                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
-                    maxMS2Returns: 1);
+                // Push all MS1 scans
+                var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
+                foreach (var s in ms1Scans) { harness.PushScan(s); s.Dispose(); }
 
+                // Extract MS2 commands
+                var ms2Commands = harness.Factory.CreatedScans
+                    .Select(s => ScanCommandRecord.FromCustomScan(s))
+                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
+                    .ToList();
+
+                // Write diagnostic before pushing MS2 back
+                var diag = new System.Text.StringBuilder();
+                diag.AppendLine(string.Format("MS2 commands from MS1: {0}", ms2Commands.Count));
+                foreach (var c in ms2Commands.Take(5))
+                    diag.AppendLine(string.Format("  desc={0} mz={1:F4} z={2}", c.ScanDescription, c.PrecursorMz, c.ChargeState));
+
+                // Push first MS2 back with real HCD fragments
+                if (ms2Commands.Count > 0)
+                {
+                    var cmd = ms2Commands[0];
+                    var ms2Scan = MockMsScan.FromTsvAsMS2(
+                        Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
+                        cmd.ScanDescription, cmd.PrecursorMz, cmd.ChargeState);
+                    harness.PushScan(ms2Scan);
+                    ms2Scan.Dispose();
+                }
+
+                var results = harness.CollectResults();
                 var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
 
-                Assert.That(ms3Results.Count, Is.GreaterThan(0),
-                    "MS3 Mode 1 (GetTopFragmentMatches) should produce MS3 commands from real fragment data");
-                Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
-                    "All MS3 results should have MsnLevel == 3");
+                diag.AppendLine(string.Format("Total MSn results: {0}", results.Count));
+                diag.AppendLine(string.Format("MS3 results: {0}", ms3Results.Count));
+                foreach (var r in results)
+                    diag.AppendLine(string.Format("  level={0} type={1} mz={2:F4} act={3} desc={4}",
+                        r.MsnLevel, r.ScanType, r.PrecursorMz, r.ActivationType, r.ScanDescription));
+                File.WriteAllText(Path.Combine(OutputDir, "ct35_diagnostic.txt"), diag.ToString());
 
+                // Write golden output first (even if ms3Count is 0)
                 AssertGolden("continuity_ms3_mode1_real.json", results);
+
+                Assert.That(ms3Results.Count, Is.GreaterThan(0),
+                    "MS3 Mode 1 should produce MS3 commands. See ct35_diagnostic.txt");
             }
         }
 
@@ -942,14 +970,12 @@ namespace Flash.Tests.AcquisitionLoop
                     Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
                     maxMS2Returns: 1);
 
-                var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
+                // Write golden output first for diagnostics
+                AssertGolden("continuity_ms3_mode2_real.json", results);
 
+                var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
                 Assert.That(ms3Results.Count, Is.GreaterThan(0),
                     "MS3 Mode 2 (GetAmbiguityEnclosingIons) should produce MS3 commands");
-                Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
-                    "All MS3 results should have MsnLevel == 3");
-
-                AssertGolden("continuity_ms3_mode2_real.json", results);
             }
         }
 
@@ -966,14 +992,11 @@ namespace Flash.Tests.AcquisitionLoop
                     Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
                     maxMS2Returns: 1);
 
-                var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
+                AssertGolden("continuity_ms3_mode3_real.json", results);
 
+                var ms3Results = results.Where(r => r.MsnLevel == 3).ToList();
                 Assert.That(ms3Results.Count, Is.GreaterThan(0),
                     "MS3 Mode 3 (GetTerminalFragmentIons) should produce MS3 commands");
-                Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
-                    "All MS3 results should have MsnLevel == 3");
-
-                AssertGolden("continuity_ms3_mode3_real.json", results);
             }
         }
 
