@@ -205,36 +205,42 @@ namespace Flash.Tests.Mocks
             return scan;
         }
 
-        /// <summary>Load an MS1 scan from a TSV spectrum file (same format as ms1_smoke_test.txt)</summary>
+        /// <summary>Load the first MS1 scan from a TSV spectrum file (same format as ms1_smoke_test.txt)</summary>
         public static MockMsScan FromTsv(string filePath)
         {
-            var scan = new MockMsScan();
-            scan._headerDict["MSOrder"] = "1";
-            scan._headerDict["MassAnalyzer"] = "FTMS";
+            return FromTsvAllScans(filePath)[0];
+        }
 
-            bool started = false;
+        /// <summary>Load all MS1 scans from a TSV spectrum file. Each scan becomes a separate MockMsScan.</summary>
+        public static List<MockMsScan> FromTsvAllScans(string filePath)
+        {
+            var scans = new List<MockMsScan>();
+            MockMsScan current = null;
+
             foreach (var line in File.ReadAllLines(filePath))
             {
                 var tokens = line.Split('\t');
                 if (line.StartsWith("Spec"))
                 {
-                    if (started) break; // Only read the first scan
+                    current = new MockMsScan();
+                    current._headerDict["MSOrder"] = "1";
+                    current._headerDict["MassAnalyzer"] = "FTMS";
                     double rtSeconds = double.Parse(tokens[1]);
-                    scan._headerDict["StartTime"] = (rtSeconds / 60.0).ToString();
+                    current._headerDict["StartTime"] = (rtSeconds / 60.0).ToString();
                     string scanNum = tokens[0].Replace("Spec scan=", "");
-                    scan._headerDict["Scan"] = scanNum;
-                    scan._trailerAccess.Set("Access ID", scanNum);
-                    started = true;
+                    current._headerDict["Scan"] = scanNum;
+                    current._trailerAccess.Set("Access ID", scanNum);
+                    scans.Add(current);
                 }
-                else if (started && tokens.Length >= 2)
+                else if (current != null && tokens.Length >= 2)
                 {
                     double mz = double.Parse(tokens[0]);
                     double intensity = double.Parse(tokens[1]);
-                    scan._centroids.Add(new Centroid(mz, intensity, 0, 120000));
+                    current._centroids.Add(new Centroid(mz, intensity, 0, 120000));
                 }
             }
 
-            return scan;
+            return scans;
         }
     }
 }

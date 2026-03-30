@@ -798,23 +798,21 @@ namespace Flash.Tests.AcquisitionLoop
         #region Phase 4 MS2 Return Path Tests (CT33–CT42)
 
         /// <summary>
-        /// Push MS1 spectrum through harness, then push MS2 responses back using real TSV fragment data.
-        /// Extracts ScanDescription, PrecursorMz, and ChargeState from each MS2 command produced by MS1
-        /// processing, loads MS2 TSV data with those parameters, and pushes the MS2 scans back through
-        /// the processor to exercise the full MS1→MS2→follow-up pipeline.
+        /// Push all MS1 scans from a TSV file through harness, then push MS2 responses back
+        /// using real TSV fragment data. Extracts ScanDescription, PrecursorMz, and ChargeState
+        /// from each MS2 command produced by MS1 processing, loads MS2 TSV data with those
+        /// parameters, and pushes the MS2 scans back through the processor.
         /// </summary>
-        /// <param name="harness">Test harness with processor already configured</param>
-        /// <param name="ms1File">Path to MS1 TSV spectrum file</param>
-        /// <param name="ms2File">Path to MS2 TSV spectrum file (real fragment peaks)</param>
-        /// <param name="maxMS2Returns">Max number of MS2 scans to push back (-1 = all)</param>
-        /// <returns>All scan command records including MS2 follow-ups and MS3 commands</returns>
         private List<ScanCommandRecord> PushMS1ThenMS2Return(
             ContinuityTestHarness harness, string ms1File, string ms2File, int maxMS2Returns = -1)
         {
-            // Step 1: Push MS1 to get initial MS2 commands
-            var ms1Scan = MockMsScan.FromTsv(ms1File);
-            harness.PushScan(ms1Scan);
-            ms1Scan.Dispose();
+            // Step 1: Push all MS1 scans to build up deconvolution state
+            var ms1Scans = MockMsScan.FromTsvAllScans(ms1File);
+            foreach (var scan in ms1Scans)
+            {
+                harness.PushScan(scan);
+                scan.Dispose();
+            }
 
             // Step 2: Extract MS2 commands from factory
             var ms2Commands = harness.Factory.CreatedScans
@@ -841,13 +839,16 @@ namespace Flash.Tests.AcquisitionLoop
         }
 
         /// <summary>
-        /// Load MS1 standard spectrum and push through harness. Returns scan commands.
+        /// Load all MS1 scans from standard spectrum and push through harness. Returns scan commands.
         /// </summary>
         private List<ScanCommandRecord> PushStandardSpectrumAndCollect(ContinuityTestHarness harness)
         {
-            var scan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_standard.txt"));
-            harness.PushScan(scan);
-            scan.Dispose();
+            var scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
+            foreach (var scan in scans)
+            {
+                harness.PushScan(scan);
+                scan.Dispose();
+            }
             return harness.CollectResults();
         }
 
