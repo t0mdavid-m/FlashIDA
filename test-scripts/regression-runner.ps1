@@ -10,9 +10,9 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 # Copy supporting config files (inclusion lists, FASTA) to working directory
 # so C++ engine can resolve bare filenames in method XML
 $configDir = Join-Path $TestDataDir "configs"
-Get-ChildItem -Path $configDir -Include "*.txt","*.fasta","*.tsv" -File | ForEach-Object {
-    Copy-Item $_.FullName . -Force -ErrorAction SilentlyContinue
-}
+Copy-Item (Join-Path $configDir "test_inclusion_list.txt") . -Force -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $configDir "test_fasta.fasta") . -Force -ErrorAction SilentlyContinue
+Write-Host "Copied supporting files from $configDir to $(Get-Location)"
 
 $configs = @(
     @{
@@ -112,7 +112,9 @@ foreach ($cfg in $configs) {
         $flashArgs += $ms2File
     }
 
-    & $FlashExe @flashArgs
+    Write-Host "  Args: $($flashArgs -join ' ')"
+    Write-Host "  CWD: $(Get-Location)"
+    & $FlashExe @flashArgs 2>&1 | ForEach-Object { Write-Host "  [Flash] $_" }
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "FAIL: Flash.exe exited with code $LASTEXITCODE for $($cfg.name)"
