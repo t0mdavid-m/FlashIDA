@@ -100,6 +100,14 @@ namespace Flash.Tests
             var cmd = new ScanCommand();
             int result = GetNextScanCommand(nativePtr, ref cmd);
             Assert.AreEqual(0, result, "Should return 0 when queue is empty");
+
+            // Verify complementary fields (P3-I01 covers MsnLevel, FirstMass, OrbitrapResolution, NumStages, Analyzer, ScanDescription)
+            Assert.AreEqual(0, cmd.ScanId, "ScanId should be 0 for empty queue");
+            Assert.AreEqual(0, cmd.Priority, "Priority should be 0 for empty queue");
+            Assert.AreEqual(0, cmd.IsAgc, "IsAgc should be 0 for empty queue");
+            Assert.AreEqual(0, cmd.AgcTarget, "AgcTarget should be 0 for empty queue");
+            Assert.AreEqual(0.0, cmd.LastMass, "LastMass should be 0.0 for empty queue");
+            Assert.AreEqual(0.0, cmd.MaxIt, "MaxIt should be 0.0 for empty queue");
         }
 
         // P3-I04: GetNextTrackingId is monotonically increasing

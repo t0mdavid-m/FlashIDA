@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Web.Script.Serialization;
 using Flash;
 using NUnit.Framework;
 
@@ -25,7 +27,12 @@ namespace Flash.Tests
         {
             var mp = MethodParameters.Load(Path.Combine(TestDataDir, "configs", "method_default.xml"));
             string json = mp.IDA.ToJSON(mp);
-            Assert.IsTrue(json.StartsWith("{"), "JSON must start with '{'");
+            var serializer = new JavaScriptSerializer();
+            var parsed = serializer.Deserialize<Dictionary<string, object>>(json);
+            Assert.That(parsed, Does.ContainKey("deconvolution"),
+                "Config JSON must contain 'deconvolution' section");
+            Assert.That(parsed, Does.ContainKey("precursor_selection"),
+                "Config JSON must contain 'precursor_selection' section");
             File.WriteAllText(Path.Combine(OutputDir, "config_default.json"), json);
         }
 
@@ -33,10 +40,16 @@ namespace Flash.Tests
         public void CaptureConfigFull()
         {
             string xmlPath = Path.Combine(TestDataDir, "configs", "method_json_roundtrip.xml");
-            if (!File.Exists(xmlPath)) { Assert.Ignore("method_json_roundtrip.xml not present"); return; }
+            Assume.That(File.Exists(xmlPath), Is.True,
+                "method_json_roundtrip.xml not present — skipping capture");
             var mp = MethodParameters.Load(xmlPath);
             string json = mp.IDA.ToJSON(mp);
-            Assert.IsTrue(json.StartsWith("{"), "JSON must start with '{'");
+            var serializer = new JavaScriptSerializer();
+            var parsed = serializer.Deserialize<Dictionary<string, object>>(json);
+            Assert.That(parsed, Does.ContainKey("deconvolution"),
+                "Config JSON must contain 'deconvolution' section");
+            Assert.That(parsed, Does.ContainKey("precursor_selection"),
+                "Config JSON must contain 'precursor_selection' section");
             File.WriteAllText(Path.Combine(OutputDir, "config_full.json"), json);
         }
     }

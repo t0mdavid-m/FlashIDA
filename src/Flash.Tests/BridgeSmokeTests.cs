@@ -163,7 +163,7 @@ namespace Flash.Tests
                 }
                 catch (EntryPointNotFoundException)
                 {
-                    TestContext.WriteLine("SKIP diagnostic: GetConfigInt/GetConfigDouble not in current DLL");
+                    Assert.Ignore("GetConfigInt/GetConfigDouble not exported — config assertions skipped");
                 }
                 finally
                 {

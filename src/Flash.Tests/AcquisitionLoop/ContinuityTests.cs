@@ -255,6 +255,8 @@ namespace Flash.Tests.AcquisitionLoop
             using (var harness = CreateHarness("method_default_topn5.xml"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "TopN=5 must produce at least one MS2 command from smoke spectrum");
 
                 int maxPerMs1 = harness.MethodParams.IDA.MaxMs2CountPerMs1;
                 int ms2Types = harness.MethodParams.MS2.Count;
@@ -297,15 +299,19 @@ namespace Flash.Tests.AcquisitionLoop
 
                 // Verify that scans were processed (at least some CVs produced output)
                 var results = harness.CollectResults();
-                // FAIMS tests: just verify no crashes and correct CV assignment
-                if (results.Count > 0)
+                Assume.That(results.Count, Is.GreaterThan(0),
+                    "FAIMS CV-cycling test needs deconvolution results");
+
+                foreach (var r in results)
                 {
-                    foreach (var r in results)
-                    {
-                        Assert.That(expectedCVs, Has.Member(r.FaimsCV),
-                            string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
-                    }
+                    Assert.That(expectedCVs, Has.Member(r.FaimsCV),
+                        string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
                 }
+
+                var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
+                Assume.That(distinctCVs.Count, Is.EqualTo(3),
+                    string.Format("Expected 3 distinct CVs, got {0}: [{1}]",
+                        distinctCVs.Count, string.Join(", ", distinctCVs)));
             }
         }
 
@@ -328,11 +334,17 @@ namespace Flash.Tests.AcquisitionLoop
                 }
 
                 var results = harness.CollectResults();
+                Assume.That(results.Count, Is.GreaterThan(0),
+                    "FAIMS CV-carry test needs deconvolution results");
                 foreach (var r in results)
                 {
                     Assert.That(configuredCVs, Has.Member(r.FaimsCV),
                         "MS2 FAIMS CV should match one of the configured parent CVs");
                 }
+                var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
+                Assume.That(distinctCVs.Count, Is.EqualTo(3),
+                    string.Format("Expected 3 distinct CVs in results, got {0}: [{1}]",
+                        distinctCVs.Count, string.Join(", ", distinctCVs)));
             }
         }
 
@@ -509,13 +521,14 @@ namespace Flash.Tests.AcquisitionLoop
                 // Follow-up MS2 types are only sent if tags are detected in the first MS2.
                 // Verify that at most 1 MS2 per precursor was sent initially
                 // (the conditional mode sends only the first MS2 parameter set)
-                if (ms2Commands.Count > 0 && harness.MethodParams.IDA.ConditionalMS2)
-                {
-                    // In conditional mode, initial MS2 count equals number of precursors
-                    int maxPrecursors = harness.MethodParams.IDA.MaxMs2CountPerMs1;
-                    Assert.That(ms2Commands.Count, Is.LessThanOrEqualTo(maxPrecursors),
-                        "Conditional MS2: initial batch should have at most 1 scan per precursor");
-                }
+                Assume.That(ms2Commands.Count, Is.GreaterThan(0),
+                    "Conditional MS2 test requires MS2 commands from MS1 processing");
+                Assume.That(harness.MethodParams.IDA.ConditionalMS2, Is.True,
+                    "Config must have ConditionalMS2 enabled for this test");
+
+                int maxPrecursors = harness.MethodParams.IDA.MaxMs2CountPerMs1;
+                Assert.That(ms2Commands.Count, Is.LessThanOrEqualTo(maxPrecursors),
+                    "Conditional MS2: initial batch should have at most 1 scan per precursor");
             }
         }
 
@@ -574,6 +587,9 @@ namespace Flash.Tests.AcquisitionLoop
                     .Select(s => ScanCommandRecord.FromCustomScan(s))
                     .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
                     .ToList();
+
+                Assume.That(ms2Commands.Count, Is.GreaterThan(0),
+                    "MS3 test requires MS2 commands from MS1 processing");
 
                 if (ms2Commands.Count > 0)
                 {
@@ -717,6 +733,8 @@ namespace Flash.Tests.AcquisitionLoop
 
         [Test, Category("Tier2")]
         public void P0_AL_CT27_FAIMSAdaptiveSkip_LowPrecursorCVLessFrequent()
+        // AUDIT NOTE (2026-03-31): Identical spectra across all CVs defeat adaptive
+        // skip logic. Needs per-CV test data with distinct precursor counts (Phase 6).
         {
             using (var harness = CreateHarness("method_faims_skip.xml", forceFaims: true))
             {
