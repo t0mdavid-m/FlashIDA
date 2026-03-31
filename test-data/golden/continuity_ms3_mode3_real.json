@@ -1,8 +1,8 @@
 [
-  {"MsnLevel":2,"PrecursorMz":517.03405799999996,"IsolationWidth":1.05036599999994,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_1|2063.61@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4},
-  {"MsnLevel":2,"PrecursorMz":570.5722045,"IsolationWidth":1.29743699999995,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_2|2277.25@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4},
-  {"MsnLevel":2,"PrecursorMz":591.91082749999998,"IsolationWidth":1.0283929999999399,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_3|5315.13@9","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":9},
-  {"MsnLevel":2,"PrecursorMz":565.17730700000004,"IsolationWidth":1.0507319999999301,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_4|2256.18@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4},
-  {"MsnLevel":2,"PrecursorMz":615.24920650000001,"IsolationWidth":0.94135699999992495,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_5|4297.18@7","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":7},
-  {"MsnLevel":2,"PrecursorMz":535.06088250000005,"IsolationWidth":1.05360099999996,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_6|2135.71@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4}
+  {"MsnLevel":2,"PrecursorMz":517.03405799999996,"IsolationWidth":1.05036599999994,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_0|2063.61@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4},
+  {"MsnLevel":2,"PrecursorMz":570.5722045,"IsolationWidth":1.29743699999995,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_1|2277.25@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4},
+  {"MsnLevel":2,"PrecursorMz":591.91082749999998,"IsolationWidth":1.0283929999999399,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_2|5315.13@9","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":9},
+  {"MsnLevel":2,"PrecursorMz":565.17730700000004,"IsolationWidth":1.0507319999999301,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_3|2256.18@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4},
+  {"MsnLevel":2,"PrecursorMz":615.24920650000001,"IsolationWidth":0.94135699999992495,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_4|4297.18@7","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":7},
+  {"MsnLevel":2,"PrecursorMz":535.06088250000005,"IsolationWidth":1.05360099999996,"CollisionEnergy":30,"Analyzer":"Orbitrap","ScanDescription":"_5|2135.71@4","IsAGC":false,"FaimsCV":0,"ActivationType":"HCD","ScanType":"MSn","ChargeState":4}
 ]
