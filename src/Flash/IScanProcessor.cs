@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Flash.IDA;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
 
@@ -15,11 +16,16 @@ namespace Flash
         /// <param name="arg"></param>
         /// <returns></returns>
         IEnumerable<IFusionCustomScan> ProcessMS(IMsScan arg);
-        
+
         /// <summary>
         /// Submit scan request
         /// </summary>
         /// <param name="obj"></param>
         void OutputMS(IFusionCustomScan obj);
+
+        /// <summary>
+        /// Phase 4: Access the FLASHIdaWrapper for unified bridge drain
+        /// </summary>
+        FLASHIdaWrapper Wrapper { get; }
     }
 }

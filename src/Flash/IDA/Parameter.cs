@@ -264,7 +264,8 @@ namespace Flash.IDA
                 scheduling = new JsonSchedulingConfig
                 {
                     cycle_time = new JsonCycleTimeConfig { enabled = false, value_ms = 60000 },
-                    scan_timeout = new JsonScanTimeoutConfig { enabled = false, value_ms = 30000 }
+                    scan_timeout = new JsonScanTimeoutConfig { enabled = false, value_ms = 30000 },
+                    agc_interval_seconds = 30
                 },
                 exploration = new JsonExplorationConfig
                 {
@@ -272,6 +273,14 @@ namespace Flash.IDA
                     max_depth = 1,
                     max_variants = 5
                 },
+                ms3 = new JsonMs3Config
+                {
+                    enabled = EnableMS3,
+                    mode = MS3Mode,
+                    max_per_ms2 = MaxMs3PerMs2,
+                    protein_sequence = MS3ProteinSequence ?? ""
+                },
+                conditional_ms2 = ConditionalMS2,
                 files = new JsonFilesConfig
                 {
                     target_logs = (TargetLogs ?? new List<string>()).ToArray(),

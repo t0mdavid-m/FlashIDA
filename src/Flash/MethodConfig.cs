@@ -223,6 +223,7 @@ namespace Flash
     {
         public JsonCycleTimeConfig cycle_time { get; set; }
         public JsonScanTimeoutConfig scan_timeout { get; set; }
+        public double agc_interval_seconds { get; set; }
     }
 
     public class JsonExplorationConfig
@@ -240,6 +241,14 @@ namespace Flash
         public string ptm_list { get; set; }
     }
 
+    public class JsonMs3Config
+    {
+        public bool enabled { get; set; }
+        public int mode { get; set; }
+        public int max_per_ms2 { get; set; }
+        public string protein_sequence { get; set; }
+    }
+
     public class JsonMethodConfig
     {
         public JsonDeconvolutionConfig deconvolution { get; set; }
@@ -251,5 +260,7 @@ namespace Flash
         public JsonSchedulingConfig scheduling { get; set; }
         public JsonExplorationConfig exploration { get; set; }
         public JsonFilesConfig files { get; set; }
+        public JsonMs3Config ms3 { get; set; }
+        public bool conditional_ms2 { get; set; }
     }
 }

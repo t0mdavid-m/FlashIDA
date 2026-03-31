@@ -70,35 +70,26 @@ namespace Flash.Tests
         {
             var cmd = new ScanCommand();
             int result = GetNextScanCommand(nativePtr, ref cmd);
-            Assert.AreEqual(1, result, "GetNextScanCommand should return 1");
-            Assert.IsNotNull(cmd.Analyzer, "Analyzer should not be null");
-            Assert.IsNotEmpty(cmd.Analyzer, "Analyzer should not be empty");
-            Assert.AreEqual(1, cmd.MsnLevel, "MS1 fallback should have MsnLevel==1");
-            Assert.That(cmd.FirstMass, Is.GreaterThan(0), "FirstMass should be > 0");
-            Assert.That(cmd.LastMass, Is.GreaterThan(cmd.FirstMass), "LastMass should be > FirstMass");
-            Assert.That(cmd.OrbitrapResolution, Is.GreaterThan(0), "OrbitrapResolution should be > 0");
-            Assert.AreEqual(0, cmd.NumStages, "MS1 fallback should have NumStages==0");
-            Assert.AreEqual(0, cmd.IsAgc, "MS1 fallback should have IsAgc==0");
+            Assert.AreEqual(0, result, "GetNextScanCommand should return 0 when queue is empty");
         }
 
-        // P3-I02: ProcessScan returns 0 with synthetic peaks (stub behavior)
+        // P3-I02: ProcessScan returns 0 with insufficient/synthetic peaks (no real charge envelopes)
         [Test, Category("Tier2")]
-        public void P3_I02_ProcessScan_StubReturnsZero()
+        public void P3_I02_ProcessScan_ReturnsZeroForSyntheticPeaks()
         {
             double[] mzs = { 500.0, 600.0, 700.0, 800.0, 900.0 };
             double[] ints = { 1000.0, 2000.0, 3000.0, 4000.0, 5000.0 };
             int result = ProcessScan(nativePtr, mzs, ints, mzs.Length, 1.5, 1, "test_scan");
-            Assert.AreEqual(0, result, "ProcessScan stub should return 0");
+            Assert.AreEqual(0, result, "ProcessScan should return 0 for synthetic peaks with no charge envelopes");
         }
 
-        // P3-I03: GetNextScanCommand returns MS1 when queue is empty
+        // P3-I03: GetNextScanCommand returns 0 when queue is empty
         [Test, Category("Tier2")]
-        public void P3_I03_GetNextScanCommand_ReturnsMS1WhenQueueEmpty()
+        public void P3_I03_GetNextScanCommand_ReturnsZeroWhenQueueEmpty()
         {
             var cmd = new ScanCommand();
             int result = GetNextScanCommand(nativePtr, ref cmd);
-            Assert.AreEqual(1, result, "Should return 1 for success");
-            Assert.AreEqual(1, cmd.MsnLevel, "Empty queue should return MS1 (MsnLevel=1)");
+            Assert.AreEqual(0, result, "Should return 0 when queue is empty");
         }
 
         // P3-I04: GetNextTrackingId is monotonically increasing

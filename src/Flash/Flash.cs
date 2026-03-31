@@ -582,7 +582,23 @@ namespace Flash
             if (inCustom)
             {
                 dataPipe.Push(msScan);
-                SendCustomScan(scanScheduler.getNextScan());
+
+                if (methodParams.UseUnifiedBridge)
+                {
+                    // Phase 4: Drain all queued commands from C++ engine
+                    var cmd = new ScanCommand();
+                    while (flashIDAProcessor.Wrapper.GetNextScanCommand(ref cmd) == 1)
+                    {
+                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
+                        cmd = new ScanCommand();
+                    }
+                    // Always send a default scan to keep the instrument busy
+                    SendCustomScan(scanScheduler.getNextScan());
+                }
+                else
+                {
+                    SendCustomScan(scanScheduler.getNextScan());
+                }
             }
 
             msScan.Dispose();//Release resources

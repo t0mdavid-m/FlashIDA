@@ -37,8 +37,8 @@ namespace Flash.IDA
     }
 
     /// <summary>
-    /// Blittable struct matching C++ ScanCommand (1144 bytes).
-    /// Layout: 8 int32 (32) + 3 doubles (24) + char[32] + char[256] + IsolationStage[10] (800) = 1144.
+    /// Blittable struct matching C++ ScanCommand (1152 bytes).
+    /// Layout: 8 int32 (32) + 3 doubles (24) + char[32] + char[256] + IsolationStage[10] (800) + uint64 (8) = 1152.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
@@ -60,6 +60,7 @@ namespace Flash.IDA
         public string ScanDescription;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
         public IsolationStage[] Stages;
+        public ulong EnqueueTimestampMs;
     }
 
     /// <summary>

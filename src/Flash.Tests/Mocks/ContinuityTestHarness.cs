@@ -198,20 +198,45 @@ namespace Flash.Tests.Mocks
 
         /// <summary>
         /// Push a scan through the processor pipeline.
-        /// Calls ProcessMS, then OutputMS for each result (matching DataPipe behavior).
+        /// When UseUnifiedBridge is true, calls ProcessScan + GetNextScanCommand directly.
+        /// Otherwise, calls ProcessMS then OutputMS for each result (matching DataPipe behavior).
         /// </summary>
-        /// <returns>The list of custom scans returned by ProcessMS (includes nulls for default scan slots)</returns>
+        /// <returns>The list of custom scans returned (includes nulls for default scan slots)</returns>
         public List<IFusionCustomScan> PushScan(IMsScan msScan)
         {
-            var results = Processor.ProcessMS(msScan);
-            var scanList = results != null ? results.ToList() : new List<IFusionCustomScan>();
-
-            foreach (var scan in scanList)
+            if (MethodParams.UseUnifiedBridge)
             {
-                Processor.OutputMS(scan);
-            }
+                // Unified bridge path: ProcessScan → drain GetNextScanCommand → BuildFromCommand
+                double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
+                double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
+                double rt = double.Parse(msScan.Header["StartTime"]);
+                int msLevel = int.Parse(msScan.Header["MSOrder"]);
+                string scanDesc = msScan.Header.ContainsKey("Scan") ? msScan.Header["Scan"] : "";
 
-            return scanList;
+                Wrapper.ProcessScan(mzs, ints, rt, msLevel, scanDesc);
+
+                var scanList = new List<IFusionCustomScan>();
+                var cmd = new ScanCommand();
+                while (Wrapper.GetNextScanCommand(ref cmd) == 1)
+                {
+                    var scan = Factory.BuildFromCommand(cmd);
+                    scanList.Add(scan);
+                    cmd = new ScanCommand();
+                }
+                return scanList;
+            }
+            else
+            {
+                var results = Processor.ProcessMS(msScan);
+                var scanList = results != null ? results.ToList() : new List<IFusionCustomScan>();
+
+                foreach (var scan in scanList)
+                {
+                    Processor.OutputMS(scan);
+                }
+
+                return scanList;
+            }
         }
 
         /// <summary>

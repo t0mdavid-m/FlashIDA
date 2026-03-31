@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Flash.IDA;
@@ -182,23 +183,37 @@ namespace Flash
             // Isolation stages
             if (cmd.NumStages > 0 && cmd.Stages != null)
             {
-                var stage = cmd.Stages[0];
-                if (stage.PrecursorMz > 0)
-                    p.PrecursorMass = new double[] { stage.PrecursorMz };
-                if (stage.IsolationWidth > 0)
-                    p.IsolationWidth = new double[] { stage.IsolationWidth };
-                if (stage.CollisionEnergy > 0)
-                    p.CollisionEnergy = new int[] { (int)stage.CollisionEnergy };
-                if (!string.IsNullOrEmpty(stage.ActivationType))
-                    p.ActivationType = new string[] { stage.ActivationType };
-                if (stage.ChargeState > 0)
-                    p.ChargeStates = new int[] { Math.Min(stage.ChargeState, 25) };
-                if (stage.ReactionTime > 0)
-                    p.ReactionTime = new double[] { stage.ReactionTime };
-                if (stage.ReagentMaxIt > 0)
-                    p.ReagentMaxIT = new double[] { stage.ReagentMaxIt };
-                if (stage.ReagentAgcTarget > 0)
-                    p.ReagentAGCTarget = new int[] { stage.ReagentAgcTarget };
+                int n = Math.Min(cmd.NumStages, 10);
+                var precursorMasses = new List<double>();
+                var isolationWidths = new List<double>();
+                var collisionEnergies = new List<int>();
+                var activationTypes = new List<string>();
+                var chargeStates = new List<int>();
+                var reactionTimes = new List<double>();
+                var reagentMaxIts = new List<double>();
+                var reagentAgcTargets = new List<int>();
+
+                for (int i = 0; i < n; i++)
+                {
+                    var stage = cmd.Stages[i];
+                    if (stage.PrecursorMz > 0) precursorMasses.Add(stage.PrecursorMz);
+                    if (stage.IsolationWidth > 0) isolationWidths.Add(stage.IsolationWidth);
+                    if (stage.CollisionEnergy > 0) collisionEnergies.Add((int)stage.CollisionEnergy);
+                    if (!string.IsNullOrEmpty(stage.ActivationType)) activationTypes.Add(stage.ActivationType);
+                    if (stage.ChargeState > 0) chargeStates.Add(Math.Min(stage.ChargeState, 25));
+                    if (stage.ReactionTime > 0) reactionTimes.Add(stage.ReactionTime);
+                    if (stage.ReagentMaxIt > 0) reagentMaxIts.Add(stage.ReagentMaxIt);
+                    if (stage.ReagentAgcTarget > 0) reagentAgcTargets.Add(stage.ReagentAgcTarget);
+                }
+
+                if (precursorMasses.Count > 0) p.PrecursorMass = precursorMasses.ToArray();
+                if (isolationWidths.Count > 0) p.IsolationWidth = isolationWidths.ToArray();
+                if (collisionEnergies.Count > 0) p.CollisionEnergy = collisionEnergies.ToArray();
+                if (activationTypes.Count > 0) p.ActivationType = activationTypes.ToArray();
+                if (chargeStates.Count > 0) p.ChargeStates = chargeStates.ToArray();
+                if (reactionTimes.Count > 0) p.ReactionTime = reactionTimes.ToArray();
+                if (reagentMaxIts.Count > 0) p.ReagentMaxIT = reagentMaxIts.ToArray();
+                if (reagentAgcTargets.Count > 0) p.ReagentAGCTarget = reagentAgcTargets.ToArray();
             }
 
             // Scan description

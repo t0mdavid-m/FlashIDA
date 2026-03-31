@@ -19,6 +19,7 @@ namespace Flash.IDA
 
         //active components
         private FLASHIdaWrapper flashIdaWrapper;
+        public FLASHIdaWrapper Wrapper => flashIdaWrapper;
         private MethodParameters methodParams;
         private ScanFactory scanFactory;
         private ScanScheduler scanScheduler;
@@ -209,10 +210,23 @@ namespace Flash.IDA
 
             List<IFusionCustomScan> scans = new List<IFusionCustomScan>();
 
+            // Phase 4: Unified bridge path
+            if (methodParams.UseUnifiedBridge)
+            {
+                double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
+                double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
+                double rt = double.Parse(msScan.Header["StartTime"]);
+                int msLevel = int.Parse(msScan.Header["MSOrder"]);
+                string scanDesc = msScan.Header["Scan"] ?? "";
+                flashIdaWrapper.ProcessScan(mzs, ints, rt, msLevel, scanDesc);
+                // Scans are drained by ProcessSpectrum via GetNextScanCommand
+                return scans;
+            }
+
             //for FTMS MS1 scans search for precursors (exclude IT scans)
             if (msScan.Header["MSOrder"] == "1" && msScan.Header["MassAnalyzer"] == "FTMS")
             {
-                
+
                 //get ScanID for logging purposes
                 msScan.Trailer.TryGetValue("Access ID", out var scanId);
 

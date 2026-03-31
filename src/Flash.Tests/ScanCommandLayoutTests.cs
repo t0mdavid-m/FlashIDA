@@ -13,12 +13,12 @@ namespace Flash.Tests
     [TestFixture]
     public class ScanCommandLayoutTests
     {
-        // P3-U01: ScanCommand is exactly 1144 bytes
+        // P3-U01: ScanCommand is exactly 1152 bytes (updated Phase 4: added EnqueueTimestampMs)
         [Test, Category("Tier1")]
         public void P3_U01_ScanCommand_SizeMatchesCpp()
         {
-            Assert.AreEqual(1144, Marshal.SizeOf<ScanCommand>(),
-                "ScanCommand must be 1144 bytes to match C++ layout");
+            Assert.AreEqual(1152, Marshal.SizeOf<ScanCommand>(),
+                "ScanCommand must be 1152 bytes to match C++ layout");
         }
 
         // P3-U02: IsolationStage is exactly 80 bytes
@@ -48,6 +48,7 @@ namespace Flash.Tests
             Assert.AreEqual(56, (int)Marshal.OffsetOf<ScanCommand>("Analyzer"), "Analyzer offset");
             Assert.AreEqual(88, (int)Marshal.OffsetOf<ScanCommand>("ScanDescription"), "ScanDescription offset");
             Assert.AreEqual(344, (int)Marshal.OffsetOf<ScanCommand>("Stages"), "Stages offset");
+            Assert.AreEqual(1144, (int)Marshal.OffsetOf<ScanCommand>("EnqueueTimestampMs"), "EnqueueTimestampMs offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
