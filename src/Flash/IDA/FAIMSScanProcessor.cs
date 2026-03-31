@@ -109,21 +109,6 @@ namespace Flash.IDA
                     int precursors = flashIdaWrapper.GetAllPeakGroupSize();
                     double parsedCV = flashIdaWrapper.GetRepresentativeMass();
 
-                    // Phase 3: Shadow validation — call ProcessScan for tracking
-                    try
-                    {
-                        double[] shadowMzs = msScan.Centroids.Select(c => c.Mz).ToArray();
-                        double[] shadowInts = msScan.Centroids.Select(c => c.Intensity).ToArray();
-                        double shadowRt = double.Parse(msScan.Header["StartTime"]);
-                        int shadowMsLevel = int.Parse(msScan.Header["MSOrder"]);
-                        int shadowResult = flashIdaWrapper.ProcessScan(shadowMzs, shadowInts, shadowRt, shadowMsLevel, "");
-                        IDAlog.Debug(String.Format("[SHADOW] ProcessScan returned {0} for FAIMS scan {1} CV={2}", shadowResult, msScan.Header["Scan"], CVString));
-                    }
-                    catch (Exception shadowEx)
-                    {
-                        IDAlog.Debug(String.Format("[SHADOW] ProcessScan error: {0}", shadowEx.Message));
-                    }
-
                     //logging of targets
                     IDAlog.Info(String.Format("MS1 Scan# {0} RT {1:f04} CV={4} FAIMS Voltage On={5} (Access ID {2}) - {3} targets ({6} precursors) ScanCV={7} ParsedCV={8}",
                             msScan.Header["Scan"], msScan.Header["StartTime"], scanId, targets.Count, CVString, faimsStatus, precursors, cv, parsedCV));

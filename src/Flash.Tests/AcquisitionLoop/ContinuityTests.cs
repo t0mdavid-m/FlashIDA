@@ -1167,8 +1167,9 @@ namespace Flash.Tests.AcquisitionLoop
 
                     var cmd = new ScanCommand();
                     int cmdResult = wrapper.GetNextScanCommand(ref cmd);
-                    Assert.AreEqual(1, cmdResult,
-                        string.Format("GetNextScanCommand should return 1 at iteration {0}", i));
+                    // Synthetic peaks produce 0 commands, so queue is empty → returns 0
+                    Assert.AreEqual(0, cmdResult,
+                        string.Format("GetNextScanCommand should return 0 (empty queue) at iteration {0}", i));
 
                     int trackId = wrapper.GetNextTrackingId();
                     Assert.IsFalse(trackingIds.Contains(trackId),
