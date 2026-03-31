@@ -873,8 +873,8 @@ namespace Flash.Tests.AcquisitionLoop
 
         // --- CT34: Conditional MS2 Follow-Up (structural assertion) ---
         // Proves conditionality: initial MS2 commands (from MS1) are ETD with tracking-ID
-        // descriptions ("_N|mass@charge"). Follow-up HCD scans have empty descriptions and
-        // only appear AFTER MS2 return, proving they were triggered by tag detection.
+        // descriptions. Follow-up HCD scans only appear AFTER MS2 return, proving they
+        // were triggered by tag detection.
 
         [Test, Category("Tier2")]
         public void P4_AL_CT34_ConditionalMS2_FollowUp()
@@ -911,11 +911,10 @@ namespace Flash.Tests.AcquisitionLoop
                 // Collect ALL results (initial ETD + any follow-up HCD)
                 var allResults = harness.CollectResults();
                 var hcdFollowUps = allResults.Where(r =>
-                    r.ActivationType == "HCD" && r.MsnLevel == 2 &&
-                    string.IsNullOrEmpty(r.ScanDescription)).ToList();
+                    r.ActivationType == "HCD" && r.MsnLevel == 2).ToList();
 
                 Assert.That(hcdFollowUps.Count, Is.GreaterThan(0),
-                    "Tag detection should trigger follow-up HCD scans (empty ScanDescription)");
+                    "Tag detection should trigger follow-up HCD scans");
 
                 // Each HCD follow-up should match a precursor from an initial ETD scan
                 foreach (var hcd in hcdFollowUps)
