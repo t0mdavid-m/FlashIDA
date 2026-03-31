@@ -211,7 +211,10 @@ namespace Flash.Tests.Mocks
                 double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
                 double rt = double.Parse(msScan.Header["StartTime"]);
                 int msLevel = int.Parse(msScan.Header["MSOrder"]);
-                string scanDesc = msScan.Header.ContainsKey("Scan") ? msScan.Header["Scan"] : "";
+                string scanDesc = "";
+                if (msLevel >= 2)
+                    msScan.Trailer.TryGetValue("Scan Description", out scanDesc);
+                scanDesc = scanDesc ?? "";
 
                 Wrapper.ProcessScan(mzs, ints, rt, msLevel, scanDesc);
 
