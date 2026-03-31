@@ -71,6 +71,16 @@ namespace Flash.Tests
             var cmd = new ScanCommand();
             int result = GetNextScanCommand(nativePtr, ref cmd);
             Assert.AreEqual(0, result, "GetNextScanCommand should return 0 when queue is empty");
+
+            // Verify struct fields survived marshaling (empty queue → zeroed/default values)
+            Assert.AreEqual(0, cmd.MsnLevel, "MsnLevel should be 0 for empty queue");
+            Assert.AreEqual(0.0, cmd.FirstMass, "FirstMass should be 0.0 for empty queue");
+            Assert.AreEqual(0, cmd.OrbitrapResolution, "OrbitrapResolution should be 0 for empty queue");
+            Assert.AreEqual(0, cmd.NumStages, "NumStages should be 0 for empty queue");
+            Assert.That(cmd.Analyzer ?? "", Is.Empty.Or.EqualTo("\0"),
+                "Analyzer should be empty for empty queue");
+            Assert.That(cmd.ScanDescription ?? "", Is.Empty.Or.EqualTo("\0"),
+                "ScanDescription should be empty for empty queue");
         }
 
         // P3-I02: ProcessScan returns 0 with insufficient/synthetic peaks (no real charge envelopes)

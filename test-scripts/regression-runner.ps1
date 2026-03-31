@@ -136,7 +136,8 @@ foreach ($cfg in $configs) {
     }
 
     if (-not (Test-Path $goldenFile)) {
-        Write-Host "SKIP: Golden file not found for $($cfg.name): $goldenFile"
+        Write-Host "FAIL: Golden file not found for $($cfg.name): $goldenFile"
+        $failures++
         continue
     }
 

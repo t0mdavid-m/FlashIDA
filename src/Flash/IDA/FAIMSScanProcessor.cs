@@ -76,7 +76,10 @@ namespace Flash.IDA
                 double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
                 double rt = double.Parse(msScan.Header["StartTime"]);
                 int msLevel = int.Parse(msScan.Header["MSOrder"]);
-                string scanDesc = msScan.Header["Scan"] ?? "";
+                string scanDesc = "";
+                if (msLevel >= 2)
+                    msScan.Trailer.TryGetValue("Scan Description", out scanDesc);
+                scanDesc = scanDesc ?? "";
                 flashIdaWrapper.ProcessScan(mzs, ints, rt, msLevel, scanDesc);
                 return scans;
             }
