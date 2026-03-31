@@ -1,0 +1,8 @@
+[
+  {"MsnLevel":2,"PrecursorMz":517.03405799999996,"IsolationWidth":1.05036599999994,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"quant","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":4},
+  {"MsnLevel":2,"PrecursorMz":570.5722045,"IsolationWidth":1.29743699999995,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"quant","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":4},
+  {"MsnLevel":2,"PrecursorMz":591.91082749999998,"IsolationWidth":1.0283929999999399,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"quant","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":9},
+  {"MsnLevel":2,"PrecursorMz":565.17730700000004,"IsolationWidth":1.0507319999999301,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"quant","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":4},
+  {"MsnLevel":2,"PrecursorMz":615.24920650000001,"IsolationWidth":0.94135699999992495,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"quant","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":7},
+  {"MsnLevel":2,"PrecursorMz":535.06088250000005,"IsolationWidth":1.05360099999996,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"quant","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":4}
+]
