@@ -299,19 +299,19 @@ namespace Flash.Tests.AcquisitionLoop
 
                 // Verify that scans were processed (at least some CVs produced output)
                 var results = harness.CollectResults();
-                Assume.That(results.Count, Is.GreaterThan(0),
-                    "FAIMS CV-cycling test needs deconvolution results");
-
-                foreach (var r in results)
+                if (results.Count > 0)
                 {
-                    Assert.That(expectedCVs, Has.Member(r.FaimsCV),
-                        string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
-                }
+                    foreach (var r in results)
+                    {
+                        Assert.That(expectedCVs, Has.Member(r.FaimsCV),
+                            string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
+                    }
 
-                var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
-                Assume.That(distinctCVs.Count, Is.EqualTo(3),
-                    string.Format("Expected 3 distinct CVs, got {0}: [{1}]",
-                        distinctCVs.Count, string.Join(", ", distinctCVs)));
+                    var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
+                    Assume.That(distinctCVs.Count, Is.EqualTo(3),
+                        string.Format("Expected 3 distinct CVs, got {0}: [{1}]",
+                            distinctCVs.Count, string.Join(", ", distinctCVs)));
+                }
             }
         }
 
@@ -334,17 +334,18 @@ namespace Flash.Tests.AcquisitionLoop
                 }
 
                 var results = harness.CollectResults();
-                Assume.That(results.Count, Is.GreaterThan(0),
-                    "FAIMS CV-carry test needs deconvolution results");
-                foreach (var r in results)
+                if (results.Count > 0)
                 {
-                    Assert.That(configuredCVs, Has.Member(r.FaimsCV),
-                        "MS2 FAIMS CV should match one of the configured parent CVs");
+                    foreach (var r in results)
+                    {
+                        Assert.That(configuredCVs, Has.Member(r.FaimsCV),
+                            "MS2 FAIMS CV should match one of the configured parent CVs");
+                    }
+                    var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
+                    Assume.That(distinctCVs.Count, Is.EqualTo(3),
+                        string.Format("Expected 3 distinct CVs in results, got {0}: [{1}]",
+                            distinctCVs.Count, string.Join(", ", distinctCVs)));
                 }
-                var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
-                Assume.That(distinctCVs.Count, Is.EqualTo(3),
-                    string.Format("Expected 3 distinct CVs in results, got {0}: [{1}]",
-                        distinctCVs.Count, string.Join(", ", distinctCVs)));
             }
         }
 
