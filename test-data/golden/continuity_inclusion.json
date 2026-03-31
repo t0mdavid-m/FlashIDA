@@ -1,7 +1,0 @@
-[
-  {"MsnLevel":2,"PrecursorMz":883.81774900000005,"IsolationWidth":1.9437979999999,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"_1|12351.33@14","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":14},
-  {"MsnLevel":2,"PrecursorMz":688.52584850000005,"IsolationWidth":1.68885499999999,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"_2|12367.32@18","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":18},
-  {"MsnLevel":2,"PrecursorMz":771.62075800000002,"IsolationWidth":1.7370719999999,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"_3|12321.31@16","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":16},
-  {"MsnLevel":2,"PrecursorMz":886.10199,"IsolationWidth":1.9430660000000399,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"_4|12383.31@14","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":14},
-  {"MsnLevel":2,"PrecursorMz":880.67361449999999,"IsolationWidth":1.9482550000000201,"CollisionEnergy":0,"Analyzer":"Orbitrap","ScanDescription":"_5|12307.31@14","IsAGC":false,"FaimsCV":0,"ActivationType":"ETD","ScanType":"MSn","ChargeState":14}
-]
