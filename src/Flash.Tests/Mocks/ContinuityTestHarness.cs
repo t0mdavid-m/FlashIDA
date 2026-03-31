@@ -204,7 +204,7 @@ namespace Flash.Tests.Mocks
         /// <returns>The list of custom scans returned (includes nulls for default scan slots)</returns>
         public List<IFusionCustomScan> PushScan(IMsScan msScan)
         {
-            if (MethodParams.UseUnifiedBridge)
+            if (MethodParams.UseUnifiedBridge && !UseFaimsCycling)
             {
                 // Unified bridge path: ProcessScan → drain GetNextScanCommand → BuildFromCommand
                 double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
