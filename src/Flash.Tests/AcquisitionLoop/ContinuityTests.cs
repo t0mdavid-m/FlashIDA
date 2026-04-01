@@ -733,6 +733,7 @@ namespace Flash.Tests.AcquisitionLoop
         #region AL-CT27 through CT28: FAIMS Adaptive Skip
 
         [Test, Category("Tier2")]
+        [Ignore("Deferred to Phase 6: needs per-CV test data with distinct precursor counts")]
         public void P0_AL_CT27_FAIMSAdaptiveSkip_LowPrecursorCVLessFrequent()
         // AUDIT NOTE (2026-03-31): Identical spectra across all CVs defeat adaptive
         // skip logic. Needs per-CV test data with distinct precursor counts (Phase 6).
@@ -785,6 +786,7 @@ namespace Flash.Tests.AcquisitionLoop
         }
 
         [Test, Category("Tier2")]
+        [Ignore("Deferred to Phase 6: depends on CT27 FAIMS adaptive skip fix")]
         public void P0_AL_CT28_FAIMSSkip_BehavioralReference()
         {
             using (var harness = CreateHarness("method_faims_skip.xml", forceFaims: true))

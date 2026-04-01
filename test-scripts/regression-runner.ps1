@@ -31,6 +31,14 @@ $configs = @(
         ms2    = $null
         golden = "baseline_phase0.tsv"
     }
+    # Phase 4: Legacy bridge path regression (UseUnifiedBridge=false)
+    @{
+        name   = "p4_legacy_path"
+        method = "method_default_legacy.xml"
+        ms1    = "ms1_smoke_test.txt"
+        ms2    = $null
+        golden = "baseline_phase3.tsv"
+    }
     # Phase 4: Pre-switch golden baselines (old bridge path, ms1_standard.txt)
     @{
         name   = "phase4_standard_dda"
