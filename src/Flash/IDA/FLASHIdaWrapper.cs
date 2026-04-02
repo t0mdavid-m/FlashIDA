@@ -37,8 +37,9 @@ namespace Flash.IDA
     }
 
     /// <summary>
-    /// Blittable struct matching C++ ScanCommand (1152 bytes).
-    /// Layout: 8 int32 (32) + 3 doubles (24) + char[32] + char[256] + IsolationStage[10] (800) + uint64 (8) = 1152.
+    /// Blittable struct matching C++ ScanCommand (1240 bytes).
+    /// Layout: 8 int32 (32) + 3 doubles (24) + char[32] + char[256] + IsolationStage[10] (800) + uint64 (8)
+    ///       + 10 doubles (80) + 2 int32 (8) = 1240.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
@@ -61,6 +62,20 @@ namespace Flash.IDA
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
         public IsolationStage[] Stages;
         public ulong EnqueueTimestampMs;
+
+        // Precursor scoring data (populated by C++ buildMS2Command_ for diagnostic output)
+        public double Qscore;
+        public double MonoMass;
+        public double ChargeCos;
+        public double ChargeSnr;
+        public double IsoCos;
+        public double Snr;
+        public double ChargeScore;
+        public double PpmError;
+        public double PrecursorIntensity;
+        public double PeakgroupIntensity;
+        public int HcdEnergy;
+        public int Pad2;
     }
 
     /// <summary>
@@ -1012,6 +1027,49 @@ namespace Flash.IDA
             return scoreSum;
         }
 
+        /// <summary>
+        /// Process a single scan via the unified bridge (ProcessScan + GetNextScanCommand).
+        /// Writes the same 15-column TSV format using scoring fields from ScanCommand.
+        /// </summary>
+        static double ProcessScanUnified(
+            FLASHIdaWrapper w, List<double> mzs, List<double> ints,
+            double rt, int msLevel, string scanName,
+            StreamWriter wfile,
+            double[] ms2Mzs, double[] ms2Ints,
+            MethodParameters methodParams)
+        {
+            if (mzs.Count == 0) return 0.0;
+
+            w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, msLevel, scanName);
+
+            double scoreSum = 0.0;
+            var cmd = new ScanCommand();
+            while (w.GetNextScanCommand(ref cmd) == 1)
+            {
+                if (cmd.MsnLevel == 2 && cmd.NumStages > 0)
+                {
+                    double mz1 = cmd.Stages[0].PrecursorMz - cmd.Stages[0].IsolationWidth / 2;
+                    double mz2 = cmd.Stages[0].PrecursorMz + cmd.Stages[0].IsolationWidth / 2;
+                    wfile.WriteLine("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}\t{14}",
+                        rt, mz1, mz2, cmd.Qscore, cmd.Stages[0].ChargeState,
+                        cmd.MonoMass, cmd.ChargeCos, cmd.ChargeSnr, cmd.IsoCos,
+                        cmd.Snr, cmd.ChargeScore, cmd.PpmError,
+                        cmd.PrecursorIntensity, cmd.PeakgroupIntensity, cmd.HcdEnergy);
+                    scoreSum += cmd.Qscore;
+
+                    // MS2 return path: feed MS2 spectrum back through unified bridge
+                    if (ms2Mzs != null)
+                    {
+                        w.ProcessScan(ms2Mzs, ms2Ints, rt, 2, cmd.ScanDescription);
+                        var followup = new ScanCommand();
+                        while (w.GetNextScanCommand(ref followup) == 1) { followup = new ScanCommand(); }
+                    }
+                }
+                cmd = new ScanCommand();
+            }
+            return scoreSum;
+        }
+
         private static bool IsActive(string val) =>
             !String.IsNullOrEmpty(val) && val.Equals("True", StringComparison.OrdinalIgnoreCase);
 
@@ -1087,7 +1145,12 @@ namespace Flash.IDA
                 if (line.StartsWith("Spec"))
                 {
                     if (started)
-                        totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+                    {
+                        if (methodParams.UseUnifiedBridge)
+                            totalScore += ProcessScanUnified(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+                        else
+                            totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+                    }
                     mzs.Clear();
                     ints.Clear();
                     rt = double.Parse(token[1]) / 60.0;
@@ -1103,7 +1166,12 @@ namespace Flash.IDA
 
             // Process the last scan (previously missed — no subsequent Spec header to trigger it)
             if (started)
-                totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+            {
+                if (methodParams.UseUnifiedBridge)
+                    totalScore += ProcessScanUnified(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+                else
+                    totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+            }
 
             Console.WriteLine("Total QScore (i.e., expected number of PrSM identification): {0}", totalScore);
 

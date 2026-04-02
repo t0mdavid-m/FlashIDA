@@ -13,12 +13,12 @@ namespace Flash.Tests
     [TestFixture]
     public class ScanCommandLayoutTests
     {
-        // P3-U01: ScanCommand is exactly 1152 bytes (updated Phase 4: added EnqueueTimestampMs)
+        // P3-U01: ScanCommand is exactly 1240 bytes (updated Phase 4: added scoring fields)
         [Test, Category("Tier1")]
         public void P3_U01_ScanCommand_SizeMatchesCpp()
         {
-            Assert.AreEqual(1152, Marshal.SizeOf<ScanCommand>(),
-                "ScanCommand must be 1152 bytes to match C++ layout");
+            Assert.AreEqual(1240, Marshal.SizeOf<ScanCommand>(),
+                "ScanCommand must be 1240 bytes to match C++ layout");
         }
 
         // P3-U02: IsolationStage is exactly 80 bytes
@@ -49,6 +49,20 @@ namespace Flash.Tests
             Assert.AreEqual(88, (int)Marshal.OffsetOf<ScanCommand>("ScanDescription"), "ScanDescription offset");
             Assert.AreEqual(344, (int)Marshal.OffsetOf<ScanCommand>("Stages"), "Stages offset");
             Assert.AreEqual(1144, (int)Marshal.OffsetOf<ScanCommand>("EnqueueTimestampMs"), "EnqueueTimestampMs offset");
+
+            // Scoring fields (after EnqueueTimestampMs at 1144 + 8 = 1152)
+            Assert.AreEqual(1152, (int)Marshal.OffsetOf<ScanCommand>("Qscore"), "Qscore offset");
+            Assert.AreEqual(1160, (int)Marshal.OffsetOf<ScanCommand>("MonoMass"), "MonoMass offset");
+            Assert.AreEqual(1168, (int)Marshal.OffsetOf<ScanCommand>("ChargeCos"), "ChargeCos offset");
+            Assert.AreEqual(1176, (int)Marshal.OffsetOf<ScanCommand>("ChargeSnr"), "ChargeSnr offset");
+            Assert.AreEqual(1184, (int)Marshal.OffsetOf<ScanCommand>("IsoCos"), "IsoCos offset");
+            Assert.AreEqual(1192, (int)Marshal.OffsetOf<ScanCommand>("Snr"), "Snr offset");
+            Assert.AreEqual(1200, (int)Marshal.OffsetOf<ScanCommand>("ChargeScore"), "ChargeScore offset");
+            Assert.AreEqual(1208, (int)Marshal.OffsetOf<ScanCommand>("PpmError"), "PpmError offset");
+            Assert.AreEqual(1216, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensity"), "PrecursorIntensity offset");
+            Assert.AreEqual(1224, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensity"), "PeakgroupIntensity offset");
+            Assert.AreEqual(1232, (int)Marshal.OffsetOf<ScanCommand>("HcdEnergy"), "HcdEnergy offset");
+            Assert.AreEqual(1236, (int)Marshal.OffsetOf<ScanCommand>("Pad2"), "Pad2 offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
