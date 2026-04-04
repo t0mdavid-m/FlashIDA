@@ -108,7 +108,8 @@ namespace Flash.Tests
             cmd.MsnLevel = 2;
             cmd.NumStages = 1;
             cmd.Analyzer = "Orbitrap";
-            var stages = cmd.Stages;
+            // Stages array is null in pure C# struct creation — must initialize
+            var stages = new IsolationStage[10];
             stages[0].PrecursorMz = 500.0;
             stages[0].IsolationWidth = 2.0;
             stages[0].CollisionEnergy = 29.5;  // Fractional CE
