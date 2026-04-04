@@ -134,9 +134,9 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
-                // Skip if deconvolution found nothing (environment issue)
-                Assume.That(results.Count, Is.GreaterThan(0),
-                    "Deconvolution must find at least one precursor");
+                // Engine must produce results — golden baselines confirm this data works
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "Deconvolution must find at least one precursor (was Assume; promoted to Assert since golden baselines exist)");
 
                 Assert.IsTrue(results.All(r => r.MsnLevel == 2),
                     "Standard DDA should produce only MS2 commands, got: " +
@@ -151,8 +151,8 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
-                Assume.That(results.Count, Is.GreaterThan(0),
-                    "Deconvolution must find at least one precursor");
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "Deconvolution must find at least one precursor (was Assume; promoted to Assert since golden baselines exist)");
 
                 // All precursor m/z values should be in the MS1 scan range
                 foreach (var r in results)
@@ -174,8 +174,8 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
-                Assume.That(results.Count, Is.GreaterThan(0),
-                    "Deconvolution must find at least one precursor");
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "Deconvolution must find at least one precursor (was Assume; promoted to Assert since golden baselines exist)");
 
                 // All collision energies should match the configured MS2 parameters
                 var configuredEnergies = harness.MethodParams.MS2
@@ -284,33 +284,30 @@ namespace Flash.Tests.AcquisitionLoop
                 double[] expectedCVs = harness.MethodParams.IDA.CVValues;
                 Assert.AreEqual(3, expectedCVs.Length, "Config should have 3 CVs");
 
-                // Push 9 MS1 scans, each with the correct CV from the cycling pattern
-                // The ScanScheduler cycles through CVs, so scans arrive with CVs in order
+                // Load real spectral peaks (ensures deconvolution produces peak groups)
+                var realScans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
+                var realPeaks = realScans[0].Centroids.Select(c => (c.Mz, c.Intensity)).ToArray();
+                foreach (var s in realScans) s.Dispose();
+
+                // Push 9 MS1 scans with cycling CVs and real peak data
                 for (int i = 0; i < 9; i++)
                 {
                     double cv = expectedCVs[i % expectedCVs.Length];
                     var scan = MockMsScan.WithFaimsPeaks(
-                        i * 0.5, (i + 1).ToString(), cv,
-                        // Simple peaks - may or may not trigger deconvolution
-                        (600.0, 50000), (700.0, 60000), (800.0, 70000));
+                        i * 0.5, (i + 1).ToString(), cv, realPeaks);
                     harness.PushScan(scan);
                     scan.Dispose();
                 }
 
-                // Verify that scans were processed (at least some CVs produced output)
+                // After CRIT-01 fix, FAIMS harness drains commands — should produce results
                 var results = harness.CollectResults();
-                if (results.Count > 0)
-                {
-                    foreach (var r in results)
-                    {
-                        Assert.That(expectedCVs, Has.Member(r.FaimsCV),
-                            string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
-                    }
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "FAIMS harness should produce results after drain fix");
 
-                    var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
-                    Assume.That(distinctCVs.Count, Is.EqualTo(3),
-                        string.Format("Expected 3 distinct CVs, got {0}: [{1}]",
-                            distinctCVs.Count, string.Join(", ", distinctCVs)));
+                foreach (var r in results)
+                {
+                    Assert.That(expectedCVs, Has.Member(r.FaimsCV),
+                        string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
                 }
             }
         }
@@ -321,30 +318,31 @@ namespace Flash.Tests.AcquisitionLoop
             using (var harness = CreateHarness("method_faims_3cv.xml", forceFaims: true))
             {
                 double[] configuredCVs = harness.MethodParams.IDA.CVValues;
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                var peaks = smokeScan.Centroids.Select(c => (c.Mz, c.Intensity)).ToArray();
-                smokeScan.Dispose();
 
-                // Push scans with different CVs
-                foreach (double cv in configuredCVs)
+                // Use ms1_standard.txt (50 scans) for sufficient engine state accumulation
+                var allScans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
+                var peaks = allScans[0].Centroids.Select(c => (c.Mz, c.Intensity)).ToArray();
+                foreach (var s in allScans) s.Dispose();
+
+                // Push multiple rounds of scans with cycling CVs to accumulate engine state
+                for (int round = 0; round < 6; round++)
                 {
-                    var scan = MockMsScan.WithFaimsPeaks(1.0, "1", cv, peaks);
-                    harness.PushScan(scan);
-                    scan.Dispose();
+                    foreach (double cv in configuredCVs)
+                    {
+                        var scan = MockMsScan.WithFaimsPeaks(round * 0.5, (round + 1).ToString(), cv, peaks);
+                        harness.PushScan(scan);
+                        scan.Dispose();
+                    }
                 }
 
                 var results = harness.CollectResults();
-                if (results.Count > 0)
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "FAIMS MS2 results should be produced after state accumulation");
+
+                foreach (var r in results)
                 {
-                    foreach (var r in results)
-                    {
-                        Assert.That(configuredCVs, Has.Member(r.FaimsCV),
-                            "MS2 FAIMS CV should match one of the configured parent CVs");
-                    }
-                    var distinctCVs = results.Select(r => r.FaimsCV).Distinct().ToList();
-                    Assume.That(distinctCVs.Count, Is.EqualTo(3),
-                        string.Format("Expected 3 distinct CVs in results, got {0}: [{1}]",
-                            distinctCVs.Count, string.Join(", ", distinctCVs)));
+                    Assert.That(configuredCVs, Has.Member(r.FaimsCV),
+                        "MS2 FAIMS CV should match one of the configured parent CVs");
                 }
             }
         }
@@ -356,8 +354,8 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
-                Assume.That(results.Count, Is.GreaterThan(0),
-                    "Deconvolution must find at least one precursor");
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "Deconvolution must find at least one precursor (was Assume; promoted to Assert since golden baselines exist)");
 
                 foreach (var r in results)
                 {
@@ -1266,6 +1264,38 @@ namespace Flash.Tests.AcquisitionLoop
                 Assert.AreEqual(allIds.Count, idSet.Count,
                     string.Format("Expected {0} unique tracking IDs but got {1} (duplicates detected)",
                         allIds.Count, idSet.Count));
+            }
+        }
+
+        #endregion
+
+        #region Phase 4 Scoring Field Coverage
+
+        [Test, Category("Tier2")]
+        public void P4_I06_ScoringFields_NonZeroForMS2Commands()
+        {
+            using (var harness = CreateHarness("method_default.xml"))
+            {
+                // Push all 50 MS1 scans from ms1_standard.txt for engine state accumulation
+                var allScans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
+                foreach (var scan in allScans)
+                {
+                    harness.PushScan(scan);
+                    scan.Dispose();
+                }
+
+                var results = harness.CapturedRecords.Where(r => r.ScanType == "MSn").ToList();
+                Assert.That(results.Count, Is.GreaterThan(0), "Need MS2 results to test scoring");
+
+                foreach (var r in results)
+                {
+                    Assert.That(r.Qscore, Is.Not.EqualTo(0),
+                        string.Format("Qscore should be non-zero for {0}", r.ScanDescription));
+                    Assert.That(r.MonoMass, Is.GreaterThan(0),
+                        string.Format("MonoMass should be positive for {0}", r.ScanDescription));
+                    Assert.That(r.PrecursorIntensity, Is.GreaterThan(0),
+                        string.Format("PrecursorIntensity should be positive for {0}", r.ScanDescription));
+                }
             }
         }
 

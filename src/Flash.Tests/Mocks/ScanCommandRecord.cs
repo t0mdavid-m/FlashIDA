@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Flash.IDA;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 
 namespace Flash.Tests.Mocks
@@ -45,6 +46,59 @@ namespace Flash.Tests.Mocks
 
         /// <summary>First charge state</summary>
         public int ChargeState { get; set; }
+
+        // --- Scoring fields (from ScanCommand struct, Phase 4) ---
+        public double Qscore { get; set; }
+        public double MonoMass { get; set; }
+        public double ChargeCos { get; set; }
+        public double ChargeSnr { get; set; }
+        public double IsoCos { get; set; }
+        public double Snr { get; set; }
+        public double ChargeScore { get; set; }
+        public double PpmError { get; set; }
+        public double PrecursorIntensity { get; set; }
+        public double PeakgroupIntensity { get; set; }
+        public int HcdEnergy { get; set; }
+
+        /// <summary>
+        /// Create a ScanCommandRecord directly from a raw ScanCommand struct.
+        /// Captures all scoring fields that IFusionCustomScan.Values cannot carry.
+        /// </summary>
+        public static ScanCommandRecord FromScanCommand(ScanCommand cmd)
+        {
+            var record = new ScanCommandRecord();
+
+            record.MsnLevel = cmd.MsnLevel;
+            record.ScanType = cmd.MsnLevel > 1 ? "MSn" : "Full";
+            record.Analyzer = cmd.Analyzer ?? "";
+            record.ScanDescription = cmd.ScanDescription ?? "";
+            record.IsAGC = cmd.IsAgc != 0;
+
+            if (cmd.NumStages > 0 && cmd.Stages != null)
+            {
+                var stage = cmd.Stages[0];
+                record.PrecursorMz = stage.PrecursorMz;
+                record.IsolationWidth = stage.IsolationWidth;
+                record.CollisionEnergy = (int)Math.Round(stage.CollisionEnergy);
+                record.ActivationType = stage.ActivationType ?? "";
+                record.ChargeState = stage.ChargeState;
+            }
+
+            // Scoring fields
+            record.Qscore = cmd.Qscore;
+            record.MonoMass = cmd.MonoMass;
+            record.ChargeCos = cmd.ChargeCos;
+            record.ChargeSnr = cmd.ChargeSnr;
+            record.IsoCos = cmd.IsoCos;
+            record.Snr = cmd.Snr;
+            record.ChargeScore = cmd.ChargeScore;
+            record.PpmError = cmd.PpmError;
+            record.PrecursorIntensity = cmd.PrecursorIntensity;
+            record.PeakgroupIntensity = cmd.PeakgroupIntensity;
+            record.HcdEnergy = cmd.HcdEnergy;
+
+            return record;
+        }
 
         /// <summary>
         /// Extract a ScanCommandRecord from an IFusionCustomScan's Values dictionary.
@@ -148,20 +202,28 @@ namespace Flash.Tests.Mocks
             return records;
         }
 
-        private string ToJsonObject()
+        internal string ToJsonObject()
         {
             return string.Format(CultureInfo.InvariantCulture,
                 "{{\"MsnLevel\":{0},\"PrecursorMz\":{1:G17},\"IsolationWidth\":{2:G17}," +
                 "\"CollisionEnergy\":{3},\"Analyzer\":\"{4}\",\"ScanDescription\":\"{5}\"," +
                 "\"IsAGC\":{6},\"FaimsCV\":{7:G17},\"ActivationType\":\"{8}\"," +
-                "\"ScanType\":\"{9}\",\"ChargeState\":{10}}}",
+                "\"ScanType\":\"{9}\",\"ChargeState\":{10}," +
+                "\"Qscore\":{11:G17},\"MonoMass\":{12:G17},\"ChargeCos\":{13:G17}," +
+                "\"ChargeSnr\":{14:G17},\"IsoCos\":{15:G17},\"Snr\":{16:G17}," +
+                "\"ChargeScore\":{17:G17},\"PpmError\":{18:G17}," +
+                "\"PrecursorIntensity\":{19:G17},\"PeakgroupIntensity\":{20:G17}," +
+                "\"HcdEnergy\":{21}}}",
                 MsnLevel, PrecursorMz, IsolationWidth,
                 CollisionEnergy, EscapeJson(Analyzer), EscapeJson(ScanDescription),
                 IsAGC ? "true" : "false", FaimsCV, EscapeJson(ActivationType),
-                EscapeJson(ScanType), ChargeState);
+                EscapeJson(ScanType), ChargeState,
+                Qscore, MonoMass, ChargeCos, ChargeSnr, IsoCos, Snr,
+                ChargeScore, PpmError, PrecursorIntensity, PeakgroupIntensity,
+                HcdEnergy);
         }
 
-        private static ScanCommandRecord ParseJsonObject(string json)
+        internal static ScanCommandRecord ParseJsonObject(string json)
         {
             var record = new ScanCommandRecord();
             // Simple key-value extraction from JSON object string
@@ -176,6 +238,19 @@ namespace Flash.Tests.Mocks
             record.ActivationType = ExtractString(json, "ActivationType");
             record.ScanType = ExtractString(json, "ScanType");
             record.ChargeState = ExtractInt(json, "ChargeState");
+
+            // Scoring fields (backward-compatible: default 0 if missing)
+            record.Qscore = ExtractDouble(json, "Qscore");
+            record.MonoMass = ExtractDouble(json, "MonoMass");
+            record.ChargeCos = ExtractDouble(json, "ChargeCos");
+            record.ChargeSnr = ExtractDouble(json, "ChargeSnr");
+            record.IsoCos = ExtractDouble(json, "IsoCos");
+            record.Snr = ExtractDouble(json, "Snr");
+            record.ChargeScore = ExtractDouble(json, "ChargeScore");
+            record.PpmError = ExtractDouble(json, "PpmError");
+            record.PrecursorIntensity = ExtractDouble(json, "PrecursorIntensity");
+            record.PeakgroupIntensity = ExtractDouble(json, "PeakgroupIntensity");
+            record.HcdEnergy = ExtractInt(json, "HcdEnergy");
             return record;
         }
 

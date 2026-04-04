@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Flash.IDA;
+using Flash.Tests.Mocks;
 using NUnit.Framework;
 
 namespace Flash.Tests
@@ -96,6 +97,79 @@ namespace Flash.Tests
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(actAttr, "ActivationType should have MarshalAs attribute");
             Assert.AreEqual(32, actAttr.SizeConst, "ActivationType SizeConst");
+        }
+
+        // P4-I02: CollisionEnergy rounds correctly (D5 fix)
+        [Test, Category("Tier2")]
+        public void P4_I02_BuildFromCommand_CollisionEnergyRoundsCorrectly()
+        {
+            var factory = new MockScanFactory();
+            var cmd = new ScanCommand();
+            cmd.MsnLevel = 2;
+            cmd.NumStages = 1;
+            cmd.Analyzer = "Orbitrap";
+            var stages = cmd.Stages;
+            stages[0].PrecursorMz = 500.0;
+            stages[0].IsolationWidth = 2.0;
+            stages[0].CollisionEnergy = 29.5;  // Fractional CE
+            stages[0].ActivationType = "HCD";
+            stages[0].ChargeState = 4;
+            cmd.Stages = stages;
+
+            var scan = factory.BuildFromCommand(cmd);
+            // CE should round to 30, not truncate to 29
+            Assert.That(scan.Values["CollisionEnergy"], Is.EqualTo("30"),
+                "CollisionEnergy 29.5 should round to 30, not truncate to 29");
+        }
+
+        // P4-I04: ScanCommandRecord scoring fields round-trip through JSON
+        [Test, Category("Tier1")]
+        public void P4_I04_ScanCommandRecord_ScoringFieldsRoundTrip()
+        {
+            var record = new ScanCommandRecord
+            {
+                MsnLevel = 2, PrecursorMz = 500.5, IsolationWidth = 2.0,
+                CollisionEnergy = 29, Analyzer = "Orbitrap",
+                ScanDescription = "0000|500.50@4", IsAGC = false,
+                FaimsCV = 0, ActivationType = "HCD", ScanType = "MSn",
+                ChargeState = 4,
+                Qscore = 0.85, MonoMass = 1999.5, ChargeCos = 0.92,
+                ChargeSnr = 15.3, IsoCos = 0.88, Snr = 12.1,
+                ChargeScore = 0.76, PpmError = 3.2,
+                PrecursorIntensity = 5e6, PeakgroupIntensity = 2e7,
+                HcdEnergy = 29
+            };
+
+            string json = record.ToJsonObject();
+            var parsed = ScanCommandRecord.ParseJsonObject(json);
+
+            Assert.That(parsed.Qscore, Is.EqualTo(0.85).Within(1e-10));
+            Assert.That(parsed.MonoMass, Is.EqualTo(1999.5).Within(1e-10));
+            Assert.That(parsed.ChargeCos, Is.EqualTo(0.92).Within(1e-10));
+            Assert.That(parsed.ChargeSnr, Is.EqualTo(15.3).Within(1e-10));
+            Assert.That(parsed.IsoCos, Is.EqualTo(0.88).Within(1e-10));
+            Assert.That(parsed.Snr, Is.EqualTo(12.1).Within(1e-10));
+            Assert.That(parsed.ChargeScore, Is.EqualTo(0.76).Within(1e-10));
+            Assert.That(parsed.PpmError, Is.EqualTo(3.2).Within(1e-10));
+            Assert.That(parsed.PrecursorIntensity, Is.EqualTo(5e6).Within(1));
+            Assert.That(parsed.PeakgroupIntensity, Is.EqualTo(2e7).Within(1));
+            Assert.That(parsed.HcdEnergy, Is.EqualTo(29));
+        }
+
+        // P4-I05: Old-format JSON without scoring fields parses with zero defaults
+        [Test, Category("Tier1")]
+        public void P4_I05_ScanCommandRecord_ParseOldFormatWithoutScoringFields()
+        {
+            // Old-format JSON without scoring fields — should parse with 0 defaults
+            string oldJson = "{\"MsnLevel\":2,\"PrecursorMz\":500.5,\"IsolationWidth\":2," +
+                "\"CollisionEnergy\":29,\"Analyzer\":\"Orbitrap\",\"ScanDescription\":\"_0|500.50@4\"," +
+                "\"IsAGC\":false,\"FaimsCV\":0,\"ActivationType\":\"HCD\"," +
+                "\"ScanType\":\"MSn\",\"ChargeState\":4}";
+            var parsed = ScanCommandRecord.ParseJsonObject(oldJson);
+            Assert.That(parsed.MsnLevel, Is.EqualTo(2));
+            Assert.That(parsed.Qscore, Is.EqualTo(0));
+            Assert.That(parsed.MonoMass, Is.EqualTo(0));
+            Assert.That(parsed.HcdEnergy, Is.EqualTo(0));
         }
     }
 }

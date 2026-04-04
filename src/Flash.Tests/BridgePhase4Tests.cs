@@ -105,19 +105,19 @@ namespace Flash.Tests
 
             try
             {
-                // Load ms1_smoke_test.txt
+                // Load ms1_standard.txt (50 scans for sufficient engine state accumulation)
                 string spectraDir = Path.Combine(
                     TestContext.CurrentContext.TestDirectory, "..", "test-data", "spectra");
-                string ms1Path = Path.Combine(spectraDir, "ms1_smoke_test.txt");
+                string ms1Path = Path.Combine(spectraDir, "ms1_standard.txt");
 
                 if (!File.Exists(ms1Path))
                 {
-                    Assert.Ignore("ms1_smoke_test.txt not found at " + ms1Path);
+                    Assert.Ignore("ms1_standard.txt not found at " + ms1Path);
                     return;
                 }
 
                 var scans = LoadTsvScans(ms1Path);
-                Assert.That(scans.Count, Is.GreaterThan(0), "No scans loaded from ms1_smoke_test.txt");
+                Assert.That(scans.Count, Is.GreaterThan(0), "No scans loaded from ms1_standard.txt");
 
                 // Push all scans through the OLD bridge path (GetPeakGroupSize + GetIsolationWindows)
                 int totalResults = 0;
@@ -159,10 +159,9 @@ namespace Flash.Tests
                     }
                 }
 
-                // ms1_smoke_test.txt has only 2 scans — engine may need more accumulation,
-                // so we don't require results > 0, just that the path didn't crash.
-                Assert.That(totalResults, Is.GreaterThanOrEqualTo(0),
-                    "Legacy bridge path should not produce negative results");
+                // ms1_standard.txt has 50 scans — sufficient for engine state accumulation
+                Assert.That(totalResults, Is.GreaterThan(0),
+                    "Legacy bridge path should produce results with 50 MS1 scans");
             }
             finally
             {

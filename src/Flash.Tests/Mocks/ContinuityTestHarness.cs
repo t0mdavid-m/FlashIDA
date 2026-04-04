@@ -36,6 +36,9 @@ namespace Flash.Tests.Mocks
         /// <summary>Whether FAIMS cycling mode is active (multiple CVs)</summary>
         public bool UseFaimsCycling { get; }
 
+        /// <summary>Records captured directly from raw ScanCommand structs (includes scoring fields)</summary>
+        public List<ScanCommandRecord> CapturedRecords { get; } = new List<ScanCommandRecord>();
+
         /// <summary>
         /// Create a test harness from a method XML configuration file.
         /// Replicates Flash.cs setup: creates default/AGC scans, ScanScheduler,
@@ -222,6 +225,7 @@ namespace Flash.Tests.Mocks
                 var cmd = new ScanCommand();
                 while (Wrapper.GetNextScanCommand(ref cmd) == 1)
                 {
+                    CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
                     var scan = Factory.BuildFromCommand(cmd);
                     scanList.Add(scan);
                     cmd = new ScanCommand();
@@ -236,6 +240,19 @@ namespace Flash.Tests.Mocks
                 foreach (var scan in scanList)
                 {
                     Processor.OutputMS(scan);
+                }
+
+                // When UseUnifiedBridge, ProcessMS returns empty and commands
+                // queue in C++. Drain them (matches Flash.cs production behavior).
+                if (MethodParams.UseUnifiedBridge)
+                {
+                    var cmd = new ScanCommand();
+                    while (Wrapper.GetNextScanCommand(ref cmd) == 1)
+                    {
+                        CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
+                        scanList.Add(Factory.BuildFromCommand(cmd));
+                        cmd = new ScanCommand();
+                    }
                 }
 
                 return scanList;

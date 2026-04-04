@@ -200,7 +200,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void P0_I05_GetBestMS2Masses_ReturnsResults()
         {
-            Assume.That(_ms2PeakGroups, Is.GreaterThanOrEqualTo(0), "MS2 deconvolution prerequisite failed");
+            Assert.That(_ms2PeakGroups, Is.GreaterThan(0), "MS2 deconvolution must produce peak groups");
 
             int maxN = 100;
             double[] masses = new double[maxN];
@@ -215,7 +215,15 @@ namespace Flash.Tests
                 count = GetBestMS2Masses(_ptr, maxN, masses, qscores, charges, windowStarts, windowEnds);
             }, "GetBestMS2Masses threw an exception");
 
-            Assert.That(count, Is.GreaterThanOrEqualTo(0), "GetBestMS2Masses returned negative count");
+            Assert.That(count, Is.GreaterThan(0),
+                "GetBestMS2Masses should return > 0 after successful MS2 deconvolution");
+            for (int i = 0; i < count; i++)
+            {
+                Assert.That(masses[i], Is.GreaterThan(0),
+                    string.Format("Mass[{0}] must be positive", i));
+                Assert.That(windowEnds[i], Is.GreaterThan(windowStarts[i]),
+                    string.Format("WindowEnd[{0}] must exceed WindowStart[{0}]", i));
+            }
         }
 
         [Test, Category("Tier2")]
