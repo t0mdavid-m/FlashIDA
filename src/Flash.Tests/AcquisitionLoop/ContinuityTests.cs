@@ -740,15 +740,13 @@ namespace Flash.Tests.AcquisitionLoop
                 var faimsScans = MockMsScan.FromTsvAllScans(
                     Path.Combine(SpectraDir, "ms1_faims_3cv.txt"));
 
-                // Push first 50 scans — real per-CV data with varying spectral complexity
-                int pushCount = Math.Min(50, faimsScans.Count);
-                for (int i = 0; i < pushCount; i++)
+                // Push all 300 scans — adaptive skip needs many scans per CV to
+                // accumulate enough engine state across all 5 CVs
+                for (int i = 0; i < faimsScans.Count; i++)
                 {
                     harness.PushScan(faimsScans[i]);
                     faimsScans[i].Dispose();
                 }
-                for (int i = pushCount; i < faimsScans.Count; i++)
-                    faimsScans[i].Dispose();
 
                 var results = harness.CollectResults();
                 Assert.That(results.Count, Is.GreaterThan(0),
@@ -772,15 +770,12 @@ namespace Flash.Tests.AcquisitionLoop
                 var faimsScans = MockMsScan.FromTsvAllScans(
                     Path.Combine(SpectraDir, "ms1_faims_3cv.txt"));
 
-                // Push first 50 scans — real per-CV data
-                int pushCount = Math.Min(50, faimsScans.Count);
-                for (int i = 0; i < pushCount; i++)
+                // Push all 300 scans — matches CT27 for consistent golden capture
+                for (int i = 0; i < faimsScans.Count; i++)
                 {
                     harness.PushScan(faimsScans[i]);
                     faimsScans[i].Dispose();
                 }
-                for (int i = pushCount; i < faimsScans.Count; i++)
-                    faimsScans[i].Dispose();
 
                 var results = harness.CollectResults();
                 AssertGolden("continuity_faims_skip.json", results);
