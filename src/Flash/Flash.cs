@@ -407,11 +407,10 @@ namespace Flash
             try
             {
                 wrapper = new FLASHIdaWrapper(methodParams);
-                var baseProcessor = new UnifiedScanProcessor(wrapper);
                 if (useFAIMS && CVs.Length > 1)
-                    flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanScheduler, baseProcessor, wrapper);
+                    flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler, wrapper);
                 else
-                    flashIDAProcessor = baseProcessor;
+                    flashIDAProcessor = new UnifiedScanProcessor(wrapper);
                 log.Info("Created FLASHIDA processor");
             }
             catch (Exception ex)

@@ -183,11 +183,10 @@ namespace Flash.Tests.Mocks
             Factory.CreatedScans.Clear();
 
             // Create the appropriate processor
-            var baseProcessor = new UnifiedScanProcessor(Wrapper);
             if (UseFaimsCycling)
-                Processor = new FAIMSScanProcessor(MethodParams, Scheduler, baseProcessor, Wrapper);
+                Processor = new FAIMSScanProcessor(MethodParams, Factory, Scheduler, Wrapper);
             else
-                Processor = baseProcessor;
+                Processor = new UnifiedScanProcessor(Wrapper);
         }
 
         /// <summary>
