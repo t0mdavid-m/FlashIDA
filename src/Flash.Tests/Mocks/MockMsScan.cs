@@ -230,6 +230,12 @@ namespace Flash.Tests.Mocks
                     string scanNum = tokens[0].Replace("Spec scan=", "");
                     current._headerDict["Scan"] = scanNum;
                     current._trailerAccess.Set("Access ID", scanNum);
+                    if (tokens.Length >= 3 && tokens[2].StartsWith("cv="))
+                    {
+                        string cvStr = tokens[2].Substring(3);
+                        current._trailerAccess.Set("FAIMS CV", cvStr);
+                        current._trailerAccess.Set("FAIMS Voltage On", "True");
+                    }
                     scans.Add(current);
                 }
                 else if (current != null && tokens.Length >= 2)

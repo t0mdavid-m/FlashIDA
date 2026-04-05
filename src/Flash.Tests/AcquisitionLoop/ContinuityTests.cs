@@ -282,26 +282,22 @@ namespace Flash.Tests.AcquisitionLoop
             using (var harness = CreateHarness("method_faims_3cv.xml", forceFaims: true))
             {
                 double[] expectedCVs = harness.MethodParams.IDA.CVValues;
-                Assert.AreEqual(3, expectedCVs.Length, "Config should have 3 CVs");
+                Assert.AreEqual(5, expectedCVs.Length, "Config should have 5 CVs");
 
-                // Load real spectral peaks (ensures deconvolution produces peak groups)
-                var realScans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
-                var realPeaks = realScans[0].Centroids.Select(c => (c.Mz, c.Intensity)).ToArray();
-                foreach (var s in realScans) s.Dispose();
+                // Load real FAIMS spectra with per-CV peak data and CV annotations
+                var faimsScans = MockMsScan.FromTsvAllScans(
+                    Path.Combine(SpectraDir, "ms1_faims_3cv.txt"));
 
-                // Push 9 MS1 scans with cycling CVs and real peak data
-                for (int i = 0; i < 9; i++)
+                // Push first 50 scans (enough for engine state accumulation)
+                int pushCount = Math.Min(50, faimsScans.Count);
+                for (int i = 0; i < pushCount; i++)
                 {
-                    double cv = expectedCVs[i % expectedCVs.Length];
-                    var scan = MockMsScan.WithFaimsPeaks(
-                        i * 0.5, (i + 1).ToString(), cv, realPeaks);
-                    harness.PushScan(scan);
-                    scan.Dispose();
+                    harness.PushScan(faimsScans[i]);
+                    faimsScans[i].Dispose();
                 }
+                for (int i = pushCount; i < faimsScans.Count; i++)
+                    faimsScans[i].Dispose();
 
-                // FAIMS processor uses per-CV wrapper instances internally.
-                // The CRIT-01 drain in the else branch drains the main wrapper,
-                // not the per-CV wrappers. Results require Phase 6 FAIMS refactor.
                 var results = harness.CollectResults();
                 if (results.Count > 0)
                 {
@@ -321,24 +317,20 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 double[] configuredCVs = harness.MethodParams.IDA.CVValues;
 
-                // Use ms1_standard.txt (50 scans) for sufficient engine state accumulation
-                var allScans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
-                var peaks = allScans[0].Centroids.Select(c => (c.Mz, c.Intensity)).ToArray();
-                foreach (var s in allScans) s.Dispose();
+                // Load real FAIMS spectra with per-CV peak data and CV annotations
+                var faimsScans = MockMsScan.FromTsvAllScans(
+                    Path.Combine(SpectraDir, "ms1_faims_3cv.txt"));
 
-                // Push multiple rounds of scans with cycling CVs to accumulate engine state
-                for (int round = 0; round < 6; round++)
+                // Push first 50 scans — with 5 CVs, each CV gets ~10 scans for state accumulation
+                int pushCount = Math.Min(50, faimsScans.Count);
+                for (int i = 0; i < pushCount; i++)
                 {
-                    foreach (double cv in configuredCVs)
-                    {
-                        var scan = MockMsScan.WithFaimsPeaks(round * 0.5, (round + 1).ToString(), cv, peaks);
-                        harness.PushScan(scan);
-                        scan.Dispose();
-                    }
+                    harness.PushScan(faimsScans[i]);
+                    faimsScans[i].Dispose();
                 }
+                for (int i = pushCount; i < faimsScans.Count; i++)
+                    faimsScans[i].Dispose();
 
-                // FAIMS per-CV wrappers are separate from main wrapper.
-                // Drain only reaches main wrapper — Phase 6 will unify FAIMS path.
                 var results = harness.CollectResults();
                 if (results.Count > 0)
                 {
@@ -735,81 +727,60 @@ namespace Flash.Tests.AcquisitionLoop
         #region AL-CT27 through CT28: FAIMS Adaptive Skip
 
         [Test, Category("Tier2")]
-        [Ignore("Deferred to Phase 6: needs per-CV test data with distinct precursor counts")]
         public void P0_AL_CT27_FAIMSAdaptiveSkip_LowPrecursorCVLessFrequent()
-        // AUDIT NOTE (2026-03-31): Identical spectra across all CVs defeat adaptive
-        // skip logic. Needs per-CV test data with distinct precursor counts (Phase 6).
         {
             using (var harness = CreateHarness("method_faims_skip.xml", forceFaims: true))
             {
                 double[] configuredCVs = harness.MethodParams.IDA.CVValues;
-                Assert.AreEqual(3, configuredCVs.Length, "Config should have 3 CVs");
+                Assert.AreEqual(5, configuredCVs.Length, "Config should have 5 CVs");
                 Assert.That(harness.MethodParams.IDA.MaxCVSkip, Is.GreaterThan(0),
                     "MaxCVSkip should be configured for adaptive skip");
 
-                // Push many MS1 scans alternating between CVs
-                // CVs with low precursor counts should be skipped more often
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                var peaks = smokeScan.Centroids.Select(c => (c.Mz, c.Intensity)).ToArray();
-                smokeScan.Dispose();
+                // Load real FAIMS spectra with per-CV peak data (distinct precursor counts per CV)
+                var faimsScans = MockMsScan.FromTsvAllScans(
+                    Path.Combine(SpectraDir, "ms1_faims_3cv.txt"));
 
-                // Push with each CV multiple times
-                for (int round = 0; round < 5; round++)
+                // Push first 50 scans — real per-CV data with varying spectral complexity
+                int pushCount = Math.Min(50, faimsScans.Count);
+                for (int i = 0; i < pushCount; i++)
                 {
-                    foreach (double cv in configuredCVs)
-                    {
-                        var scan = MockMsScan.WithFaimsPeaks(
-                            round * 3 + Array.IndexOf(configuredCVs, cv),
-                            (round * 3 + Array.IndexOf(configuredCVs, cv) + 1).ToString(),
-                            cv, peaks);
-                        harness.PushScan(scan);
-                        scan.Dispose();
-                    }
+                    harness.PushScan(faimsScans[i]);
+                    faimsScans[i].Dispose();
                 }
+                for (int i = pushCount; i < faimsScans.Count; i++)
+                    faimsScans[i].Dispose();
 
-                // Verify that the processor ran without error
                 var results = harness.CollectResults();
-                // Adaptive skip verification: with identical spectra across all CVs,
-                // the engine should produce results for at least one CV.
                 Assert.That(results.Count, Is.GreaterThan(0),
-                    "FAIMS adaptive skip should produce scan commands from 5 rounds of 3 CVs");
+                    "FAIMS adaptive skip should produce scan commands from real per-CV data");
 
-                // Verify that at least 2 different CVs are represented in the results,
-                // proving that FAIMS cycling actually visits multiple CV values.
+                // Verify that at least 2 different CVs are represented in the results
                 var distinctCVs = results.Where(r => r.FaimsCV != 0)
                     .Select(r => r.FaimsCV).Distinct().ToList();
-                if (distinctCVs.Count > 0)
-                {
-                    Assert.That(distinctCVs.Count, Is.GreaterThanOrEqualTo(2),
-                        string.Format("Results should contain scans from at least 2 different FAIMS CVs, got {0}: [{1}]",
-                            distinctCVs.Count, string.Join(", ", distinctCVs)));
-                }
+                Assert.That(distinctCVs.Count, Is.GreaterThanOrEqualTo(2),
+                    string.Format("Results should contain scans from at least 2 different FAIMS CVs, got {0}: [{1}]",
+                        distinctCVs.Count, string.Join(", ", distinctCVs)));
             }
         }
 
         [Test, Category("Tier2")]
-        [Ignore("Deferred to Phase 6: depends on CT27 FAIMS adaptive skip fix")]
         public void P0_AL_CT28_FAIMSSkip_BehavioralReference()
         {
             using (var harness = CreateHarness("method_faims_skip.xml", forceFaims: true))
             {
-                double[] configuredCVs = harness.MethodParams.IDA.CVValues;
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                var peaks = smokeScan.Centroids.Select(c => (c.Mz, c.Intensity)).ToArray();
-                smokeScan.Dispose();
+                // Load real FAIMS spectra with per-CV peak data and CV annotations
+                var faimsScans = MockMsScan.FromTsvAllScans(
+                    Path.Combine(SpectraDir, "ms1_faims_3cv.txt"));
 
-                for (int round = 0; round < 3; round++)
+                // Push first 50 scans — real per-CV data
+                int pushCount = Math.Min(50, faimsScans.Count);
+                for (int i = 0; i < pushCount; i++)
                 {
-                    foreach (double cv in configuredCVs)
-                    {
-                        var scan = MockMsScan.WithFaimsPeaks(
-                            round * 3 + Array.IndexOf(configuredCVs, cv),
-                            (round * 3 + Array.IndexOf(configuredCVs, cv) + 1).ToString(),
-                            cv, peaks);
-                        harness.PushScan(scan);
-                        scan.Dispose();
-                    }
+                    harness.PushScan(faimsScans[i]);
+                    faimsScans[i].Dispose();
                 }
+                for (int i = pushCount; i < faimsScans.Count; i++)
+                    faimsScans[i].Dispose();
 
                 var results = harness.CollectResults();
                 AssertGolden("continuity_faims_skip.json", results);

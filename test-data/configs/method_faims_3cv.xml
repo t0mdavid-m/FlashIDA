@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <MethodParameters xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <UseUnifiedBridge>true</UseUnifiedBridge>
   <GlobalParameter>
     <MethodName>MethodName</MethodName>
     <MethodDescription>Description</MethodDescription>
@@ -68,6 +67,8 @@
     <MaxMs2CountPerMs1>3</MaxMs2CountPerMs1>
     <FAIMS>
       <CVValues>
+        <double>-10</double>
+        <double>-30</double>
         <double>-40</double>
         <double>-50</double>
         <double>-60</double>
