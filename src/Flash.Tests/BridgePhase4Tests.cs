@@ -79,20 +79,6 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void P4_I01_LegacyBridgePath_StillWorks()
         {
-            // Load method_default_legacy.xml (UseUnifiedBridge=false)
-            string configsDir = Path.Combine(
-                TestContext.CurrentContext.TestDirectory, "..", "test-data", "configs");
-            string configPath = Path.Combine(configsDir, "method_default_legacy.xml");
-
-            if (!File.Exists(configPath))
-            {
-                Assert.Ignore("method_default_legacy.xml not found at " + configPath);
-                return;
-            }
-
-            var mp = MethodParameters.Load(configPath);
-            Assert.IsFalse(mp.UseUnifiedBridge, "UseUnifiedBridge should be false for legacy config");
-
             // Build legacy config string (same format as BridgeSmokeTests)
             string legacyConfig = "max_mass_count 1 score_threshold 0 min_charge 4 max_charge 50 " +
                                   "min_mass 500 max_mass 50000 RT_window 180 tol 10 10 " +

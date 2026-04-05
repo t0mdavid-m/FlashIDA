@@ -88,12 +88,6 @@ namespace Flash
         public AcquisitionModesConfig AcquisitionModes;
         public MSSettingsConfig MSSettings;
 
-        /// <summary>
-        /// Phase 4 feature flag: when true, use unified ProcessScan + GetNextScanCommand path.
-        /// When false (default), use legacy multi-call bridge.
-        /// </summary>
-        public bool UseUnifiedBridge;
-
         // === Backward-compatible accessors (not serialized) ===
         [XmlIgnore]
         public double Duration => GlobalParameter?.Duration ?? 90;

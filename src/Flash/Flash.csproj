@@ -110,11 +110,10 @@
     <Compile Include="Flash.cs" />
     <Compile Include="IDA\FLASHIdaWrapper.cs" />
     <Compile Include="IDA\FAIMSScanProcessor.cs" />
-    <Compile Include="IDA\IDAScanProcessor.cs" />
+    <Compile Include="IDA\UnifiedScanProcessor.cs" />
     <Compile Include="IDA\PrecursorTarget.cs" />
     <Compile Include="DataObjects\MassIntensityPair.cs" />
     <Compile Include="IDA\Parameter.cs" />
-    <Compile Include="IDA\QuantScanProcessor.cs" />
     <Compile Include="IScanProcessor.cs" />
     <Compile Include="MethodConfig.cs" />
     <Compile Include="MethodParameters.cs" />

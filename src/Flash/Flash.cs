@@ -49,8 +49,11 @@ namespace Flash
         //helper class to create scan objects
         static ScanFactory scanFactory;
 
-        //flashIDA 
+        //flashIDA
         static IScanProcessor flashIDAProcessor;
+
+        //FLASHIda wrapper (unified bridge)
+        static FLASHIdaWrapper wrapper;
 
         //DataPipe
         static DataPipe dataPipe;
@@ -284,7 +287,6 @@ namespace Flash
             IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
             IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
             Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
-            bool isobaricQuant = methodParams.isobaricQuantification;
 
             // Static FAIMS mode: FAIMS detected but only one CV configured - use normal IDA with constant CV
             bool useStaticFaims = useFAIMS && CVs.Length == 1;
@@ -404,24 +406,17 @@ namespace Flash
             //Initialize FLASHIDA Processor
             try
             {
+                wrapper = new FLASHIdaWrapper(methodParams);
+                var baseProcessor = new UnifiedScanProcessor(wrapper);
                 if (useFAIMS && CVs.Length > 1)
-                {
-                    // Multiple CVs = FAIMS cycling mode
-                    flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler);
-                }
-                else if (isobaricQuant) {
-                    flashIDAProcessor = new QuantScanProcessor(methodParams, scanFactory, scanScheduler, staticFaimsCV);
-                }
+                    flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanScheduler, baseProcessor, wrapper);
                 else
-                {
-                    // Normal IDA or static FAIMS mode (single CV)
-                    flashIDAProcessor = new IDAScanProcessor(methodParams, scanFactory, scanScheduler, staticFaimsCV);
-                }
+                    flashIDAProcessor = baseProcessor;
                 log.Info("Created FLASHIDA processor");
             }
             catch (Exception ex)
             {
-                log.Error(String.Format("IDAScanProcessor failed: {0}\n{1}", ex.Message, ex.StackTrace));
+                log.Error(String.Format("Processor creation failed: {0}\n{1}", ex.Message, ex.StackTrace));
             }
 
             //Initialize data processing pipeline
@@ -583,22 +578,13 @@ namespace Flash
             {
                 dataPipe.Push(msScan);
 
-                if (methodParams.UseUnifiedBridge)
+                var cmd = new ScanCommand();
+                while (wrapper.GetNextScanCommand(ref cmd) == 1)
                 {
-                    // Phase 4: Drain all queued commands from C++ engine
-                    var cmd = new ScanCommand();
-                    while (flashIDAProcessor.Wrapper.GetNextScanCommand(ref cmd) == 1)
-                    {
-                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
-                        cmd = new ScanCommand();
-                    }
-                    // Always send a default scan to keep the instrument busy
-                    SendCustomScan(scanScheduler.getNextScan());
+                    SendCustomScan(scanFactory.BuildFromCommand(cmd));
+                    cmd = new ScanCommand();
                 }
-                else
-                {
-                    SendCustomScan(scanScheduler.getNextScan());
-                }
+                SendCustomScan(scanScheduler.getNextScan());
             }
 
             msScan.Dispose();//Release resources

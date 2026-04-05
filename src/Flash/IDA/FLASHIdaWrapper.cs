@@ -1146,10 +1146,7 @@ namespace Flash.IDA
                 {
                     if (started)
                     {
-                        if (methodParams.UseUnifiedBridge)
-                            totalScore += ProcessScanUnified(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
-                        else
-                            totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+                        totalScore += ProcessScanUnified(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
                     }
                     mzs.Clear();
                     ints.Clear();
@@ -1167,10 +1164,7 @@ namespace Flash.IDA
             // Process the last scan (previously missed — no subsequent Spec header to trigger it)
             if (started)
             {
-                if (methodParams.UseUnifiedBridge)
-                    totalScore += ProcessScanUnified(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
-                else
-                    totalScore += ProcessScan(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
+                totalScore += ProcessScanUnified(w, mzs, ints, rt, msLevel, scanName, wfile, ms2Mzs, ms2Ints, methodParams);
             }
 
             Console.WriteLine("Total QScore (i.e., expected number of PrSM identification): {0}", totalScore);

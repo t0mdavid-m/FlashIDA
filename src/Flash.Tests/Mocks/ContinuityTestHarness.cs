@@ -183,80 +183,31 @@ namespace Flash.Tests.Mocks
             Factory.CreatedScans.Clear();
 
             // Create the appropriate processor
-            bool isQuant = forceQuant || IsActive(MethodParams.AcquisitionModes?.LabelingBasedQuantification?.Active);
-
+            var baseProcessor = new UnifiedScanProcessor(Wrapper);
             if (UseFaimsCycling)
-            {
-                Processor = new FAIMSScanProcessor(MethodParams, Factory, Scheduler, Wrapper);
-            }
-            else if (isQuant)
-            {
-                Processor = new QuantScanProcessor(MethodParams, Factory, Scheduler, staticFaimsCV, Wrapper);
-            }
+                Processor = new FAIMSScanProcessor(MethodParams, Scheduler, baseProcessor, Wrapper);
             else
-            {
-                Processor = new IDAScanProcessor(MethodParams, Factory, Scheduler, staticFaimsCV, Wrapper);
-            }
+                Processor = baseProcessor;
         }
 
         /// <summary>
         /// Push a scan through the processor pipeline.
-        /// When UseUnifiedBridge is true, calls ProcessScan + GetNextScanCommand directly.
-        /// Otherwise, calls ProcessMS then OutputMS for each result (matching DataPipe behavior).
+        /// Calls ProcessMS then drains commands via GetNextScanCommand.
         /// </summary>
-        /// <returns>The list of custom scans returned (includes nulls for default scan slots)</returns>
+        /// <returns>The list of custom scans produced by the C++ engine</returns>
         public List<IFusionCustomScan> PushScan(IMsScan msScan)
         {
-            if (MethodParams.UseUnifiedBridge && !UseFaimsCycling)
+            Processor.ProcessMS(msScan);
+
+            var scanList = new List<IFusionCustomScan>();
+            var cmd = new ScanCommand();
+            while (Wrapper.GetNextScanCommand(ref cmd) == 1)
             {
-                // Unified bridge path: ProcessScan → drain GetNextScanCommand → BuildFromCommand
-                double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
-                double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
-                double rt = double.Parse(msScan.Header["StartTime"]);
-                int msLevel = int.Parse(msScan.Header["MSOrder"]);
-                string scanDesc = "";
-                if (msLevel >= 2)
-                    msScan.Trailer.TryGetValue("Scan Description", out scanDesc);
-                scanDesc = scanDesc ?? "";
-
-                Wrapper.ProcessScan(mzs, ints, rt, msLevel, scanDesc);
-
-                var scanList = new List<IFusionCustomScan>();
-                var cmd = new ScanCommand();
-                while (Wrapper.GetNextScanCommand(ref cmd) == 1)
-                {
-                    CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
-                    var scan = Factory.BuildFromCommand(cmd);
-                    scanList.Add(scan);
-                    cmd = new ScanCommand();
-                }
-                return scanList;
+                CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
+                scanList.Add(Factory.BuildFromCommand(cmd));
+                cmd = new ScanCommand();
             }
-            else
-            {
-                var results = Processor.ProcessMS(msScan);
-                var scanList = results != null ? results.ToList() : new List<IFusionCustomScan>();
-
-                foreach (var scan in scanList)
-                {
-                    Processor.OutputMS(scan);
-                }
-
-                // When UseUnifiedBridge, ProcessMS returns empty and commands
-                // queue in C++. Drain them (matches Flash.cs production behavior).
-                if (MethodParams.UseUnifiedBridge)
-                {
-                    var cmd = new ScanCommand();
-                    while (Wrapper.GetNextScanCommand(ref cmd) == 1)
-                    {
-                        CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
-                        scanList.Add(Factory.BuildFromCommand(cmd));
-                        cmd = new ScanCommand();
-                    }
-                }
-
-                return scanList;
-            }
+            return scanList;
         }
 
         /// <summary>
