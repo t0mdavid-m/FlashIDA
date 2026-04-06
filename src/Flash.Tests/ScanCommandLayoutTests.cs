@@ -14,12 +14,12 @@ namespace Flash.Tests
     [TestFixture]
     public class ScanCommandLayoutTests
     {
-        // P3-U01: ScanCommand is exactly 1240 bytes (updated Phase 4: added scoring fields)
+        // P3-U01: ScanCommand is exactly 1248 bytes (Phase 6: added faims_cv)
         [Test, Category("Tier1")]
         public void P3_U01_ScanCommand_SizeMatchesCpp()
         {
-            Assert.AreEqual(1240, Marshal.SizeOf<ScanCommand>(),
-                "ScanCommand must be 1240 bytes to match C++ layout");
+            Assert.AreEqual(1248, Marshal.SizeOf<ScanCommand>(),
+                "ScanCommand must be 1248 bytes to match C++ layout");
         }
 
         // P3-U02: IsolationStage is exactly 80 bytes

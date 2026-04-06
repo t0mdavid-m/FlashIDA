@@ -96,6 +96,7 @@ namespace Flash.Tests.Mocks
             record.PrecursorIntensity = cmd.PrecursorIntensity;
             record.PeakgroupIntensity = cmd.PeakgroupIntensity;
             record.HcdEnergy = cmd.HcdEnergy;
+            record.FaimsCV = cmd.FaimsCv;
 
             return record;
         }

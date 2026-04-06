@@ -76,6 +76,7 @@ namespace Flash.IDA
         public double PeakgroupIntensity;
         public int HcdEnergy;
         public int Pad2;
+        public double FaimsCv;
     }
 
     /// <summary>
@@ -185,7 +186,8 @@ namespace Flash.IDA
         [DllImport(dllName, CharSet = CharSet.Ansi)]
         static private extern int ProcessScan(
             IntPtr pObject, double[] mzs, double[] ints, int length,
-            double rt_min, int ms_level, string scan_description);
+            double rt_min, int ms_level, string scan_description,
+            double faims_cv);
 
         [DllImport(dllName)]
         static private extern int GetNextScanCommand(IntPtr pObject, ref ScanCommand output);
@@ -780,13 +782,13 @@ namespace Flash.IDA
         }
 
         /// <summary>
-        /// Process an incoming scan for shadow validation (Phase 3 stub).
+        /// Process an incoming scan: deconvolve (MS1) or resolve tracking (MS2), enqueue commands.
         /// </summary>
-        public int ProcessScan(double[] mzs, double[] ints, double rt, int msLevel, string scanDesc)
+        public int ProcessScan(double[] mzs, double[] ints, double rt, int msLevel, string scanDesc, double faimsCv = 0.0)
         {
             try
             {
-                return ProcessScan(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, scanDesc ?? "");
+                return ProcessScan(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, scanDesc ?? "", faimsCv);
             }
             catch (Exception ex)
             {

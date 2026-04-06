@@ -43,9 +43,6 @@ namespace Flash
         //switch indicating that we need to stop
         static bool stopRequest = false;
 
-        //class to handle scan scheduling
-        static ScanScheduler scanScheduler;
-
         //helper class to create scan objects
         static ScanFactory scanFactory;
 
@@ -281,136 +278,15 @@ namespace Flash
                 Environment.Exit(1);
             }
 
-            IFusionCustomScan agcScan = null;
-            IFusionCustomScan defaultScan = null;
-            double[] CVs = methodParams.IDA.CVValues;
-            IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
-            IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
-            Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
+            // Phase 6: Default/AGC scans and per-CV FAIMS scans are no longer needed.
+            // C++ engine provides all scan commands via GetNextScanCommand, including
+            // MS1 fallback with correct FAIMS CV. ScanScheduler and FAIMSScanProcessor are deleted.
 
-            // Static FAIMS mode: FAIMS detected but only one CV configured - use normal IDA with constant CV
-            bool useStaticFaims = useFAIMS && CVs.Length == 1;
-            double? staticFaimsCV = useStaticFaims ? CVs[0] : (double?)null;
-            if (useStaticFaims)
-            {
-                log.Info(String.Format("Static FAIMS mode enabled with CV={0}", staticFaimsCV.Value));
-            }
-
-            try
-            {
-                //default AGC scan, scan parameters match the vendor implementation
-                agcScan = scanFactory.CreateFusionCustomScan(
-                    new ScanParameters
-                    {
-                        Analyzer = "IonTrap",
-                        FirstMass = new double[] { methodParams.MS1.FirstMass },
-                        LastMass = new double[] { methodParams.MS1.LastMass },
-                        ScanRate = "Turbo",
-                        AGCTarget = 30000,
-                        MaxIT = 1,
-                        Microscans = 1,
-                        SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                        SourceCIDEnergy = methodParams.MS1.SourceCID,
-                        SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                        DataType = "Profile",
-                        ScanType = "Full",
-                        FAIMS_CV = staticFaimsCV,
-                        FAIMS_Voltages = useStaticFaims ? "on" : "off"
-                    }, id: 41, IsAGC: true, delay: 3); //41 is the magic scan identifier
-
-                //default MS1 scan
-                defaultScan = scanFactory.CreateFusionCustomScan(
-                    new ScanParameters
-                    {
-                        Analyzer = methodParams.MS1.Analyzer,
-                        FirstMass = new double[] { methodParams.MS1.FirstMass },
-                        LastMass = new double[] { methodParams.MS1.LastMass },
-                        OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
-                        AGCTarget = methodParams.MS1.AGCTarget,
-                        MaxIT = methodParams.MS1.MaxIT,
-                        Microscans = methodParams.MS1.Microscans,
-                        SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                        SourceCIDEnergy = methodParams.MS1.SourceCID,
-                        SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                        DataType = methodParams.MS1.DataType,
-                        ScanType = "Full",
-                        FAIMS_CV = staticFaimsCV,
-                        FAIMS_Voltages = useStaticFaims ? "on" : "off",
-                        ScanRangeMode = "DefineMZRange",
-                    }, delay: 3); 
-                
-                // Rinse and repeat for each CV
-                for (int i = 0; i < CVs.Length; i++)
-                {
-                    faimsAgcScans[i] = scanFactory.CreateFusionCustomScan(
-                        new ScanParameters
-                        {
-                            Analyzer = "IonTrap",
-                            FirstMass = new double[] { methodParams.MS1.FirstMass },
-                            LastMass = new double[] { methodParams.MS1.LastMass },
-                            ScanRate = "Turbo",
-                            AGCTarget = 30000,
-                            MaxIT = 1,
-                            Microscans = 1,
-                            SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                            SourceCIDEnergy = methodParams.MS1.SourceCID,
-                            SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                            DataType = "Profile",
-                            ScanType = "Full",
-                            FAIMS_CV = CVs[i],
-                            FAIMS_Voltages = "on",
-                        }, id: 41, IsAGC: true, delay: 3, AGCgroup: i+1); //41 is the magic scan identifier
-
-                    //default MS1 scan
-                    faimsDefaultScans[i] = scanFactory.CreateFusionCustomScan(
-                        new ScanParameters
-                        {
-                            Analyzer = methodParams.MS1.Analyzer,
-                            FirstMass = new double[] { methodParams.MS1.FirstMass },
-                            LastMass = new double[] { methodParams.MS1.LastMass },
-                            OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
-                            AGCTarget = methodParams.MS1.AGCTarget,
-                            MaxIT = methodParams.MS1.MaxIT,
-                            Microscans = methodParams.MS1.Microscans,
-                            SrcRFLens = new double[] { methodParams.MS1.RFLens },
-                            SourceCIDEnergy = methodParams.MS1.SourceCID,
-                            SourceCIDScalingFactor = methodParams.MS1.SourceCIDScaling,
-                            DataType = methodParams.MS1.DataType,
-                            ScanType = "Full",
-                            FAIMS_CV = CVs[i],
-                            FAIMS_Voltages = "on",
-                            ScanRangeMode = "DefineMZRange",
-                        }, delay: 3, AGCgroup: i+1);
-                    faimsPAGCGroups.Add(CVs[i], i + 1);
-                }
-
-                log.Info("Created default and AGC scans");
-            }
-            catch (Exception ex)
-            {
-                log.Error(String.Format("Cannot create default scans: {0}\n{1}", ex.Message, ex.StackTrace));
-            }
-            
-            //create instance of custom scan queue and scheduler
-            try
-            {
-                // In static FAIMS mode, pass useFAIMS=false to disable CV cycling in scheduler
-                scanScheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans, faimsAgcScans, faimsPAGCGroups, methodParams, useFAIMS && !useStaticFaims);
-                log.Info("ScanScheduler created");
-            }
-            catch (Exception ex)
-            {
-                log.Error(String.Format("ScanScheduler failed: {0}\n{1}", ex.Message, ex.StackTrace));
-            }
-
-            //Initialize FLASHIDA Processor
+            //Initialize FLASHIDA Processor (Phase 6: C++ handles FAIMS CV cycling)
             try
             {
                 wrapper = new FLASHIdaWrapper(methodParams);
-                if (useFAIMS && CVs.Length > 1)
-                    flashIDAProcessor = new FAIMSScanProcessor(methodParams, scanFactory, scanScheduler, wrapper);
-                else
-                    flashIDAProcessor = new UnifiedScanProcessor(wrapper);
+                flashIDAProcessor = new UnifiedScanProcessor(wrapper);
                 log.Info("Created FLASHIDA processor");
             }
             catch (Exception ex)
@@ -446,7 +322,9 @@ namespace Flash
                 //send the first custom scan (the magic one)
                 try
                 {
-                    scanControl.SetFusionCustomScan(scanScheduler.getNextScan());
+                    var startupCmd = new ScanCommand();
+                    wrapper.GetNextScanCommand(ref startupCmd);
+                    scanControl.SetFusionCustomScan(scanFactory.BuildFromCommand(startupCmd));
                     log.Info("Sent the first magic scan");
                 }
                 catch (Exception ex)
@@ -486,7 +364,9 @@ namespace Flash
             //send the first custom scan (the magic one)
             try
             {
-                scanControl.SetFusionCustomScan(scanScheduler.getNextScan());
+                var startupCmd2 = new ScanCommand();
+                wrapper.GetNextScanCommand(ref startupCmd2);
+                scanControl.SetFusionCustomScan(scanFactory.BuildFromCommand(startupCmd2));
                 log.Info("Sent the first magic scan");
             }
             catch (Exception ex)
@@ -503,7 +383,9 @@ namespace Flash
         /// </remarks>
         private static void CustomScanListner(object sender, EventArgs e)
         {
-            SendCustomScan(scanScheduler.getNextScan());
+            var fallbackCmd = new ScanCommand();
+            wrapper.GetNextScanCommand(ref fallbackCmd);
+            SendCustomScan(scanFactory.BuildFromCommand(fallbackCmd));
         }
 
         /// <summary>
@@ -583,7 +465,6 @@ namespace Flash
                     SendCustomScan(scanFactory.BuildFromCommand(cmd));
                     cmd = new ScanCommand();
                 }
-                SendCustomScan(scanScheduler.getNextScan());
             }
 
             msScan.Dispose();//Release resources

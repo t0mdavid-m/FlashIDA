@@ -220,6 +220,13 @@ namespace Flash
             if (!string.IsNullOrEmpty(cmd.ScanDescription))
                 p.ScanDescription = cmd.ScanDescription;
 
+            // FAIMS CV from C++ engine
+            if (Math.Abs(cmd.FaimsCv) > 0.001)
+            {
+                p.FAIMS_CV = cmd.FaimsCv;
+                p.FAIMS_Voltages = "on";
+            }
+
             bool isAgc = cmd.IsAgc != 0;
             return CreateFusionCustomScan(p, cmd.ScanId, delay: 0.0, IsAGC: isAgc, AGCgroup: 1);
         }

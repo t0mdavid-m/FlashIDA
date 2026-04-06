@@ -26,7 +26,11 @@ namespace Flash.IDA
             if (msLevel >= 2)
                 msScan.Trailer.TryGetValue("Scan Description", out scanDesc);
 
-            wrapper.ProcessScan(mzs, ints, rt, msLevel, scanDesc ?? "");
+            double faimsCv = 0.0;
+            if (msScan.Trailer.TryGetValue("FAIMS CV", out var cvStr))
+                double.TryParse(cvStr, out faimsCv);
+
+            wrapper.ProcessScan(mzs, ints, rt, msLevel, scanDesc ?? "", faimsCv);
         }
     }
 }

@@ -181,6 +181,7 @@ namespace Flash
     {
         public double[] cv_values { get; set; }
         public int max_cv_skip { get; set; }
+        public int cv_precursor_threshold { get; set; }
     }
 
     public class JsonMs1Config

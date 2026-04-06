@@ -240,7 +240,8 @@ namespace Flash.IDA
                 faims = new JsonFaimsConfig
                 {
                     cv_values = CVValues,
-                    max_cv_skip = MaxCVSkip
+                    max_cv_skip = MaxCVSkip,
+                    cv_precursor_threshold = MassThreshold
                 },
                 ms_settings = new JsonMsSettingsConfig
                 {

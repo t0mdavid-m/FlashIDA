@@ -109,7 +109,6 @@
     <Compile Include="DataPipe.cs" />
     <Compile Include="Flash.cs" />
     <Compile Include="IDA\FLASHIdaWrapper.cs" />
-    <Compile Include="IDA\FAIMSScanProcessor.cs" />
     <Compile Include="IDA\UnifiedScanProcessor.cs" />
     <Compile Include="IDA\PrecursorTarget.cs" />
     <Compile Include="DataObjects\MassIntensityPair.cs" />
@@ -119,7 +118,6 @@
     <Compile Include="MethodParameters.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ScanFactory.cs" />
-    <Compile Include="ScanScheduler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

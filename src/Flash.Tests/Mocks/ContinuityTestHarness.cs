@@ -30,9 +30,6 @@ namespace Flash.Tests.Mocks
         /// <summary>The FLASHIda wrapper (real C++ engine)</summary>
         public FLASHIdaWrapper Wrapper { get; }
 
-        /// <summary>The scan scheduler</summary>
-        public ScanScheduler Scheduler { get; }
-
         /// <summary>Whether FAIMS cycling mode is active (multiple CVs)</summary>
         public bool UseFaimsCycling { get; }
 
@@ -41,8 +38,8 @@ namespace Flash.Tests.Mocks
 
         /// <summary>
         /// Create a test harness from a method XML configuration file.
-        /// Replicates Flash.cs setup: creates default/AGC scans, ScanScheduler,
-        /// FLASHIdaWrapper, and the appropriate processor.
+        /// Replicates Flash.cs setup: creates FLASHIdaWrapper and UnifiedScanProcessor.
+        /// Phase 6: C++ handles FAIMS CV cycling, no ScanScheduler needed.
         /// </summary>
         /// <param name="methodXmlPath">Absolute path to method XML configuration</param>
         /// <param name="forceFaims">Force FAIMS cycling mode regardless of CV count</param>
@@ -53,105 +50,7 @@ namespace Flash.Tests.Mocks
             Factory = new MockScanFactory();
 
             double[] CVs = MethodParams.IDA.CVValues;
-            // FAIMS mode is only active when forceFaims is set (simulates instrument detection).
-            // In production, useFAIMS comes from instrument hardware detection (Flash.cs line 239).
-            // The default CVValues=[-50] does NOT mean FAIMS is enabled — it's just a default.
             UseFaimsCycling = forceFaims && CVs.Length > 1;
-            bool useStaticFaims = forceFaims && CVs.Length == 1;
-            double? staticFaimsCV = useStaticFaims ? CVs[0] : (double?)null;
-
-            // Create default and AGC scans (replicates Flash.cs lines 300-383)
-            IFusionCustomScan agcScan = Factory.CreateFusionCustomScan(
-                new ScanParameters
-                {
-                    Analyzer = "IonTrap",
-                    FirstMass = new double[] { MethodParams.MS1.FirstMass },
-                    LastMass = new double[] { MethodParams.MS1.LastMass },
-                    ScanRate = "Turbo",
-                    AGCTarget = 30000,
-                    MaxIT = 1,
-                    Microscans = 1,
-                    SrcRFLens = new double[] { MethodParams.MS1.RFLens },
-                    SourceCIDEnergy = MethodParams.MS1.SourceCID,
-                    SourceCIDScalingFactor = MethodParams.MS1.SourceCIDScaling,
-                    DataType = "Profile",
-                    ScanType = "Full",
-                    FAIMS_CV = staticFaimsCV,
-                    FAIMS_Voltages = useStaticFaims ? "on" : "off"
-                }, id: 41, IsAGC: true, delay: 3);
-
-            IFusionCustomScan defaultScan = Factory.CreateFusionCustomScan(
-                new ScanParameters
-                {
-                    Analyzer = MethodParams.MS1.Analyzer,
-                    FirstMass = new double[] { MethodParams.MS1.FirstMass },
-                    LastMass = new double[] { MethodParams.MS1.LastMass },
-                    OrbitrapResolution = MethodParams.MS1.OrbitrapResolution,
-                    AGCTarget = MethodParams.MS1.AGCTarget,
-                    MaxIT = MethodParams.MS1.MaxIT,
-                    Microscans = MethodParams.MS1.Microscans,
-                    SrcRFLens = new double[] { MethodParams.MS1.RFLens },
-                    SourceCIDEnergy = MethodParams.MS1.SourceCID,
-                    SourceCIDScalingFactor = MethodParams.MS1.SourceCIDScaling,
-                    DataType = MethodParams.MS1.DataType,
-                    ScanType = "Full",
-                    FAIMS_CV = staticFaimsCV,
-                    FAIMS_Voltages = useStaticFaims ? "on" : "off",
-                    ScanRangeMode = "DefineMZRange",
-                }, delay: 3);
-
-            // Create FAIMS per-CV scans
-            IFusionCustomScan[] faimsAgcScans = new IFusionCustomScan[CVs.Length];
-            IFusionCustomScan[] faimsDefaultScans = new IFusionCustomScan[CVs.Length];
-            Dictionary<double, int> faimsPAGCGroups = new Dictionary<double, int>();
-
-            for (int i = 0; i < CVs.Length; i++)
-            {
-                faimsAgcScans[i] = Factory.CreateFusionCustomScan(
-                    new ScanParameters
-                    {
-                        Analyzer = "IonTrap",
-                        FirstMass = new double[] { MethodParams.MS1.FirstMass },
-                        LastMass = new double[] { MethodParams.MS1.LastMass },
-                        ScanRate = "Turbo",
-                        AGCTarget = 30000,
-                        MaxIT = 1,
-                        Microscans = 1,
-                        SrcRFLens = new double[] { MethodParams.MS1.RFLens },
-                        SourceCIDEnergy = MethodParams.MS1.SourceCID,
-                        SourceCIDScalingFactor = MethodParams.MS1.SourceCIDScaling,
-                        DataType = "Profile",
-                        ScanType = "Full",
-                        FAIMS_CV = CVs[i],
-                        FAIMS_Voltages = "on",
-                    }, id: 41, IsAGC: true, delay: 3, AGCgroup: i + 1);
-
-                faimsDefaultScans[i] = Factory.CreateFusionCustomScan(
-                    new ScanParameters
-                    {
-                        Analyzer = MethodParams.MS1.Analyzer,
-                        FirstMass = new double[] { MethodParams.MS1.FirstMass },
-                        LastMass = new double[] { MethodParams.MS1.LastMass },
-                        OrbitrapResolution = MethodParams.MS1.OrbitrapResolution,
-                        AGCTarget = MethodParams.MS1.AGCTarget,
-                        MaxIT = MethodParams.MS1.MaxIT,
-                        Microscans = MethodParams.MS1.Microscans,
-                        SrcRFLens = new double[] { MethodParams.MS1.RFLens },
-                        SourceCIDEnergy = MethodParams.MS1.SourceCID,
-                        SourceCIDScalingFactor = MethodParams.MS1.SourceCIDScaling,
-                        DataType = MethodParams.MS1.DataType,
-                        ScanType = "Full",
-                        FAIMS_CV = CVs[i],
-                        FAIMS_Voltages = "on",
-                        ScanRangeMode = "DefineMZRange",
-                    }, delay: 3, AGCgroup: i + 1);
-
-                faimsPAGCGroups[CVs[i]] = i + 1;
-            }
-
-            // Create ScanScheduler
-            Scheduler = new ScanScheduler(defaultScan, agcScan, faimsDefaultScans,
-                faimsAgcScans, faimsPAGCGroups, MethodParams, UseFaimsCycling);
 
             // Resolve relative file paths in IDA parameters (relative to config directory)
             string configDir = Path.GetDirectoryName(methodXmlPath);
@@ -176,17 +75,14 @@ namespace Flash.Tests.Mocks
                 }
             }
 
-            // Create FLASHIdaWrapper (real C++ engine)
+            // Create FLASHIdaWrapper (real C++ engine — handles FAIMS CV cycling in Phase 6+)
             Wrapper = new FLASHIdaWrapper(MethodParams);
 
             // Clear setup scans from capture list so only test-produced scans are tracked
             Factory.CreatedScans.Clear();
 
-            // Create the appropriate processor
-            if (UseFaimsCycling)
-                Processor = new FAIMSScanProcessor(MethodParams, Factory, Scheduler, Wrapper);
-            else
-                Processor = new UnifiedScanProcessor(Wrapper);
+            // Phase 6: always use UnifiedScanProcessor — C++ handles FAIMS CV cycling
+            Processor = new UnifiedScanProcessor(Wrapper);
         }
 
         /// <summary>
