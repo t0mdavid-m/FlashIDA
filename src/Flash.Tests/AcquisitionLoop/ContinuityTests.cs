@@ -299,13 +299,12 @@ namespace Flash.Tests.AcquisitionLoop
                     faimsScans[i].Dispose();
 
                 var results = harness.CollectResults();
-                if (results.Count > 0)
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "FAIMS 3-CV should produce results");
+                foreach (var r in results)
                 {
-                    foreach (var r in results)
-                    {
-                        Assert.That(expectedCVs, Has.Member(r.FaimsCV),
-                            string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
-                    }
+                    Assert.That(expectedCVs, Has.Member(r.FaimsCV),
+                        string.Format("FAIMS CV {0} not in configured values", r.FaimsCV));
                 }
             }
         }
@@ -332,13 +331,12 @@ namespace Flash.Tests.AcquisitionLoop
                     faimsScans[i].Dispose();
 
                 var results = harness.CollectResults();
-                if (results.Count > 0)
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "FAIMS MS2 should carry parent CV");
+                foreach (var r in results)
                 {
-                    foreach (var r in results)
-                    {
-                        Assert.That(configuredCVs, Has.Member(r.FaimsCV),
-                            "MS2 FAIMS CV should match one of the configured parent CVs");
-                    }
+                    Assert.That(configuredCVs, Has.Member(r.FaimsCV),
+                        "MS2 FAIMS CV should match one of the configured parent CVs");
                 }
             }
         }
