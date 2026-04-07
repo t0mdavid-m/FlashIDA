@@ -322,9 +322,19 @@ namespace Flash
                 //send the first custom scan (the magic one)
                 try
                 {
-                    var startupCmd = new ScanCommand();
-                    wrapper.GetNextScanCommand(ref startupCmd);
-                    scanControl.SetFusionCustomScan(scanFactory.BuildFromCommand(startupCmd));
+                    scanControl.SetFusionCustomScan(scanFactory.CreateFusionCustomScan(
+                        new ScanParameters
+                        {
+                            Analyzer = "IonTrap",
+                            FirstMass = new double[] { methodParams.MS1.FirstMass },
+                            LastMass = new double[] { methodParams.MS1.LastMass },
+                            ScanRate = "Turbo",
+                            AGCTarget = 30000,
+                            MaxIT = 1,
+                            Microscans = 1,
+                            DataType = "Profile",
+                            ScanType = "Full",
+                        }, id: 41, IsAGC: true, delay: 3));
                     log.Info("Sent the first magic scan");
                 }
                 catch (Exception ex)
@@ -383,9 +393,19 @@ namespace Flash
         /// </remarks>
         private static void CustomScanListner(object sender, EventArgs e)
         {
-            var fallbackCmd = new ScanCommand();
-            wrapper.GetNextScanCommand(ref fallbackCmd);
-            SendCustomScan(scanFactory.BuildFromCommand(fallbackCmd));
+            // Instrument requested a scan — send a default MS1
+            SendCustomScan(scanFactory.CreateFusionCustomScan(
+                new ScanParameters
+                {
+                    Analyzer = methodParams.MS1.Analyzer,
+                    FirstMass = new double[] { methodParams.MS1.FirstMass },
+                    LastMass = new double[] { methodParams.MS1.LastMass },
+                    OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
+                    AGCTarget = methodParams.MS1.AGCTarget,
+                    MaxIT = methodParams.MS1.MaxIT,
+                    DataType = methodParams.MS1.DataType,
+                    ScanType = "Full",
+                }, delay: 3));
         }
 
         /// <summary>
