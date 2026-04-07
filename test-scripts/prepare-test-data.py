@@ -51,7 +51,19 @@ def main():
         action="store_true",
         help="Append cv=<value> from FAIMS CV metadata to each header",
     )
+    parser.add_argument(
+        "--filter-cv",
+        type=str,
+        default=None,
+        help="Comma-separated CV values to keep (e.g., '-40,-50,-60'). Requires --include-cv.",
+    )
     args = parser.parse_args()
+
+    filter_cvs = None
+    if args.filter_cv:
+        filter_cvs = set(float(v.strip()) for v in args.filter_cv.split(","))
+        if not args.include_cv:
+            args.include_cv = True
 
     exp = oms.MSExperiment()
     oms.MzMLFile().load(args.source, exp)
@@ -76,16 +88,28 @@ def main():
             header = f"Spec {scan_id}\t{rt_seconds:.4f}"
 
             if args.include_cv:
-                # Try to get FAIMS compensation voltage from float data arrays
-                fda = spec.getFloatDataArrays()
                 cv_value = None
+                # Strategy 1: float data arrays (some mzML writers store CV here)
+                fda = spec.getFloatDataArrays()
                 for da in fda:
                     if "compensation voltage" in da.getName().lower() or "cv" == da.getName().lower():
                         if da.size() > 0:
                             cv_value = da[0]
                             break
+                # Strategy 2: parse from filter string (Thermo raw conversion)
+                if cv_value is None and spec.metaValueExists("filter string"):
+                    fs = str(spec.getMetaValue("filter string"))
+                    cv_match = re.search(r"cv=(-?\d+\.?\d*)", fs)
+                    if cv_match:
+                        cv_value = float(cv_match.group(1))
                 if cv_value is not None:
-                    header += f" cv={cv_value}"
+                    header += f"\tcv={cv_value}"
+
+            # Skip scans not matching the CV filter
+            if filter_cvs is not None:
+                if cv_value is None or cv_value not in filter_cvs:
+                    filtered_index += 1
+                    continue
 
             f.write(header + "\n")
 
