@@ -581,39 +581,32 @@ namespace Flash.Tests.AcquisitionLoop
                     .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
                     .ToList();
 
-                Assume.That(ms2Commands.Count, Is.GreaterThan(0),
+                Assert.That(ms2Commands.Count, Is.GreaterThan(0),
                     "MS3 test requires MS2 commands from MS1 processing");
 
-                if (ms2Commands.Count > 0)
+                // Simulate MS2 scan coming back to trigger MS3
+                // Use the first MS2 command's parameters to create a mock MS2 response
+                var firstMS2 = ms2Commands[0];
+                var ms2Scan = MockMsScan.MS2WithDescription(
+                    1.1, "1001", firstMS2.ScanDescription,
+                    firstMS2.PrecursorMz, firstMS2.ChargeState,
+                    // Simple MS2 fragment peaks
+                    (200.0, 10000), (300.0, 15000), (400.0, 20000),
+                    (500.0, 25000), (600.0, 30000));
+                harness.PushScan(ms2Scan);
+                ms2Scan.Dispose();
+
+                // Check if any MS3 scans were produced
+                var allResults = harness.CollectResults();
+                var ms3Results = allResults.Where(r => r.MsnLevel == 3).ToList();
+
+                // MS3 results are data-dependent: require MS2 deconvolution to find
+                // peak groups matching the protein sequence. The real behavioral check
+                // is in CT24 (golden file comparison). Here we just verify structure.
+                if (ms3Results.Count > 0)
                 {
-                    // Simulate MS2 scan coming back to trigger MS3
-                    // Use the first MS2 command's parameters to create a mock MS2 response
-                    var firstMS2 = ms2Commands[0];
-                    var ms2Scan = MockMsScan.MS2WithDescription(
-                        1.1, "1001", firstMS2.ScanDescription,
-                        firstMS2.PrecursorMz, firstMS2.ChargeState,
-                        // Simple MS2 fragment peaks
-                        (200.0, 10000), (300.0, 15000), (400.0, 20000),
-                        (500.0, 25000), (600.0, 30000));
-                    harness.PushScan(ms2Scan);
-                    ms2Scan.Dispose();
-
-                    // Check if any MS3 scans were produced
-                    var allResults = harness.CollectResults();
-                    var ms3Results = allResults.Where(r => r.MsnLevel == 3).ToList();
-
-                    // Verify MS1→MS2 pipeline works (prerequisite for MS3)
-                    Assert.That(ms2Commands.Count, Is.GreaterThan(0),
-                        "MS1 should produce MS2 commands for MS3 pipeline");
-
-                    // MS3 results are data-dependent: require MS2 deconvolution to find
-                    // peak groups matching the protein sequence. The real behavioral check
-                    // is in CT24 (golden file comparison). Here we just verify structure.
-                    if (ms3Results.Count > 0)
-                    {
-                        Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
-                            "MS3 records should have MsnLevel == 3");
-                    }
+                    Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
+                        "MS3 records should have MsnLevel == 3");
                 }
             }
         }

@@ -64,6 +64,7 @@ namespace Flash.Tests
             Assert.AreEqual(1224, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensity"), "PeakgroupIntensity offset");
             Assert.AreEqual(1232, (int)Marshal.OffsetOf<ScanCommand>("HcdEnergy"), "HcdEnergy offset");
             Assert.AreEqual(1236, (int)Marshal.OffsetOf<ScanCommand>("Pad2"), "Pad2 offset");
+            Assert.AreEqual(1240, (int)Marshal.OffsetOf<ScanCommand>("FaimsCv"), "FaimsCv offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");

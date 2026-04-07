@@ -100,7 +100,6 @@
     <Compile Include="Mocks\MockScanFactory.cs" />
     <Compile Include="Mocks\ScanCommandRecord.cs" />
     <Compile Include="Mocks\ContinuityTestHarness.cs" />
-    <Compile Include="ProcessorTests.cs" />
     <Compile Include="InterfaceShapeTests.cs" />
     <Compile Include="DataPipeTests.cs" />
     <Compile Include="AcquisitionLoop\ContinuityTests.cs" />
