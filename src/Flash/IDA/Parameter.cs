@@ -333,7 +333,17 @@ namespace Flash.IDA
                 }
             };
 
-            // MS2 exploration (optional)
+            // Exploration: always emit a block (JavaScriptSerializer writes null, which
+            // crashes C++ nlohmann::json parser). Default to metric="none" when not configured.
+            var defaultExpl = new JsonExplorationBlockConfig
+            {
+                metric = "none", ce_min = 20, ce_max = 40, ce_step = 5, activation = "HCD"
+            };
+            result.ms1.exploration = defaultExpl;
+            result.ms2.exploration = defaultExpl;
+            result.ms3.exploration = defaultExpl;
+
+            // MS2 exploration (override if configured)
             if (ss.MS2?.Exploration != null && ss.MS2.Exploration.Metric != "none")
             {
                 result.ms2.exploration = new JsonExplorationBlockConfig
@@ -346,7 +356,7 @@ namespace Flash.IDA
                 };
             }
 
-            // MS3 exploration (optional)
+            // MS3 exploration (override if configured)
             if (ss.MS3?.Exploration != null && ss.MS3.Exploration.Metric != "none")
             {
                 result.ms3.exploration = new JsonExplorationBlockConfig
