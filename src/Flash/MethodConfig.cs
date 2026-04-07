@@ -306,8 +306,8 @@ namespace Flash
     public class JsonMsLevelConfig
     {
         public string selection { get; set; }
-        public int? max_precursors { get; set; }
-        public int? max_fragments { get; set; }
+        public int max_precursors { get; set; }
+        public int max_fragments { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
     }
 

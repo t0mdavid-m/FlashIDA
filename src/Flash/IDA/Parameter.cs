@@ -307,22 +307,29 @@ namespace Flash.IDA
                     "Method XML must contain <SelectionStrategy> block. " +
                     "All method configs must be updated for Phase 7.");
 
+            int ms1MaxTargets = ss.MS1?.MaxPrecursors ?? MaxMs2CountPerMs1;
+            int ms2MaxTargets = ss.MS2?.MaxFragments ?? 3;
+            int ms3MaxTargets = ss.MS3?.MaxFragments ?? 3;
+
             var result = new JsonSelectionStrategyConfig
             {
                 ms1 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS1?.Selection ?? "qscore").ToLower(),
-                    max_precursors = ss.MS1?.MaxPrecursors ?? MaxMs2CountPerMs1
+                    max_precursors = ms1MaxTargets,
+                    max_fragments = ms1MaxTargets
                 },
                 ms2 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS2?.Selection ?? "intensity").ToLower(),
-                    max_fragments = ss.MS2?.MaxFragments ?? 3
+                    max_precursors = ms2MaxTargets,
+                    max_fragments = ms2MaxTargets
                 },
                 ms3 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS3?.Selection ?? "none").ToLower(),
-                    max_fragments = ss.MS3?.MaxFragments ?? 3
+                    max_precursors = ms3MaxTargets,
+                    max_fragments = ms3MaxTargets
                 }
             };
 

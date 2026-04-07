@@ -210,6 +210,12 @@ namespace Flash.Tests
                     new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0 }
                 }
             };
+            mp.SelectionStrategy = new SelectionStrategyConfig
+            {
+                MS1 = new MS1SelectionConfig { Selection = "qscore", MaxPrecursors = 1 },
+                MS2 = new MS2SelectionConfig { Selection = "intensity" },
+                MS3 = new MS3SelectionConfig { Selection = "none" }
+            };
             mp.InitializeIDA();
             return mp.IDA.ToJSON(mp);
         }
