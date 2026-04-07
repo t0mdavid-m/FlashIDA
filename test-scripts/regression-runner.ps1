@@ -110,6 +110,14 @@ $configs = @(
         ms2    = "ms2_hcd_fragment.txt"
         golden = "phase4_ms3_mode3.tsv"
     }
+    # Phase 7: Exploration enabled (CE sweep, mass_count metric)
+    @{
+        name   = "p7_exploration"
+        method = "method_exploration.xml"
+        ms1    = "ms1_standard.txt"
+        ms2    = $null
+        golden = "phase7_exploration.tsv"
+    }
 )
 
 $failures = 0
