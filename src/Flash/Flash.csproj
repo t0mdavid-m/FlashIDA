@@ -113,6 +113,7 @@
     <Compile Include="IDA\PrecursorTarget.cs" />
     <Compile Include="DataObjects\MassIntensityPair.cs" />
     <Compile Include="IDA\Parameter.cs" />
+    <Compile Include="IDA\MethodDocGenerator.cs" />
     <Compile Include="IScanProcessor.cs" />
     <Compile Include="MethodConfig.cs" />
     <Compile Include="MethodParameters.cs" />

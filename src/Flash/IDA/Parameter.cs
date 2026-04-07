@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Web.Script.Serialization;
 using System.Xml.Serialization;
@@ -11,22 +12,30 @@ namespace Flash.IDA
     /// </summary>
     public class IDAParameters
     {        
+        [Description("Maximum number of MS2 scans per MS1 cycle")]
         public int MaxMs2CountPerMs1 { set; get; }
 
-        public int TargetMode { set; get; } 
+        [Description("Targeting mode (0=normal, 1=inclusion, 2=deep, 3=exclusion)")]
+        public int TargetMode { set; get; }
+        [Description("Quality score threshold for precursor selection")]
         public double QScoreThreshold { set; get; }
+        [Description("Tie-breaking threshold for precursor ranking")]
         public double TieThreshold { set; get; }
         public double TQScoreThreshold { set; get; }
         public double quantReporterMZTol { set; get; }
         public double quantFoldChangeThreshold { set; get; }
         public bool quantOnlyOneCondition { set; get; }
 
+        [Description("Minimum precursor charge state")]
         public int MinCharge { set; get; }
-        
+
+        [Description("Maximum precursor charge state")]
         public int MaxCharge { set; get; }
-        
+
+        [Description("Minimum precursor mass in Da")]
         public double MinMass { set; get; }
 
+        [Description("Maximum precursor mass in Da")]
         public double MaxMass { set; get; }
 
         public List<string> TargetLogs { set; get; }
@@ -44,6 +53,7 @@ namespace Flash.IDA
 
         public bool UseIDScore { set; get; }
         public bool ConsiderAllChargeStates { set; get; }
+        [Description("HCD collision energy")]
         public int HCDEnergy { set; get; }
 
         public bool StrictInclusion { set; get; }
@@ -135,68 +145,12 @@ namespace Flash.IDA
         }
         
         /// <summary>
-        /// Convert <see cref="IDAParameters"/> instnace to string representation to transfer to C++ engine
-        /// </summary>
-        /// <returns></returns>
-        public string ToFLASHDeconvInput()
-        {
-            var ret = String.Format("max_mass_count {0} score_threshold {1} min_charge {2} max_charge {3} min_mass {4} max_mass {5} RT_window {6} tol {7} tqscore_threshold {8} target_mode {9} IDScore {10} AllCharges {11} HCDEnergy {12} strict_inclusion {13} tie_threshold {14} MS3AllCharges {15} ",
-                MaxMs2CountPerMs1, QScoreThreshold, MinCharge, MaxCharge, MinMass, MaxMass, RTWindow, String.Join(" ", Tolerances), TQScoreThreshold, TargetMode, UseIDScore ? 1 : 0, ConsiderAllChargeStates ? 1 : 0, HCDEnergy, StrictInclusion ? 1 : 0, TieThreshold, MS3AllCharges ? 1 : 0);
-
-            // min_tag_length and max_ptm_count must come before file paths
-            if (MinTagLength > 0)
-            {
-                ret += String.Format("min_tag_length {0} ", MinTagLength);
-            }
-
-            if (MaxTagLength > 0)
-            {
-                ret += String.Format("max_tag_length {0} ", MaxTagLength);
-            }
-
-            if (MaxPtmCount > 0)
-            {
-                ret += String.Format("max_ptm_count {0} ", MaxPtmCount);
-            }
-
-            if (MaxFlankingMassDiff > 0)
-            {
-                ret += String.Format("max_flanking_mass_diff {0} ", MaxFlankingMassDiff);
-            }
-
-            foreach(var f in TargetLogs)
-            {
-                ret += f + " ";
-            }
-
-            // PTM list must come before inclusion list (file extension detection order)
-            if (!String.IsNullOrEmpty(PtmList))
-            {
-                ret += PtmList + " ";
-            }
-
-            if (!String.IsNullOrEmpty(InclusionList))
-            {
-                ret += InclusionList + " ";
-            }
-
-            // FASTA file must come last (file extension detection order: .fasta/.fa)
-            if (!String.IsNullOrEmpty(FastaFile))
-            {
-                ret += FastaFile + " ";
-            }
-
-            return ret;
-        }
-
-        /// <summary>
-        /// Serialize full method configuration as JSON for C++ engine (Phase 1).
-        /// Falls back to <see cref="ToFLASHDeconvInput()"/> if mp is null.
+        /// Serialize full method configuration as JSON for C++ engine.
         /// </summary>
         public string ToJSON(MethodParameters mp)
         {
             if (mp == null)
-                return ToFLASHDeconvInput();
+                throw new ArgumentNullException(nameof(mp));
 
             var ms2List = mp.MS2 ?? new System.Collections.Generic.List<MS2Parameters>();
 

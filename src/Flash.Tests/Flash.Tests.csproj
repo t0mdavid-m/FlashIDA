@@ -103,6 +103,7 @@
     <Compile Include="InterfaceShapeTests.cs" />
     <Compile Include="DataPipeTests.cs" />
     <Compile Include="AcquisitionLoop\ContinuityTests.cs" />
+    <Compile Include="CleanupTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

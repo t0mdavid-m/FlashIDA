@@ -88,100 +88,13 @@ namespace Flash.IDA
         private static ILog log = LogManager.GetLogger("General");
         private static ILog IDAlog = LogManager.GetLogger("IDA");
 
-        //binding for FlashIda engine
+        //binding for FlashIda engine — exactly 5 bridge functions (Phase 8)
         const string dllName = "OpenMS.dll";
         [DllImport(dllName)]
         static private extern IntPtr CreateFLASHIda(string arg);
 
         [DllImport(dllName)]
         static private extern void DisposeFLASHIda(IntPtr pTestClassObject);
-
-        [DllImport(dllName)]
-        static private extern int GetPeakGroupSize(IntPtr pTestClassObjectdouble, double[] mzs, double[] ints, int length, double rt, int msLevel, string name, string cv);
-
-        [DllImport(dllName)]
-        static private extern bool IsDifferentiallyAbundant(IntPtr pTestClassObjectdouble, double[] mzs, double[] ints, int length, double rt, int msLevel, string name, double reporter_mz_tol, double fold_change_threshold, bool only_one_condition);
-
-        [DllImport(dllName)]
-        static private extern int GetAllPeakGroupSize(IntPtr pTestClassObjectdouble);
-
-        [DllImport(dllName)]
-        static private extern double GetRepresentativeMass(IntPtr pTestClassObjectdouble);
-
-        [DllImport(dllName)]
-        static private extern void GetAllMonoisotopicMasses(IntPtr pTestClassObjectdouble, double[] monoMasses, int length);
-
-
-        [DllImport(dllName)]
-        static private extern void GetIsolationWindows(IntPtr pTestClassObjectdouble, double[] wstart, double[] wend, 
-            double[] qScores, int[] charges, int[] min_charges, int[] max_charges, double[] monoMasses, double[] chargeCos, double[] chargeSnrs,
-                           double[] isoCos,
-                           double[] snrs, double[] chargeScores,
-                           double[] ppmErrors, double[] precursorIntensities, double[] peakgroupIntensities, int[] hcds, int[] ids
-            );
-
-        [DllImport(dllName)]
-        static private extern void RemoveFromExclusionList(IntPtr pTestClassObjectdouble, int id);
-
-        [DllImport(dllName)]
-        static private extern void TestCode(IntPtr pTestClassObjectdouble, int[] arg, int length);
-
-        [DllImport(dllName)]
-        static private extern bool ProcessMS2ForTagBasedTargeting(
-            IntPtr pTestClassObject,
-            double precursor_mass);
-
-        [DllImport(dllName)]
-        static private extern int DeconvolveMS2(
-            IntPtr pTestClassObject,
-            double[] mzs, double[] ints, int length,
-            double rt_min, double precursor_mass, int precursor_charge);
-
-        [DllImport(dllName)]
-        static private extern int GetBestMS2Masses(
-            IntPtr pTestClassObject,
-            int n,
-            double[] masses, double[] qscores, int[] charges,
-            double[] window_starts, double[] window_ends);
-
-        [DllImport(dllName)]
-        static private extern bool HasMS2Deconvolution(IntPtr pTestClassObject);
-
-        [DllImport(dllName)]
-        static private extern int GetMS2PeakGroupCount(IntPtr pTestClassObject);
-
-        [DllImport(dllName)]
-        static private extern void ClearMS2Deconvolution(IntPtr pTestClassObject);
-
-        [DllImport(dllName)]
-        static private extern int GetTopFragmentMatches(
-            IntPtr pTestClassObject,
-            string proteinSequence,
-            int n,
-            double[] masses, double[] qscores, int[] charges,
-            double[] window_starts, double[] window_ends,
-            byte[] ion_types, int[] fragment_indices,
-            string fragmentation_method);
-
-        [DllImport(dllName)]
-        static private extern int GetAmbiguityEnclosingIons(
-            IntPtr pTestClassObject,
-            string proteinSequence,
-            int n,
-            double[] masses, double[] qscores, int[] charges,
-            double[] window_starts, double[] window_ends,
-            byte[] ion_types, int[] fragment_indices,
-            string fragmentation_method);
-
-        [DllImport(dllName)]
-        static private extern int GetTerminalFragmentIons(
-            IntPtr pTestClassObject,
-            string proteinSequence,
-            int n,
-            double[] masses, double[] qscores, int[] charges,
-            double[] window_starts, double[] window_ends,
-            byte[] ion_types, int[] fragment_indices,
-            string fragmentation_method);
 
         [DllImport(dllName, CharSet = CharSet.Ansi)]
         static private extern int ProcessScan(
@@ -198,19 +111,7 @@ namespace Flash.IDA
         private IntPtr m_pNativeObject;
 
         /// <summary>
-        /// Construct wrapping object
-        /// </summary>
-        /// <param name="param">FLASHIda parameters</param>
-        /// <param name="log">Path for additional logging from the C++ side (optional)</param>
-        public FLASHIdaWrapper(IDAParameters param)
-        {
-            string arg = param.ToFLASHDeconvInput();
-            Console.WriteLine(arg);
-            m_pNativeObject = CreateFLASHIda(arg);
-        }
-
-        /// <summary>
-        /// Construct wrapping object using JSON configuration (Phase 1)
+        /// Construct wrapping object using JSON configuration
         /// </summary>
         /// <param name="mp">Full method parameters — serialized to JSON for C++ engine</param>
         public FLASHIdaWrapper(MethodParameters mp)
