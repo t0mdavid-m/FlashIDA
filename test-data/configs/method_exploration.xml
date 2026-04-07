@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <MethodParameters xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <GlobalParameter>
-    <MethodName>MethodName</MethodName>
-    <MethodDescription>Description</MethodDescription>
+    <MethodName>ExplorationMethod</MethodName>
+    <MethodDescription>MS2 CE exploration enabled</MethodDescription>
     <Duration>120</Duration>
   </GlobalParameter>
+
   <PrecursorSelection>
     <QScoreThreshold>.0</QScoreThreshold>
     <TQScoreThreshold>0.9</TQScoreThreshold>
@@ -19,6 +20,7 @@
       <double>10</double>
     </Tolerances>
   </PrecursorSelection>
+
   <AcquisitionModes>
     <TargetingMode>None</TargetingMode>
     <TargetLogs />
@@ -40,7 +42,7 @@
     <TargetedExclusion />
     <DeepMode />
     <LabelingBasedQuantification>
-      <Active>True</Active>
+      <Active>False</Active>
       <ReporterMZTol>2e-3</ReporterMZTol>
       <FoldChangeThreshold>1.4</FoldChangeThreshold>
       <OnlyOneCondition>false</OnlyOneCondition>
@@ -48,9 +50,9 @@
     <MS3Characterization>
       <Active>False</Active>
       <MS3Mode>1</MS3Mode>
-      <MaxMs3PerMs2>1000</MaxMs3PerMs2>
+      <MaxMs3PerMs2>4</MaxMs3PerMs2>
       <MS3AllCharges>true</MS3AllCharges>
-      <MS3ProteinSequence>SEQUENCE</MS3ProteinSequence>
+      <MS3ProteinSequence></MS3ProteinSequence>
     </MS3Characterization>
     <Developer>
       <PrecursorSelection>
@@ -63,6 +65,7 @@
       </FAIMS>
     </Developer>
   </AcquisitionModes>
+
   <MSSettings>
     <MaxMs2CountPerMs1>1</MaxMs2CountPerMs1>
     <FAIMS>
@@ -93,22 +96,8 @@
         <MaxIT>100</MaxIT>
         <Microscans>4</Microscans>
         <DataType>Centroid</DataType>
-        <Activation>ETD</Activation>
-        <ReactionTime>7</ReactionTime>
-        <ReagentAGCTarget>700000</ReagentAGCTarget>
-        <ReagentMaxIT>200</ReagentMaxIT>
-      </MS2Parameters>
-      <MS2Parameters>
-        <Analyzer>Orbitrap</Analyzer>
-        <FirstMass>100</FirstMass>
-        <LastMass>2000</LastMass>
-        <OrbitrapResolution>120000</OrbitrapResolution>
-        <AGCTarget>500000</AGCTarget>
-        <MaxIT>100</MaxIT>
-        <Microscans>4</Microscans>
-        <DataType>Centroid</DataType>
         <Activation>HCD</Activation>
-        <CollisionEnergy>30</CollisionEnergy>
+        <CollisionEnergy>29</CollisionEnergy>
       </MS2Parameters>
     </MS2>
     <MS3>
@@ -127,16 +116,25 @@
       </MS3Parameters>
     </MS3>
   </MSSettings>
+
   <SelectionStrategy>
     <MS1>
       <Selection>qscore</Selection>
-      <MaxPrecursors>1</MaxPrecursors>
+      <MaxPrecursors>10</MaxPrecursors>
     </MS1>
     <MS2>
       <Selection>intensity</Selection>
+      <MaxFragments>3</MaxFragments>
+      <Exploration>
+        <Metric>mass_count</Metric>
+        <CEMin>20</CEMin>
+        <CEMax>40</CEMax>
+        <CEStep>5</CEStep>
+        <Activation>HCD</Activation>
+      </Exploration>
     </MS2>
     <MS3>
-      <Selection>none</Selection>
+      <Selection>intensity</Selection>
     </MS3>
   </SelectionStrategy>
 </MethodParameters>

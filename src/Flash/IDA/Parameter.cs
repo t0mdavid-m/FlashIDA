@@ -274,6 +274,7 @@ namespace Flash.IDA
                     max_depth = 1,
                     max_variants = 5
                 },
+                selection_strategy = BuildSelectionStrategy(mp),
                 ms3 = new JsonMs3Config
                 {
                     enabled = EnableMS3,
@@ -292,6 +293,66 @@ namespace Flash.IDA
             };
 
             return new JavaScriptSerializer().Serialize(config);
+        }
+
+        /// <summary>
+        /// Build selection_strategy JSON object from MethodParameters SelectionStrategy XML.
+        /// Crashes if SelectionStrategy is absent (required in all configs).
+        /// </summary>
+        private JsonSelectionStrategyConfig BuildSelectionStrategy(MethodParameters mp)
+        {
+            var ss = mp.SelectionStrategy;
+            if (ss == null)
+                throw new InvalidOperationException(
+                    "Method XML must contain <SelectionStrategy> block. " +
+                    "All method configs must be updated for Phase 7.");
+
+            var result = new JsonSelectionStrategyConfig
+            {
+                ms1 = new JsonMsLevelConfig
+                {
+                    selection = (ss.MS1?.Selection ?? "qscore").ToLower(),
+                    max_precursors = ss.MS1?.MaxPrecursors ?? MaxMs2CountPerMs1
+                },
+                ms2 = new JsonMsLevelConfig
+                {
+                    selection = (ss.MS2?.Selection ?? "intensity").ToLower(),
+                    max_fragments = ss.MS2?.MaxFragments ?? 3
+                },
+                ms3 = new JsonMsLevelConfig
+                {
+                    selection = (ss.MS3?.Selection ?? "none").ToLower(),
+                    max_fragments = ss.MS3?.MaxFragments ?? 3
+                }
+            };
+
+            // MS2 exploration (optional)
+            if (ss.MS2?.Exploration != null && ss.MS2.Exploration.Metric != "none")
+            {
+                result.ms2.exploration = new JsonExplorationBlockConfig
+                {
+                    metric = ss.MS2.Exploration.Metric.ToLower(),
+                    ce_min = ss.MS2.Exploration.CEMin,
+                    ce_max = ss.MS2.Exploration.CEMax,
+                    ce_step = ss.MS2.Exploration.CEStep,
+                    activation = ss.MS2.Exploration.Activation ?? "HCD"
+                };
+            }
+
+            // MS3 exploration (optional)
+            if (ss.MS3?.Exploration != null && ss.MS3.Exploration.Metric != "none")
+            {
+                result.ms3.exploration = new JsonExplorationBlockConfig
+                {
+                    metric = ss.MS3.Exploration.Metric.ToLower(),
+                    ce_min = ss.MS3.Exploration.CEMin,
+                    ce_max = ss.MS3.Exploration.CEMax,
+                    ce_step = ss.MS3.Exploration.CEStep,
+                    activation = ss.MS3.Exploration.Activation ?? "CID"
+                };
+            }
+
+            return result;
         }
 
     }

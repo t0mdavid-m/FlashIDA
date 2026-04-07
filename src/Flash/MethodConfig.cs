@@ -109,6 +109,64 @@ namespace Flash
         public List<MS3Parameters> MS3;
     }
 
+    // --- Phase 7: SelectionStrategy XML config ---
+
+    /// <summary>
+    /// Per-level exploration block within SelectionStrategy XML.
+    /// </summary>
+    [Serializable]
+    public class ExplorationBlockConfig
+    {
+        public string Metric = "none";
+        public double CEMin = 20;
+        public double CEMax = 40;
+        public double CEStep = 5;
+        public string Activation = "HCD";
+    }
+
+    /// <summary>
+    /// MS1-level selection config within SelectionStrategy XML.
+    /// </summary>
+    [Serializable]
+    public class MS1SelectionConfig
+    {
+        public string Selection = "qscore";
+        public int MaxPrecursors = 10;
+    }
+
+    /// <summary>
+    /// MS2-level selection + optional exploration config.
+    /// </summary>
+    [Serializable]
+    public class MS2SelectionConfig
+    {
+        public string Selection = "intensity";
+        public int MaxFragments = 3;
+        public ExplorationBlockConfig Exploration;
+    }
+
+    /// <summary>
+    /// MS3-level selection + optional exploration config.
+    /// </summary>
+    [Serializable]
+    public class MS3SelectionConfig
+    {
+        public string Selection = "none";
+        public int MaxFragments = 3;
+        public ExplorationBlockConfig Exploration;
+    }
+
+    /// <summary>
+    /// Root SelectionStrategy config — required in all method XMLs.
+    /// </summary>
+    [Serializable]
+    public class SelectionStrategyConfig
+    {
+        public MS1SelectionConfig MS1 = new MS1SelectionConfig();
+        public MS2SelectionConfig MS2 = new MS2SelectionConfig();
+        public MS3SelectionConfig MS3 = new MS3SelectionConfig();
+    }
+
     // --- Phase 1 deferrals resolved in Phase 3 ---
 
     /// <summary>
@@ -234,6 +292,32 @@ namespace Flash
         public int max_variants { get; set; }
     }
 
+    // --- Phase 7: JSON serialization classes for selection_strategy ---
+
+    public class JsonExplorationBlockConfig
+    {
+        public string metric { get; set; }
+        public double ce_min { get; set; }
+        public double ce_max { get; set; }
+        public double ce_step { get; set; }
+        public string activation { get; set; }
+    }
+
+    public class JsonMsLevelConfig
+    {
+        public string selection { get; set; }
+        public int? max_precursors { get; set; }
+        public int? max_fragments { get; set; }
+        public JsonExplorationBlockConfig exploration { get; set; }
+    }
+
+    public class JsonSelectionStrategyConfig
+    {
+        public JsonMsLevelConfig ms1 { get; set; }
+        public JsonMsLevelConfig ms2 { get; set; }
+        public JsonMsLevelConfig ms3 { get; set; }
+    }
+
     public class JsonFilesConfig
     {
         public string[] target_logs { get; set; }
@@ -263,5 +347,6 @@ namespace Flash
         public JsonFilesConfig files { get; set; }
         public JsonMs3Config ms3 { get; set; }
         public bool conditional_ms2 { get; set; }
+        public JsonSelectionStrategyConfig selection_strategy { get; set; }
     }
 }

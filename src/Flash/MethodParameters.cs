@@ -87,6 +87,7 @@ namespace Flash
         public PrecursorSelectionParameters PrecursorSelection;
         public AcquisitionModesConfig AcquisitionModes;
         public MSSettingsConfig MSSettings;
+        public SelectionStrategyConfig SelectionStrategy;
 
         // === Backward-compatible accessors (not serialized) ===
         [XmlIgnore]
