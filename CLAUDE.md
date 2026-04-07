@@ -54,18 +54,22 @@ Instrument → IMsScan → DataPipe (BufferBlock → TransformManyBlock → Acti
 
 - **MethodParameters.cs** / **MethodConfig.cs** — Loads and structures the XML method file. Hierarchical config: GlobalParameters, PrecursorSelection, AcquisitionModes (targeting, quantification, MS3), MSSettings (MS1/MS2/MS3 parameters, FAIMS CVs).
 
-**Deleted in Phase 6:** `ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs`. All scan processing now routes through `UnifiedScanProcessor` → C++ engine.
+**Deleted in Phase 6:** `ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs`. All scan processing now routes through `UnifiedScanProcessor` → C++ engine. Phase 8 removes 17 more `[DllImport]` declarations from `FLASHIdaWrapper.cs` and deletes `ToFLASHDeconvInput()` from `Parameter.cs`.
 
 ### Acquisition Modes
 
 Configured via `TargetingMode` in the method XML: None (standard DDA), Inclusion, Exclusion, Deep. Additional modes: MS2 Tagging (protein-family detection), Conditional MS2 (tag-based method routing), Isobaric Quantification, MS3 Characterization (3 sub-modes).
 
-### Phase 7: SelectionStrategy Config
+### Phase 8: Cleanup + Documentation (Current)
 
-Phase 7 adds `<SelectionStrategy>` to method XML, serialized to JSON `selection_strategy` by `Parameter.ToJSON()`. All method XML files must include this block — missing blocks cause a crash. Key files:
-- `IDA/Parameter.cs` — Add `selection_strategy` JSON serialization
-- `test-data/configs/method_exploration.xml` — New config with exploration enabled
-- All existing `test-data/configs/method_*.xml` — Add `<SelectionStrategy>` blocks
+Phase 8 removes all legacy bridge infrastructure. After this phase: exactly 5 `[DllImport]` declarations remain in `FLASHIdaWrapper.cs`, `ToFLASHDeconvInput()` is deleted, `MethodDocGenerator.cs` is added, and `msbuild /warnaserror` passes with zero warnings. Key files:
+- `IDA/FLASHIdaWrapper.cs` — Remove 17 `[DllImport]` declarations (leave 5: `CreateFLASHIda`, `DisposeFLASHIda`, `ProcessScan`, `GetNextScanCommand`, `GetNextTrackingId`)
+- `IDA/Parameter.cs` — Remove `ToFLASHDeconvInput()` method and any sole-support helpers
+- `IDA/MethodDocGenerator.cs` — New ~30-line reflection utility for `[Description]` attributes
+- `Flash.Tests/CleanupTests.cs` — New NUnit tests: P8-U01 (5 DllImport count), P8-U02 (dead code scan), P8-U03 (MethodDocGenerator output)
+- `Flash.Tests/Flash.Tests.csproj` — Add `<Compile Include="CleanupTests.cs" />` (explicit includes, NOT wildcard)
+
+**Phase 7 context (complete):** `<SelectionStrategy>` XML is in all method XMLs, serialized to `selection_strategy` JSON by `Parameter.ToJSON()`. Missing blocks cause a crash. `method_exploration.xml` and `method_exploration_ms3.xml` exist in `test-data/configs/`.
 
 ### External Dependencies
 
