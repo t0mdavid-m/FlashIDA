@@ -100,6 +100,8 @@ namespace Flash.Tests.Mocks
             {
                 CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
                 scanList.Add(Factory.BuildFromCommand(cmd));
+                // Idle cycle: AGC signals queue is empty — capture it then stop
+                if (cmd.IsAgc == 1) break;
                 cmd = new ScanCommand();
             }
             return scanList;
