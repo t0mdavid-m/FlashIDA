@@ -77,7 +77,6 @@
   </AcquisitionModes>
 
   <MSSettings>
-    <MaxMs2CountPerMs1>5</MaxMs2CountPerMs1>
     <FAIMS>
       <CVValues>
         <double>-50</double>

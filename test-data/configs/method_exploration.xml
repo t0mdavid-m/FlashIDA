@@ -67,7 +67,6 @@
   </AcquisitionModes>
 
   <MSSettings>
-    <MaxMs2CountPerMs1>1</MaxMs2CountPerMs1>
     <FAIMS>
       <CVValues>
         <double>-50</double>
@@ -120,7 +119,7 @@
   <SelectionStrategy>
     <MS1>
       <Selection>qscore</Selection>
-      <MaxPrecursors>10</MaxPrecursors>
+      <MaxPrecursors>1</MaxPrecursors>
     </MS1>
     <MS2>
       <Selection>intensity</Selection>
