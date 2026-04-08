@@ -140,7 +140,6 @@ namespace Flash
             IDA.MinMass = PrecursorSelection.MinMass;
             IDA.MaxMass = PrecursorSelection.MaxMass;
             IDA.RTWindow = PrecursorSelection.RTWindow;
-            IDA.HCDEnergy = PrecursorSelection.HCDEnergy;
             IDA.Tolerances = PrecursorSelection.Tolerances;
 
             // From AcquisitionModes - compute TargetMode from TargetingMode string
@@ -205,6 +204,7 @@ namespace Flash
                 {
                     IDA.UseIDScore = devPS.UseIDScore;
                     IDA.ConsiderAllChargeStates = devPS.ConsiderAllChargeStates;
+                    IDA.HCDEnergy = devPS.HCDEnergy;
                 }
 
                 var devFaims = dev.FAIMS;
@@ -232,9 +232,9 @@ namespace Flash
 
             // Precursor selection
             var ida = IDA;
-            sb.AppendFormat("Precursor: QScore>={0}, TQScore>={1}, Charge=[{2},{3}], Mass=[{4},{5}], RTWindow={6}s, HCDEnergy={7}, Tol=[{8}]\n",
+            sb.AppendFormat("Precursor: QScore>={0}, TQScore>={1}, Charge=[{2},{3}], Mass=[{4},{5}], RTWindow={6}s, Tol=[{7}]\n",
                 ida.QScoreThreshold, ida.TQScoreThreshold, ida.MinCharge, ida.MaxCharge,
-                ida.MinMass, ida.MaxMass, ida.RTWindow, ida.HCDEnergy,
+                ida.MinMass, ida.MaxMass, ida.RTWindow,
                 String.Join(",", ida.Tolerances));
 
             // Targeting mode
@@ -266,8 +266,8 @@ namespace Flash
                 sb.AppendLine("MS3: Off");
 
             // Developer
-            sb.AppendFormat("Developer: IDScore={0}, AllCharges={1}, MaxCVSkip={2}, MassThreshold={3}\n",
-                ida.UseIDScore, ida.ConsiderAllChargeStates, ida.MaxCVSkip, ida.MassThreshold);
+            sb.AppendFormat("Developer: IDScore={0}, AllCharges={1}, HCDEnergy={2}, MaxCVSkip={3}, MassThreshold={4}\n",
+                ida.UseIDScore, ida.ConsiderAllChargeStates, ida.HCDEnergy, ida.MaxCVSkip, ida.MassThreshold);
 
             // MS settings
             sb.AppendFormat("MS: MaxMS2/MS1={0}, CV=[{1}]\n",

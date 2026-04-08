@@ -20,7 +20,6 @@ namespace Flash
         public double MinMass = 500;
         public double MaxMass = 50000;
         public double RTWindow = 180;
-        public int HCDEnergy = 29;
         [XmlArray] public double[] Tolerances = new double[] { 10, 10 };
     }
 
@@ -75,6 +74,7 @@ namespace Flash
     {
         public bool UseIDScore;
         public bool ConsiderAllChargeStates;
+        public int HCDEnergy = 29;
     }
 
     public class DeveloperConfig
