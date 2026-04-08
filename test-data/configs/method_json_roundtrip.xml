@@ -14,7 +14,6 @@
     <MinMass>600</MinMass>
     <MaxMass>40000</MaxMass>
     <RTWindow>120</RTWindow>
-    <HCDEnergy>35</HCDEnergy>
     <Tolerances>
       <double>8</double>
       <double>12</double>
@@ -67,6 +66,7 @@
       <PrecursorSelection>
         <UseIDScore>true</UseIDScore>
         <ConsiderAllChargeStates>true</ConsiderAllChargeStates>
+        <HCDEnergy>35</HCDEnergy>
       </PrecursorSelection>
       <FAIMS>
         <MaxCVSkip>2</MaxCVSkip>
