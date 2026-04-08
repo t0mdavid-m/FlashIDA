@@ -90,8 +90,7 @@ namespace Flash.Tests
                    "tqscore_threshold 0.9 target_mode 0 IDScore 0 AllCharges 0 " +
                    "HCDEnergy 29 strict_inclusion 0 tie_threshold 0.1 MS3AllCharges 1 ";
 
-            // Legacy format should cause C++ to throw std::invalid_argument,
-            // which surfaces as a SEHException or similar via P/Invoke
+            // C++ CreateFLASHIda catches std::invalid_argument and returns nullptr
             IntPtr ptr = CreateFLASHIda(legacyConfig);
             Assert.AreEqual(IntPtr.Zero, ptr,
                 "CreateFLASHIda should return null for legacy config after Phase 8.");
