@@ -47,14 +47,9 @@ From existing Tune application installation
 FLASHIda does not require specific installation and can run from any valid location. It requires `FlashDeconv` version of `OpenMS.dll` library, that is distributed with the software, as well as a few other libraries from the `OpenMS` project, minimal set is described below, while complete OpenMS installation can be used as well. Please, make sure that the running folder is writable, since FLASHIda writes log files to the working folder.
 
 * Install, if it is not already installed `Microsoft Visual C++ 2015-2019 Redistributable (x64)` on the instrument computer, it can be [downloaded from Microsoft](https://aka.ms/vs/16/release/vc_redist.x64.exe)
-* Copy the following files from OpenMS `bin` folder to the folder with the software
-    + `OpenMS_GUI.dll`
-    + `OpenSwathAlgo.dll`
-    + `Qt5Core.dll`
-    + `Qt5Network.dll`
-    + `SuperHirn.dll`
-* Copy `share\OpenMS` folder from OpenMS to the folder with the software, but keep the hirearchy, i.e. the software folder should contain `share` that contains `OpenMS` folder with all subfolders
-* Set the enironment variable `OPENMS_DATA_PATH` to the location of `OpenMS` folder that you have copied at the previous step, i.e. if you place the softwatre to `C:\FlashIDA`, the value of the variable should be `C:\FlashIDA\share\OpenMS`. It should be possible to use existing OpenMS installation as well
+* The following runtime files are bundled with the build output and do not need to be copied manually:
+    + `OpenMS.dll`, `OpenSwathAlgo.dll`, `Qt6Core.dll`, `Qt6Network.dll`, `zlib.dll` (in the application folder)
+    + `share\OpenMS\` (shared data directory — `OPENMS_DATA_PATH` is set automatically at startup)
 
 Software folder should look similar to this (file-level information is shown only at the first level
 ```
@@ -66,69 +61,26 @@ Software folder should look similar to this (file-level information is shown onl
 │   method.xml
 │   Mono.Options.dll
 │   OpenMS.dll
-│   OpenMS_GUI.dll
 │   OpenSwathAlgo.dll
-│   Qt5Core.dll
-│   Qt5Network.dll
+│   Qt6Core.dll
+│   Qt6Network.dll
 │   Spectrum-1.0.dll
-│   SuperHirn.dll
 │   System.Threading.Tasks.Dataflow.dll
 │   Thermo.TNG.Factory.dll
+│   zlib.dll
 │   
 └───share
     └───OpenMS
         ├───CHEMISTRY
-        │       
         ├───CV
-        │       
         ├───DESKTOP
-        │       
-        ├───examples
-        │   │   
-        │   ├───BSA
-        │   │       
-        │   ├───CHROMATOGRAMS
-        │   │       
-        │   ├───external_code
-        │   │       
-        │   ├───FRACTIONS
-        │   │       
-        │   ├───ID
-        │   │       
-        │   ├───QCImporter
-        │   │       
-        │   ├───simulation
-        │   │       
-        │   └───TOPPAS
-        │       │   
-        │       └───data
-        │           ├───BSA_Identification
-        │           │       
-        │           ├───Identification
-        │           │       
-        │           └───merger_tutorial
-        │                   
         ├───GUISTYLE
-        │       
-        ├───IDPool
-        │       
         ├───MAPPING
-        │       
-        ├───PIP
-        │       
+        ├───NUXL
         ├───SCHEMAS
-        │       
         ├───SCRIPTS
-        │       
         ├───THIRDPARTY
-        │       
         ├───TOOLS
-        │   └───EXTERNAL
-        │       │   
-        │       ├───LINUX
-        │       │       
-        │       └───WINDOWS
-        │               
         └───XSL
                 
 ```
