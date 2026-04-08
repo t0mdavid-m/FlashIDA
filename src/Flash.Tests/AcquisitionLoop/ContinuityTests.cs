@@ -1146,11 +1146,11 @@ namespace Flash.Tests.AcquisitionLoop
 
                     var cmd = new ScanCommand();
                     int cmdResult = wrapper.GetNextScanCommand(ref cmd);
-                    // Idle cycling: returns AGC when queue is empty (never returns 0)
+                    // Idle cycling: alternates AGC and MS1 when queue is empty
                     Assert.AreEqual(1, cmdResult,
-                        string.Format("GetNextScanCommand should return 1 (idle AGC) at iteration {0}", i));
-                    Assert.AreEqual(1, cmd.IsAgc,
-                        string.Format("Idle scan should be AGC at iteration {0}", i));
+                        string.Format("GetNextScanCommand should return 1 (idle scan) at iteration {0}", i));
+                    Assert.AreEqual(1, cmd.MsnLevel,
+                        string.Format("Idle scan should be MS level 1 at iteration {0}", i));
 
                     int trackId = wrapper.GetNextTrackingId();
                     Assert.IsFalse(trackingIds.Contains(trackId),
