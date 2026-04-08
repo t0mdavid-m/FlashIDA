@@ -102,7 +102,6 @@ namespace Flash
 
     public class MSSettingsConfig
     {
-        public int MaxMs2CountPerMs1 = 4;
         public FAIMSSettings FAIMS;
         public MS1Parameters MS1;
         public List<MS2Parameters> MS2;
@@ -209,7 +208,6 @@ namespace Flash
 
     public class JsonPrecursorSelectionConfig
     {
-        public int[] max_mass_count { get; set; }
         public double RT_window { get; set; }
         public int target_mode { get; set; }
         public bool IDScore { get; set; }

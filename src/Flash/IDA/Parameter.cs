@@ -12,9 +12,6 @@ namespace Flash.IDA
     /// </summary>
     public class IDAParameters
     {        
-        [Description("Maximum number of MS2 scans per MS1 cycle")]
-        public int MaxMs2CountPerMs1 { set; get; }
-
         [Description("Targeting mode (0=normal, 1=inclusion, 2=deep, 3=exclusion)")]
         public int TargetMode { set; get; }
         [Description("Quality score threshold for precursor selection")]
@@ -79,7 +76,6 @@ namespace Flash.IDA
         /// Complete constructor
         /// </summary>
         /// <param name="tolerances">Two member array for mass tolerances (down, up)</param>
-        /// <param name="maxMs2CountPerMs1"></param>
         /// <param name="qScoreThreshold">Threshold for quality score</param>
         /// <param name="rtWindow">Retention time tolerance window</param>
         /// <param name="minCharge">Minimal precursor charge</param>
@@ -89,7 +85,7 @@ namespace Flash.IDA
         /// <param name="targetLogs">log files containing target or excluded masses</param> 
         /// <param name="targetMode">If set to 1, inclusive targeted mode if 2, exclusive targeted mode. If 0, normal exclusion list mode</param> 
         /// <param name="cvvalues">contains the cvvalues to be scanned</param>
-        public IDAParameters(double[] tolerances = null, int maxMs2CountPerMs1 = 5, double qScoreThreshold = -1, double tieThreshold = 0.1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100,
+        public IDAParameters(double[] tolerances = null, double qScoreThreshold = -1, double tieThreshold = 0.1, double rtWindow = 5, int minCharge = 1, int maxCharge = 100,
                              double minMass = 50, double maxMass = 100000, List<string> targetLogs = null, int targetMode = 0, double[] cvvalues = null,
                              int MaxCVSkip_ = 0, int MassThreshold_ = 15, double tqScoreThreshold = 0.9, double quantReporterMZTol_ = 0, double quantFoldChangeThreshold_ = 0, bool quantOnlyOneCondition_ = false,
                              bool UseIDScore_ = false, bool ConsiderAllChargeStates_ = false, int HCDEnergy_ = 29,
@@ -101,7 +97,6 @@ namespace Flash.IDA
             Tolerances = tolerances ?? new double[] { 10, 10 };
             CVValues = cvvalues ?? new double[] { 0.0, -40.0, -50.0, -60.0 };
             RTWindow = rtWindow;
-            MaxMs2CountPerMs1 = maxMs2CountPerMs1;
             MinCharge = minCharge;
             MaxCharge = maxCharge;
             MinMass = minMass;
@@ -168,7 +163,6 @@ namespace Flash.IDA
                 },
                 precursor_selection = new JsonPrecursorSelectionConfig
                 {
-                    max_mass_count = new int[] { MaxMs2CountPerMs1 },
                     RT_window = RTWindow,
                     target_mode = TargetMode,
                     IDScore = UseIDScore,
@@ -261,7 +255,7 @@ namespace Flash.IDA
                     "Method XML must contain <SelectionStrategy> block. " +
                     "All method configs must be updated for Phase 7.");
 
-            int ms1MaxTargets = ss.MS1?.MaxPrecursors ?? MaxMs2CountPerMs1;
+            int ms1MaxTargets = ss.MS1?.MaxPrecursors ?? 10;
             int ms2MaxTargets = ss.MS2?.MaxFragments ?? 3;
             int ms3MaxTargets = ss.MS3?.MaxFragments ?? 3;
 

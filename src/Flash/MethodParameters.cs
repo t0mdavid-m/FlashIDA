@@ -129,9 +129,6 @@ namespace Flash
         {
             IDA = new IDAParameters();
 
-            // From MSSettings
-            IDA.MaxMs2CountPerMs1 = MSSettings.MaxMs2CountPerMs1;
-
             // From PrecursorSelection
             IDA.QScoreThreshold = PrecursorSelection.QScoreThreshold;
             IDA.TQScoreThreshold = PrecursorSelection.TQScoreThreshold;
@@ -270,8 +267,8 @@ namespace Flash
                 ida.UseIDScore, ida.ConsiderAllChargeStates, ida.HCDEnergy, ida.MaxCVSkip, ida.MassThreshold);
 
             // MS settings
-            sb.AppendFormat("MS: MaxMS2/MS1={0}, CV=[{1}]\n",
-                ida.MaxMs2CountPerMs1, String.Join(",", ida.CVValues));
+            sb.AppendFormat("MS: CV=[{0}]\n",
+                String.Join(",", ida.CVValues));
 
             // MS1
             var ms1 = MS1;
