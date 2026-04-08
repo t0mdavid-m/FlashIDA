@@ -1146,9 +1146,11 @@ namespace Flash.Tests.AcquisitionLoop
 
                     var cmd = new ScanCommand();
                     int cmdResult = wrapper.GetNextScanCommand(ref cmd);
-                    // Synthetic peaks produce 0 commands, so queue is empty → returns 0
-                    Assert.AreEqual(0, cmdResult,
-                        string.Format("GetNextScanCommand should return 0 (empty queue) at iteration {0}", i));
+                    // Idle cycling: returns AGC when queue is empty (never returns 0)
+                    Assert.AreEqual(1, cmdResult,
+                        string.Format("GetNextScanCommand should return 1 (idle AGC) at iteration {0}", i));
+                    Assert.AreEqual(1, cmd.IsAgc,
+                        string.Format("Idle scan should be AGC at iteration {0}", i));
 
                     int trackId = wrapper.GetNextTrackingId();
                     Assert.IsFalse(trackingIds.Contains(trackId),

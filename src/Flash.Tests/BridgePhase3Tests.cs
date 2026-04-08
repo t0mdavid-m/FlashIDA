@@ -70,17 +70,13 @@ namespace Flash.Tests
         {
             var cmd = new ScanCommand();
             int result = GetNextScanCommand(nativePtr, ref cmd);
-            Assert.AreEqual(0, result, "GetNextScanCommand should return 0 when queue is empty");
+            // Idle cycling: returns AGC when queue is empty (never returns 0)
+            Assert.AreEqual(1, result, "GetNextScanCommand should return 1 (idle AGC)");
 
-            // Verify struct fields survived marshaling (empty queue → zeroed/default values)
-            Assert.AreEqual(0, cmd.MsnLevel, "MsnLevel should be 0 for empty queue");
-            Assert.AreEqual(0.0, cmd.FirstMass, "FirstMass should be 0.0 for empty queue");
-            Assert.AreEqual(0, cmd.OrbitrapResolution, "OrbitrapResolution should be 0 for empty queue");
-            Assert.AreEqual(0, cmd.NumStages, "NumStages should be 0 for empty queue");
-            Assert.That(cmd.Analyzer ?? "", Is.Empty.Or.EqualTo("\0"),
-                "Analyzer should be empty for empty queue");
-            Assert.That(cmd.ScanDescription ?? "", Is.Empty.Or.EqualTo("\0"),
-                "ScanDescription should be empty for empty queue");
+            // Verify AGC struct fields survived marshaling
+            Assert.AreEqual(1, cmd.MsnLevel, "MsnLevel should be 1 for AGC");
+            Assert.AreEqual(1, cmd.IsAgc, "IsAgc should be 1 for AGC");
+            Assert.AreEqual(0, cmd.NumStages, "NumStages should be 0 for AGC");
         }
 
         // P3-I02: ProcessScan returns 0 with insufficient/synthetic peaks (no real charge envelopes)
@@ -93,21 +89,17 @@ namespace Flash.Tests
             Assert.AreEqual(0, result, "ProcessScan should return 0 for synthetic peaks with no charge envelopes");
         }
 
-        // P3-I03: GetNextScanCommand returns 0 when queue is empty
+        // P3-I03: GetNextScanCommand returns idle scan when queue is empty
         [Test, Category("Tier2")]
-        public void P3_I03_GetNextScanCommand_ReturnsZeroWhenQueueEmpty()
+        public void P3_I03_GetNextScanCommand_ReturnsIdleScanWhenQueueEmpty()
         {
             var cmd = new ScanCommand();
             int result = GetNextScanCommand(nativePtr, ref cmd);
-            Assert.AreEqual(0, result, "Should return 0 when queue is empty");
+            // Idle cycling: never returns 0 — returns AGC or MS1
+            Assert.AreEqual(1, result, "Should return 1 (idle scan) when queue is empty");
 
-            // Verify complementary fields (P3-I01 covers MsnLevel, FirstMass, OrbitrapResolution, NumStages, Analyzer, ScanDescription)
-            Assert.AreEqual(0, cmd.ScanId, "ScanId should be 0 for empty queue");
-            Assert.AreEqual(0, cmd.Priority, "Priority should be 0 for empty queue");
-            Assert.AreEqual(0, cmd.IsAgc, "IsAgc should be 0 for empty queue");
-            Assert.AreEqual(0, cmd.AgcTarget, "AgcTarget should be 0 for empty queue");
-            Assert.AreEqual(0.0, cmd.LastMass, "LastMass should be 0.0 for empty queue");
-            Assert.AreEqual(0.0, cmd.MaxIt, "MaxIt should be 0.0 for empty queue");
+            // Verify returned scan is a valid idle scan (AGC or MS1)
+            Assert.AreEqual(1, cmd.MsnLevel, "MsnLevel should be 1 for idle scan");
         }
 
         // P3-I04: GetNextTrackingId is monotonically increasing
