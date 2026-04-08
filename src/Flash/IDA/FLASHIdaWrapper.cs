@@ -108,6 +108,9 @@ namespace Flash.IDA
         /// <param name="mp">Full method parameters — serialized to JSON for C++ engine</param>
         public FLASHIdaWrapper(MethodParameters mp)
         {
+            string sharePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "share", "OpenMS");
+            Environment.SetEnvironmentVariable("OPENMS_DATA_PATH", sharePath);
+
             string arg = mp.IDA.ToJSON(mp);
             m_pNativeObject = CreateFLASHIda(arg);
         }
