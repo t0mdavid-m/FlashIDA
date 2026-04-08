@@ -480,10 +480,9 @@ namespace Flash
                 dataPipe.Push(msScan);
 
                 var cmd = new ScanCommand();
-                while (wrapper.GetNextScanCommand(ref cmd) == 1)
+                if (wrapper.GetNextScanCommand(ref cmd) == 1)
                 {
                     SendCustomScan(scanFactory.BuildFromCommand(cmd));
-                    cmd = new ScanCommand();
                 }
             }
 
