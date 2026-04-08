@@ -339,7 +339,7 @@ namespace Flash.IDA
 
             double scoreSum = 0.0;
             var cmd = new ScanCommand();
-            while (w.GetNextScanCommand(ref cmd) == 1)
+            while (w.GetNextScanCommand(ref cmd) == 1 && cmd.IsAgc == 0)
             {
                 if (cmd.MsnLevel == 2 && cmd.NumStages > 0)
                 {
@@ -357,7 +357,7 @@ namespace Flash.IDA
                     {
                         w.ProcessScan(ms2Mzs, ms2Ints, rt, 2, cmd.ScanDescription);
                         var followup = new ScanCommand();
-                        while (w.GetNextScanCommand(ref followup) == 1) { followup = new ScanCommand(); }
+                        while (w.GetNextScanCommand(ref followup) == 1 && followup.IsAgc == 0) { followup = new ScanCommand(); }
                     }
                 }
                 cmd = new ScanCommand();
