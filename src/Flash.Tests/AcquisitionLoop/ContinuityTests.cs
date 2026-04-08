@@ -871,8 +871,8 @@ namespace Flash.Tests.AcquisitionLoop
                     "MS1 processing must produce MS2 commands");
                 Assert.IsTrue(initialResults.All(r => r.ActivationType == "ETD"),
                     "Initial MS2 commands should all be ETD (HCD is conditional on tag detection)");
-                Assert.IsTrue(initialResults.All(r => r.ScanDescription.Length >= 5 && r.ScanDescription[4] == '|'),
-                    "Initial MS2 commands should have base-36 tracking-ID scan descriptions (XXXX|...)");
+                Assert.IsTrue(initialResults.All(r => r.ScanDescription.Length >= 4 && "ARFCE".Contains(r.ScanDescription[3])),
+                    "Initial MS2 commands should have compact tracking-ID scan descriptions (XXXR...)");
 
                 // Step 2: push MS2 back with real fragments to trigger tag detection
                 var ms2Commands = harness.Factory.CreatedScans
