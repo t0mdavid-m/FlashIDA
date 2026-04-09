@@ -95,7 +95,7 @@ namespace Flash.Tests
                     "score_threshold", "tqscore_threshold", "min_charge", "max_charge",
                     "min_mass", "max_mass", "tol");
                 CompareJsonSection(actual, expected, "precursor_selection",
-                    "max_mass_count", "RT_window", "target_mode", "IDScore", "AllCharges",
+                    "RT_window", "target_mode", "IDScore", "AllCharges",
                     "MS3AllCharges", "HCDEnergy", "strict_inclusion", "tie_threshold");
                 CompareJsonSection(actual, expected, "tagging",
                     "min_tag_length", "max_tag_length", "max_ptm_count", "max_flanking_mass_diff");
