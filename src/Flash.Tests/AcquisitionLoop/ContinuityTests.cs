@@ -258,11 +258,11 @@ namespace Flash.Tests.AcquisitionLoop
                 Assert.That(results.Count, Is.GreaterThan(0),
                     "TopN=5 must produce at least one MS2 command from smoke spectrum");
 
-                int maxPerMs1 = harness.MethodParams.IDA.MaxMs2CountPerMs1;
+                int maxPerMs1 = harness.MethodParams.SelectionStrategy.MS1.MaxPrecursors;
                 int ms2Types = harness.MethodParams.MS2.Count;
 
                 Assert.AreEqual(5, maxPerMs1,
-                    "Config should have MaxMs2CountPerMs1=5");
+                    "Config should have MaxPrecursors=5");
 
                 // Total MS2 scans should not exceed MaxMs2CountPerMs1 * MS2Types
                 // (each precursor gets one scan per MS2 parameter set)
@@ -519,7 +519,7 @@ namespace Flash.Tests.AcquisitionLoop
                 Assume.That(harness.MethodParams.IDA.ConditionalMS2, Is.True,
                     "Config must have ConditionalMS2 enabled for this test");
 
-                int maxPrecursors = harness.MethodParams.IDA.MaxMs2CountPerMs1;
+                int maxPrecursors = harness.MethodParams.SelectionStrategy.MS1.MaxPrecursors;
                 Assert.That(ms2Commands.Count, Is.LessThanOrEqualTo(maxPrecursors),
                     "Conditional MS2: initial batch should have at most 1 scan per precursor");
             }

@@ -143,17 +143,25 @@ namespace Flash.Tests
                 MinMass = 500,
                 MaxMass = 50000,
                 RTWindow = 180,
-                HCDEnergy = 29,
                 Tolerances = new double[] { 10, 10 }
             };
             mp.MSSettings = new MSSettingsConfig
             {
-                MaxMs2CountPerMs1 = 1,
                 FAIMS = new FAIMSSettings { CVValues = new double[] { -50 } },
                 MS1 = new MS1Parameters { Analyzer = "Orbitrap", FirstMass = 500, LastMass = 2000, OrbitrapResolution = 120000, AGCTarget = 800000, MaxIT = 246 },
                 MS2 = new System.Collections.Generic.List<MS2Parameters>
                 {
                     new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0 }
+                }
+            };
+            mp.AcquisitionModes = new AcquisitionModesConfig
+            {
+                Developer = new DeveloperConfig
+                {
+                    PrecursorSelection = new DeveloperPrecursorSelectionConfig
+                    {
+                        HCDEnergy = 29
+                    }
                 }
             };
             mp.SelectionStrategy = new SelectionStrategyConfig
