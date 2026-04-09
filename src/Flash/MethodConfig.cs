@@ -1,196 +1,362 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Xml.Serialization;
+using Flash.IDA;
 
 namespace Flash
 {
-    public class GlobalParameters
+    // ====================================================================
+    // User-facing JSON config schema — annotated for serialization and docs
+    // ====================================================================
+
+    [JsonKey("global")]
+    public class GlobalConfig
     {
-        public string MethodName;
-        public string MethodDescription;
-        public double Duration = 90;
+        [JsonKey("method_name")]
+        [Description("Name of the acquisition method")]
+        public string MethodName { get; set; } = "";
+
+        [JsonKey("method_description")]
+        [Description("Description of the acquisition method")]
+        public string MethodDescription { get; set; } = "";
+
+        [JsonKey("duration")]
+        [Description("Acquisition duration in minutes")]
+        public double Duration { get; set; } = 90;
     }
 
-    public class PrecursorSelectionParameters
+    [JsonKey("deconvolution")]
+    public class DeconvolutionConfig
     {
-        public double QScoreThreshold = -1;
-        public double TQScoreThreshold = 0.9;
-        public int MinCharge = 4;
-        public int MaxCharge = 50;
-        public double MinMass = 500;
-        public double MaxMass = 50000;
-        public double RTWindow = 180;
-        [XmlArray] public double[] Tolerances = new double[] { 10, 10 };
+        [JsonKey("score_threshold")]
+        [Description("Quality score threshold for accepting deconvolved peaks (0.0-1.0)")]
+        public double ScoreThreshold { get; set; } = -1;
+
+        [JsonKey("tqscore_threshold")]
+        [Description("Target quality score threshold for precursor filtering")]
+        public double TQScoreThreshold { get; set; } = 0.9;
+
+        [JsonKey("min_charge")]
+        [Description("Minimum precursor charge state")]
+        public int MinCharge { get; set; } = 4;
+
+        [JsonKey("max_charge")]
+        [Description("Maximum precursor charge state")]
+        public int MaxCharge { get; set; } = 50;
+
+        [JsonKey("min_mass")]
+        [Description("Minimum precursor mass in Da")]
+        public double MinMass { get; set; } = 500;
+
+        [JsonKey("max_mass")]
+        [Description("Maximum precursor mass in Da")]
+        public double MaxMass { get; set; } = 50000;
+
+        [JsonKey("tol")]
+        [Description("Mass tolerance array [down, up] in ppm")]
+        public double[] Tolerances { get; set; } = new double[] { 10, 10 };
     }
 
-    public class MS2TaggingConfig
+    [JsonKey("precursor_selection")]
+    public class PrecursorSelectionConfig
     {
-        public string Active = "False";
-        public bool ConditionalMS2;
-        public string FastaFile;
-        public string PtmList;
-        public int MaxPtmCount = 3;
-        public int MinTagLength = 3;
-        public int MaxTagLength = 8;
-        public double MaxFlankingMassDiff = 50000;
+        [JsonKey("rt_window")]
+        [Description("Retention time window in seconds for precursor tracking")]
+        public double RTWindow { get; set; } = 180;
+
+        [JsonKey("targeting_mode")]
+        [Description("Targeting mode: none, inclusion, exclusion, or deep")]
+        public string TargetingMode { get; set; } = "none";
+
+        [JsonKey("strict_inclusion")]
+        [Description("If true, only acquire targets from the inclusion list")]
+        public bool StrictInclusion { get; set; }
+
+        [JsonKey("tie_threshold")]
+        [Description("Tie-breaking threshold for precursor ranking")]
+        public double TieThreshold { get; set; } = 0.1;
+
+        [Developer]
+        [JsonKey("use_id_score")]
+        [Description("Use identification-based scoring instead of QScore")]
+        public bool UseIDScore { get; set; }
+
+        [Developer]
+        [JsonKey("consider_all_charges")]
+        [Description("Consider all charge states for precursor selection")]
+        public bool ConsiderAllChargeStates { get; set; }
+
+        [Developer]
+        [JsonKey("ms3_all_charges")]
+        [Description("Consider all charge states for MS3 selection")]
+        public bool MS3AllCharges { get; set; }
+
+        [Developer]
+        [JsonKey("hcd_energy")]
+        [Description("HCD collision energy for charge-state determination")]
+        public int HCDEnergy { get; set; } = 29;
     }
 
-    public class TargetedInclusionConfig
+    [JsonKey("tagging")]
+    public class TaggingConfig
     {
-        public bool StrictInclusion;
-        public double TieThreshold = 0.1;
-        public string InclusionList;
-        public MS2TaggingConfig MS2Tagging;
+        [JsonKey("active")]
+        [Description("Enable MS2 sequence tagging")]
+        public bool Active { get; set; }
+
+        [JsonKey("conditional_ms2")]
+        [Description("Use conditional MS2 based on tag results")]
+        public bool ConditionalMS2 { get; set; }
+
+        [JsonKey("min_tag_length")]
+        [Description("Minimum sequence tag length")]
+        public int MinTagLength { get; set; } = 3;
+
+        [JsonKey("max_tag_length")]
+        [Description("Maximum sequence tag length")]
+        public int MaxTagLength { get; set; } = 8;
+
+        [JsonKey("max_ptm_count")]
+        [Description("Maximum number of PTMs to consider per tag")]
+        public int MaxPtmCount { get; set; } = 3;
+
+        [JsonKey("max_flanking_mass_diff")]
+        [Description("Maximum flanking mass difference in Da")]
+        public double MaxFlankingMassDiff { get; set; } = 50000;
     }
 
-    public class TargetedExclusionConfig { }
-
-    public class DeepModeConfig { }
-
-    public class LabelingQuantConfig
+    [JsonKey("quantification")]
+    public class QuantificationConfig
     {
-        public string Active = "False";
-        public double ReporterMZTol;
-        public double FoldChangeThreshold;
-        public bool OnlyOneCondition;
+        [JsonKey("active")]
+        [Description("Enable isobaric labeling quantification")]
+        public bool Active { get; set; }
+
+        [JsonKey("reporter_mz_tol")]
+        [Description("Reporter ion m/z tolerance in Da")]
+        public double ReporterMZTol { get; set; }
+
+        [JsonKey("fold_change_threshold")]
+        [Description("Fold-change threshold for differential quantification")]
+        public double FoldChangeThreshold { get; set; }
+
+        [JsonKey("only_one_condition")]
+        [Description("Only quantify targets present in one condition")]
+        public bool OnlyOneCondition { get; set; }
     }
 
-    public class MS3CharacterizationConfig
+    [JsonKey("faims")]
+    public class FaimsConfig
     {
-        public string Active = "False";
-        public int MS3Mode;
-        public int MaxMs3PerMs2 = 4;
-        public bool MS3AllCharges;
-        public string MS3ProteinSequence;
+        [JsonKey("cv_values")]
+        [Description("FAIMS compensation voltage values to cycle through")]
+        public double[] CVValues { get; set; } = new double[] { -50 };
+
+        [Developer]
+        [JsonKey("max_cv_skip")]
+        [Description("Maximum number of FAIMS CV cycles to skip")]
+        public int MaxCVSkip { get; set; }
+
+        [Developer]
+        [JsonKey("mass_threshold")]
+        [Description("Mass threshold for FAIMS CV precursor grouping")]
+        public int MassThreshold { get; set; } = 15;
     }
 
-    public class DeveloperFAIMSConfig
+    [JsonKey("ms_settings")]
+    public class MsSettingsConfig
     {
-        public int MaxCVSkip;
-        public int MassThreshold = 15;
+        [JsonKey("ms1")]
+        public MS1Parameters MS1 { get; set; }
+
+        [JsonKey("ms2")]
+        public List<MS2Parameters> MS2 { get; set; } = new List<MS2Parameters>();
+
+        [JsonKey("ms3")]
+        public List<MS3Parameters> MS3 { get; set; } = new List<MS3Parameters>();
     }
 
-    public class DeveloperPrecursorSelectionConfig
+    [JsonKey("scheduling")]
+    public class SchedulingConfig
     {
-        public bool UseIDScore;
-        public bool ConsiderAllChargeStates;
-        public int HCDEnergy = 29;
+        [JsonKey("cycle_time_enabled")]
+        [Description("Enable cycle time limit")]
+        public bool CycleTimeEnabled { get; set; }
+
+        [JsonKey("cycle_time_ms")]
+        [Description("Maximum cycle time in milliseconds")]
+        public double CycleTimeMs { get; set; } = 60000;
+
+        [JsonKey("timeout_enabled")]
+        [Description("Enable scan timeout")]
+        public bool TimeoutEnabled { get; set; }
+
+        [JsonKey("timeout_ms")]
+        [Description("Scan timeout in milliseconds")]
+        public double TimeoutMs { get; set; } = 30000;
     }
 
-    public class DeveloperConfig
+    [JsonKey("ms3")]
+    public class Ms3Config
     {
-        public DeveloperPrecursorSelectionConfig PrecursorSelection;
-        public DeveloperFAIMSConfig FAIMS;
+        [JsonKey("active")]
+        [Description("Enable MS3 characterization")]
+        public bool Active { get; set; }
+
+        [JsonKey("mode")]
+        [Description("MS3 characterization mode (1, 2, or 3)")]
+        public int Mode { get; set; }
+
+        [JsonKey("max_per_ms2")]
+        [Description("Maximum MS3 scans per MS2 scan")]
+        public int MaxPerMs2 { get; set; } = 4;
+
+        [JsonKey("all_charges")]
+        [Description("Consider all charge states for MS3")]
+        public bool AllCharges { get; set; }
+
+        [JsonKey("protein_sequence")]
+        [Description("Protein sequence for MS3 targeted characterization")]
+        public string ProteinSequence { get; set; } = "";
     }
 
-    public class AcquisitionModesConfig
+    [JsonKey("files")]
+    public class FilesConfig
     {
-        public string TargetingMode = "None";
-        public List<string> TargetLogs;
-        public TargetedInclusionConfig TargetedInclusion;
-        public TargetedExclusionConfig TargetedExclusion;
-        public DeepModeConfig DeepMode;
-        public LabelingQuantConfig LabelingBasedQuantification;
-        public MS3CharacterizationConfig MS3Characterization;
-        public DeveloperConfig Developer;
+        [JsonKey("target_logs")]
+        [Description("Log files containing target or excluded masses")]
+        public List<string> TargetLogs { get; set; } = new List<string>();
+
+        [JsonKey("fasta")]
+        [Description("FASTA file path for sequence tagging")]
+        public string FastaFile { get; set; } = "";
+
+        [JsonKey("inclusion_list")]
+        [Description("Inclusion list file path")]
+        public string InclusionList { get; set; } = "";
+
+        [JsonKey("ptm_list")]
+        [Description("PTM list file path")]
+        public string PtmList { get; set; } = "";
     }
 
-    public class FAIMSSettings
-    {
-        [XmlArray] public double[] CVValues;
-    }
-
-    public class MSSettingsConfig
-    {
-        public FAIMSSettings FAIMS;
-        public MS1Parameters MS1;
-        public List<MS2Parameters> MS2;
-        public List<MS3Parameters> MS3;
-    }
-
-    // --- Phase 7: SelectionStrategy XML config ---
-
-    /// <summary>
-    /// Per-level exploration block within SelectionStrategy XML.
-    /// </summary>
-    [Serializable]
+    [JsonKey("exploration")]
     public class ExplorationBlockConfig
     {
-        public string Metric = "none";
-        public double CEMin = 20;
-        public double CEMax = 40;
-        public double CEStep = 5;
-        public string Activation = "HCD";
+        [JsonKey("metric")]
+        [Description("Exploration metric: none, qscore, or intensity")]
+        public string Metric { get; set; } = "none";
+
+        [JsonKey("ce_min")]
+        [Description("Minimum collision energy for exploration sweep")]
+        public double CEMin { get; set; } = 20;
+
+        [JsonKey("ce_max")]
+        [Description("Maximum collision energy for exploration sweep")]
+        public double CEMax { get; set; } = 40;
+
+        [JsonKey("ce_step")]
+        [Description("Collision energy step size")]
+        public double CEStep { get; set; } = 5;
+
+        [JsonKey("activation")]
+        [Description("Activation method for exploration (HCD or CID)")]
+        public string Activation { get; set; } = "HCD";
     }
 
-    /// <summary>
-    /// MS1-level selection config within SelectionStrategy XML.
-    /// </summary>
-    [Serializable]
+    [JsonKey("ms1")]
     public class MS1SelectionConfig
     {
-        public string Selection = "qscore";
-        public int MaxPrecursors = 10;
+        [JsonKey("selection")]
+        [Description("MS1 precursor selection metric: qscore, intensity, or none")]
+        public string Selection { get; set; } = "qscore";
+
+        [JsonKey("max_precursors")]
+        [Description("Maximum number of precursors to select per MS1 scan")]
+        public int MaxPrecursors { get; set; } = 10;
     }
 
-    /// <summary>
-    /// MS2-level selection + optional exploration config.
-    /// </summary>
-    [Serializable]
+    [JsonKey("ms2")]
     public class MS2SelectionConfig
     {
-        public string Selection = "intensity";
-        public int MaxFragments = 3;
-        public ExplorationBlockConfig Exploration;
+        [JsonKey("selection")]
+        [Description("MS2 fragment selection metric: qscore, intensity, or none")]
+        public string Selection { get; set; } = "intensity";
+
+        [JsonKey("max_fragments")]
+        [Description("Maximum number of fragments to select per MS2 scan")]
+        public int MaxFragments { get; set; } = 3;
+
+        [JsonKey("exploration")]
+        public ExplorationBlockConfig Exploration { get; set; }
     }
 
-    /// <summary>
-    /// MS3-level selection + optional exploration config.
-    /// </summary>
-    [Serializable]
+    [JsonKey("ms3")]
     public class MS3SelectionConfig
     {
-        public string Selection = "none";
-        public int MaxFragments = 3;
-        public ExplorationBlockConfig Exploration;
+        [JsonKey("selection")]
+        [Description("MS3 fragment selection metric: qscore, intensity, or none")]
+        public string Selection { get; set; } = "none";
+
+        [JsonKey("max_fragments")]
+        [Description("Maximum number of fragments to select per MS3 scan")]
+        public int MaxFragments { get; set; } = 3;
+
+        [JsonKey("exploration")]
+        public ExplorationBlockConfig Exploration { get; set; }
     }
 
-    /// <summary>
-    /// Root SelectionStrategy config — required in all method XMLs.
-    /// </summary>
-    [Serializable]
+    [JsonKey("selection_strategy")]
     public class SelectionStrategyConfig
     {
-        public MS1SelectionConfig MS1 = new MS1SelectionConfig();
-        public MS2SelectionConfig MS2 = new MS2SelectionConfig();
-        public MS3SelectionConfig MS3 = new MS3SelectionConfig();
-    }
+        [JsonKey("ms1")]
+        public MS1SelectionConfig MS1 { get; set; } = new MS1SelectionConfig();
 
-    // --- Phase 1 deferrals resolved in Phase 3 ---
+        [JsonKey("ms2")]
+        public MS2SelectionConfig MS2 { get; set; } = new MS2SelectionConfig();
 
-    /// <summary>
-    /// Scan scheduling configuration — cycle time and timeout settings.
-    /// Phase 1 deferral: stored for future scan command construction.
-    /// </summary>
-    [Serializable]
-    public class ScanSchedulingConfig
-    {
-        public bool CycleTimeEnabled;
-        public double CycleTimeMs = 60000.0;
-        public bool TimeoutEnabled;
-        public double TimeoutMs = 30000.0;
+        [JsonKey("ms3")]
+        public MS3SelectionConfig MS3 { get; set; } = new MS3SelectionConfig();
     }
 
     /// <summary>
-    /// Parameter optimization configuration — exploration and variant settings.
-    /// Phase 1 deferral: stored for future parameter optimization.
+    /// Root method configuration — user-facing JSON schema.
     /// </summary>
-    [Serializable]
-    public class ParameterOptimizationConfig
+    public class MethodConfig
     {
-        public bool ExplorationEnabled;
-        public int MaxDepth = 1;
-        public int MaxVariants = 5;
+        [JsonKey("global")]
+        public GlobalConfig Global { get; set; } = new GlobalConfig();
+
+        [JsonKey("deconvolution")]
+        public DeconvolutionConfig Deconvolution { get; set; } = new DeconvolutionConfig();
+
+        [JsonKey("precursor_selection")]
+        public PrecursorSelectionConfig PrecursorSelection { get; set; } = new PrecursorSelectionConfig();
+
+        [JsonKey("tagging")]
+        public TaggingConfig Tagging { get; set; } = new TaggingConfig();
+
+        [JsonKey("quantification")]
+        public QuantificationConfig Quantification { get; set; } = new QuantificationConfig();
+
+        [JsonKey("faims")]
+        public FaimsConfig Faims { get; set; } = new FaimsConfig();
+
+        [JsonKey("ms_settings")]
+        public MsSettingsConfig MsSettings { get; set; } = new MsSettingsConfig();
+
+        [JsonKey("scheduling")]
+        public SchedulingConfig Scheduling { get; set; } = new SchedulingConfig();
+
+        [JsonKey("selection_strategy")]
+        public SelectionStrategyConfig SelectionStrategy { get; set; } = new SelectionStrategyConfig();
+
+        [JsonKey("ms3")]
+        public Ms3Config Ms3 { get; set; } = new Ms3Config();
+
+        [JsonKey("files")]
+        public FilesConfig Files { get; set; } = new FilesConfig();
     }
 
     // --- Phase 1: JSON serialization classes for C++ bridge ---
