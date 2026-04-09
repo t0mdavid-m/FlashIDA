@@ -114,6 +114,8 @@
     <Compile Include="DataObjects\MassIntensityPair.cs" />
     <Compile Include="IDA\Parameter.cs" />
     <Compile Include="IDA\MethodDocGenerator.cs" />
+    <Compile Include="IDA\JsonKeyAttribute.cs" />
+    <Compile Include="IDA\DeveloperAttribute.cs" />
     <Compile Include="IScanProcessor.cs" />
     <Compile Include="MethodConfig.cs" />
     <Compile Include="MethodParameters.cs" />
