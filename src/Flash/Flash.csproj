@@ -113,6 +113,7 @@
     <Compile Include="IDA\PrecursorTarget.cs" />
     <Compile Include="DataObjects\MassIntensityPair.cs" />
     <Compile Include="IDA\Parameter.cs" />
+    <Compile Include="IDA\MethodConfigSerializer.cs" />
     <Compile Include="IDA\MethodDocGenerator.cs" />
     <Compile Include="IDA\JsonKeyAttribute.cs" />
     <Compile Include="IDA\DeveloperAttribute.cs" />
