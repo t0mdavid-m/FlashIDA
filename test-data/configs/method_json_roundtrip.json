@@ -17,10 +17,7 @@
     "rt_window": 120,
     "targeting_mode": "none",
     "strict_inclusion": true,
-    "tie_threshold": 0.2,
-    "use_id_score": true,
-    "consider_all_charges": true,
-    "hcd_energy": 35
+    "tie_threshold": 0.2
   },
   "tagging": {
     "active": false,
@@ -37,9 +34,19 @@
     "only_one_condition": true
   },
   "faims": {
-    "cv_values": [-40, -50, -60],
-    "max_cv_skip": 2,
-    "mass_threshold": 20
+    "cv_values": [-40, -50, -60]
+  },
+  "developer": {
+    "precursor_selection": {
+      "use_id_score": true,
+      "consider_all_charges": true,
+      "ms3_all_charges": false,
+      "hcd_energy": 35
+    },
+    "faims": {
+      "max_cv_skip": 2,
+      "mass_threshold": 20
+    }
   },
   "ms_settings": {
     "ms1": {
