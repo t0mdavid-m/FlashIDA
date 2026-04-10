@@ -8,7 +8,7 @@ param (
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 # Copy supporting config files (inclusion lists, FASTA) to working directory
-# so C++ engine can resolve bare filenames in method XML
+# so C++ engine can resolve bare filenames in method config
 $configDir = Join-Path $TestDataDir "configs"
 Copy-Item (Join-Path $configDir "test_inclusion_list.txt") . -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $configDir "test_fasta.fasta") . -Force -ErrorAction SilentlyContinue
@@ -18,7 +18,7 @@ Write-Host "Copied supporting files from $configDir to $(Get-Location)"
 $configs = @(
     @{
         name   = "baseline_phase0"
-        method = "method_default.xml"
+        method = "method_default.json"
         ms1    = "ms1_smoke_test.txt"
         ms2    = $null
         golden = "baseline_phase0.tsv"
@@ -26,7 +26,7 @@ $configs = @(
     # Phase 1: JSON config path (same golden as Phase 0 — must produce identical output)
     @{
         name   = "p1_json"
-        method = "method_default.xml"
+        method = "method_default.json"
         ms1    = "ms1_smoke_test.txt"
         ms2    = $null
         golden = "baseline_phase0.tsv"
@@ -34,7 +34,7 @@ $configs = @(
     # Phase 4: Legacy bridge path regression (UseUnifiedBridge=false)
     @{
         name   = "p4_legacy_path"
-        method = "method_default_legacy.xml"
+        method = "method_default_legacy.json"
         ms1    = "ms1_smoke_test.txt"
         ms2    = $null
         golden = "baseline_phase3.tsv"
@@ -42,70 +42,70 @@ $configs = @(
     # Phase 4: Pre-switch golden baselines (old bridge path, ms1_standard.txt)
     @{
         name   = "phase4_standard_dda"
-        method = "method_default.xml"
+        method = "method_default.json"
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase4_standard_dda.tsv"
     }
     @{
         name   = "phase4_deep_mode"
-        method = "method_deep.xml"
+        method = "method_deep.json"
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase4_deep_mode.tsv"
     }
     @{
         name   = "phase4_inclusion"
-        method = "method_inclusion.xml"
+        method = "method_inclusion.json"
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase4_inclusion.tsv"
     }
     @{
         name   = "phase4_inclusion_strict"
-        method = "method_inclusion_strict.xml"
+        method = "method_inclusion_strict.json"
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase4_inclusion_strict.tsv"
     }
     @{
         name   = "phase4_exclusion"
-        method = "method_exclusion.xml"
+        method = "method_exclusion.json"
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase4_exclusion.tsv"
     }
     @{
         name   = "phase4_tag_targeting"
-        method = "method_tag_targeting.xml"
+        method = "method_tag_targeting.json"
         ms1    = "ms1_standard.txt"
         ms2    = "ms2_hcd_fragment.txt"
         golden = "phase4_tag_targeting.tsv"
     }
     @{
         name   = "phase4_quant"
-        method = "method_quant.xml"
+        method = "method_quant.json"
         ms1    = "ms1_standard.txt"
         ms2    = "ms2_quant_tmt.txt"
         golden = "phase4_quant.tsv"
     }
     @{
         name   = "phase4_ms3_mode1"
-        method = "method_ms3_mode1.xml"
+        method = "method_ms3_mode1.json"
         ms1    = "ms1_standard.txt"
         ms2    = "ms2_hcd_fragment.txt"
         golden = "phase4_ms3_mode1.tsv"
     }
     @{
         name   = "phase4_ms3_mode2"
-        method = "method_ms3_mode2.xml"
+        method = "method_ms3_mode2.json"
         ms1    = "ms1_standard.txt"
         ms2    = "ms2_hcd_fragment.txt"
         golden = "phase4_ms3_mode2.tsv"
     }
     @{
         name   = "phase4_ms3_mode3"
-        method = "method_ms3_mode3.xml"
+        method = "method_ms3_mode3.json"
         ms1    = "ms1_standard.txt"
         ms2    = "ms2_hcd_fragment.txt"
         golden = "phase4_ms3_mode3.tsv"
@@ -113,7 +113,7 @@ $configs = @(
     # Phase 7: Exploration enabled (CE sweep, mass_count metric)
     @{
         name   = "p7_exploration"
-        method = "method_exploration.xml"
+        method = "method_exploration.json"
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase7_exploration.tsv"
