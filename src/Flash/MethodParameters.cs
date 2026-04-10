@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using System.Xml.Serialization;
-using Flash.IDA;
+using System.Web.Script.Serialization;
 
 namespace Flash
 {
@@ -78,264 +78,260 @@ namespace Flash
     }
 
     /// <summary>
-    /// Complete set of aquisition parameters, includs MS1, MS2, MS3, FlashIDA, and some general ones
+    /// Complete set of acquisition parameters, loaded from JSON config.
     /// </summary>
     public class MethodParameters
     {
-        // === New XML structure (serialized) ===
-        public GlobalParameters GlobalParameter;
-        public PrecursorSelectionParameters PrecursorSelection;
-        public AcquisitionModesConfig AcquisitionModes;
-        public MSSettingsConfig MSSettings;
-        public SelectionStrategyConfig SelectionStrategy;
+        public MethodConfig Config { get; set; }
 
-        // === Backward-compatible accessors (not serialized) ===
-        [XmlIgnore]
-        public double Duration => GlobalParameter?.Duration ?? 90;
-
-        [XmlIgnore]
-        public MS1Parameters MS1 => MSSettings?.MS1 ?? new MS1Parameters();
-
-        [XmlIgnore]
-        public List<MS2Parameters> MS2 => MSSettings?.MS2 ?? new List<MS2Parameters>();
-
-        [XmlIgnore]
-        public List<MS3Parameters> MS3 => MSSettings?.MS3 ?? new List<MS3Parameters>();
-
-        [XmlIgnore]
-        public bool isobaricQuantification => IsActive(AcquisitionModes?.LabelingBasedQuantification?.Active);
-
-        [XmlIgnore]
-        public IDAParameters IDA { get; private set; }
-
-        private static bool IsActive(string val) =>
-            val != null && val.Equals("True", StringComparison.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// Default constructor
-        /// </summary>
         public MethodParameters()
         {
-            GlobalParameter = new GlobalParameters();
-            PrecursorSelection = new PrecursorSelectionParameters();
-            AcquisitionModes = new AcquisitionModesConfig();
-            MSSettings = new MSSettingsConfig();
+            Config = new MethodConfig();
         }
 
-        /// <summary>
-        /// Assemble IDAParameters from the new XML structure sections
-        /// </summary>
-        public void InitializeIDA()
+        public static MethodParameters Load(string path)
         {
-            IDA = new IDAParameters();
-
-            // From PrecursorSelection
-            IDA.QScoreThreshold = PrecursorSelection.QScoreThreshold;
-            IDA.TQScoreThreshold = PrecursorSelection.TQScoreThreshold;
-            IDA.MinCharge = PrecursorSelection.MinCharge;
-            IDA.MaxCharge = PrecursorSelection.MaxCharge;
-            IDA.MinMass = PrecursorSelection.MinMass;
-            IDA.MaxMass = PrecursorSelection.MaxMass;
-            IDA.RTWindow = PrecursorSelection.RTWindow;
-            IDA.Tolerances = PrecursorSelection.Tolerances;
-
-            // From AcquisitionModes - compute TargetMode from TargetingMode string
-            switch (AcquisitionModes.TargetingMode?.ToLower())
-            {
-                case "deep": IDA.TargetMode = 3; break;
-                case "exclusion": IDA.TargetMode = 2; break;
-                case "inclusion": IDA.TargetMode = 1; break;
-                default: IDA.TargetMode = 0; break;
-            }
-
-            IDA.TargetLogs = AcquisitionModes.TargetLogs ?? new List<string>();
-
-            // From TargetedInclusion
-            var incl = AcquisitionModes.TargetedInclusion;
-            if (incl != null)
-            {
-                IDA.StrictInclusion = incl.StrictInclusion;
-                IDA.TieThreshold = incl.TieThreshold;
-                IDA.InclusionList = incl.InclusionList;
-
-                var tag = incl.MS2Tagging;
-                if (tag != null)
-                {
-                    IDA.MS2Tagging = IsActive(tag.Active);
-                    IDA.ConditionalMS2 = tag.ConditionalMS2;
-                    IDA.FastaFile = tag.FastaFile;
-                    IDA.PtmList = tag.PtmList;
-                    IDA.MaxPtmCount = tag.MaxPtmCount;
-                    IDA.MinTagLength = tag.MinTagLength;
-                    IDA.MaxTagLength = tag.MaxTagLength;
-                    IDA.MaxFlankingMassDiff = tag.MaxFlankingMassDiff;
-                }
-            }
-
-            // From LabelingBasedQuantification
-            var quant = AcquisitionModes.LabelingBasedQuantification;
-            if (quant != null)
-            {
-                IDA.quantReporterMZTol = quant.ReporterMZTol;
-                IDA.quantFoldChangeThreshold = quant.FoldChangeThreshold;
-                IDA.quantOnlyOneCondition = quant.OnlyOneCondition;
-            }
-
-            // From MS3Characterization
-            var ms3 = AcquisitionModes.MS3Characterization;
-            if (ms3 != null)
-            {
-                IDA.EnableMS3 = IsActive(ms3.Active);
-                IDA.MS3Mode = ms3.MS3Mode;
-                IDA.MaxMs3PerMs2 = ms3.MaxMs3PerMs2;
-                IDA.MS3AllCharges = ms3.MS3AllCharges;
-                IDA.MS3ProteinSequence = ms3.MS3ProteinSequence;
-            }
-
-            // From Developer
-            var dev = AcquisitionModes.Developer;
-            if (dev != null)
-            {
-                var devPS = dev.PrecursorSelection;
-                if (devPS != null)
-                {
-                    IDA.UseIDScore = devPS.UseIDScore;
-                    IDA.ConsiderAllChargeStates = devPS.ConsiderAllChargeStates;
-                    IDA.HCDEnergy = devPS.HCDEnergy;
-                }
-
-                var devFaims = dev.FAIMS;
-                if (devFaims != null)
-                {
-                    IDA.MaxCVSkip = devFaims.MaxCVSkip;
-                    IDA.MassThreshold = devFaims.MassThreshold;
-                }
-            }
-
-            // From MSSettings.FAIMS
-            IDA.CVValues = MSSettings?.FAIMS?.CVValues ?? new double[] { -50.0 };
+            string json = File.ReadAllText(path);
+            var mp = new MethodParameters();
+            mp.Config = MethodConfigSerializer.Deserialize(json);
+            return mp;
         }
 
-        /// <summary>
-        /// Returns a concise multi-line summary of all method parameters for logging
-        /// </summary>
+        public string ToCppJson()
+        {
+            var c = Config;
+            int targetMode;
+            switch (c.PrecursorSelection.TargetingMode?.ToLower())
+            {
+                case "deep": targetMode = 3; break;
+                case "exclusion": targetMode = 2; break;
+                case "inclusion": targetMode = 1; break;
+                default: targetMode = 0; break;
+            }
+
+            var ms2List = c.MsSettings.MS2 ?? new List<MS2Parameters>();
+
+            var config = new JsonMethodConfig
+            {
+                deconvolution = new JsonDeconvolutionConfig
+                {
+                    score_threshold = c.Deconvolution.ScoreThreshold,
+                    tqscore_threshold = c.Deconvolution.TQScoreThreshold,
+                    min_charge = c.Deconvolution.MinCharge,
+                    max_charge = c.Deconvolution.MaxCharge,
+                    min_mass = c.Deconvolution.MinMass,
+                    max_mass = c.Deconvolution.MaxMass,
+                    tol = c.Deconvolution.Tolerances
+                },
+                precursor_selection = new JsonPrecursorSelectionConfig
+                {
+                    RT_window = c.PrecursorSelection.RTWindow,
+                    target_mode = targetMode,
+                    IDScore = c.PrecursorSelection.UseIDScore,
+                    AllCharges = c.PrecursorSelection.ConsiderAllChargeStates,
+                    MS3AllCharges = c.PrecursorSelection.MS3AllCharges,
+                    HCDEnergy = c.PrecursorSelection.HCDEnergy,
+                    strict_inclusion = c.PrecursorSelection.StrictInclusion,
+                    tie_threshold = c.PrecursorSelection.TieThreshold
+                },
+                tagging = new JsonTaggingConfig
+                {
+                    min_tag_length = c.Tagging.MinTagLength,
+                    max_tag_length = c.Tagging.MaxTagLength,
+                    max_ptm_count = c.Tagging.MaxPtmCount,
+                    max_flanking_mass_diff = c.Tagging.MaxFlankingMassDiff
+                },
+                quantification = new JsonQuantificationConfig
+                {
+                    enabled = c.Quantification.Active,
+                    reporter_mz_tol = c.Quantification.ReporterMZTol,
+                    fold_change_threshold = c.Quantification.FoldChangeThreshold
+                },
+                faims = new JsonFaimsConfig
+                {
+                    cv_values = c.Faims.CVValues,
+                    max_cv_skip = c.Faims.MaxCVSkip,
+                    cv_precursor_threshold = c.Faims.MassThreshold
+                },
+                ms_settings = new JsonMsSettingsConfig
+                {
+                    ms1 = new JsonMs1Config
+                    {
+                        analyzer = c.MsSettings.MS1.Analyzer ?? "",
+                        first_mass = c.MsSettings.MS1.FirstMass,
+                        last_mass = c.MsSettings.MS1.LastMass,
+                        resolution = c.MsSettings.MS1.OrbitrapResolution,
+                        agc_target = c.MsSettings.MS1.AGCTarget,
+                        max_it = c.MsSettings.MS1.MaxIT
+                    },
+                    ms2 = ms2List.Select(m => new JsonMs2Config
+                    {
+                        analyzer = m.Analyzer ?? "",
+                        activation = m.Activation ?? "",
+                        collision_energy = m.CollisionEnergy,
+                        resolution = m.OrbitrapResolution
+                    }).ToArray()
+                },
+                scheduling = new JsonSchedulingConfig
+                {
+                    cycle_time = new JsonCycleTimeConfig
+                    {
+                        enabled = c.Scheduling.CycleTimeEnabled,
+                        value_ms = c.Scheduling.CycleTimeMs
+                    },
+                    scan_timeout = new JsonScanTimeoutConfig
+                    {
+                        enabled = c.Scheduling.TimeoutEnabled,
+                        value_ms = c.Scheduling.TimeoutMs
+                    },
+                    agc_interval_seconds = 30
+                },
+                exploration = new JsonExplorationConfig
+                {
+                    enabled = false,
+                    max_depth = 1,
+                    max_variants = 5
+                },
+                selection_strategy = BuildSelectionStrategy(),
+                ms3 = new JsonMs3Config
+                {
+                    enabled = c.Ms3.Active,
+                    mode = c.Ms3.Mode,
+                    max_per_ms2 = c.Ms3.MaxPerMs2,
+                    protein_sequence = c.Ms3.ProteinSequence ?? ""
+                },
+                conditional_ms2 = c.Tagging.ConditionalMS2,
+                files = new JsonFilesConfig
+                {
+                    target_logs = (c.Files.TargetLogs ?? new List<string>()).ToArray(),
+                    fasta = c.Files.FastaFile ?? "",
+                    inclusion_list = c.Files.InclusionList ?? "",
+                    ptm_list = c.Files.PtmList ?? ""
+                }
+            };
+
+            return new JavaScriptSerializer().Serialize(config);
+        }
+
+        private JsonSelectionStrategyConfig BuildSelectionStrategy()
+        {
+            var ss = Config.SelectionStrategy;
+            if (ss == null)
+                throw new InvalidOperationException(
+                    "Method config must contain selection_strategy block.");
+
+            int ms1Max = ss.MS1?.MaxPrecursors ?? 10;
+            int ms2Max = ss.MS2?.MaxFragments ?? 3;
+            int ms3Max = ss.MS3?.MaxFragments ?? 3;
+
+            var result = new JsonSelectionStrategyConfig
+            {
+                ms1 = new JsonMsLevelConfig
+                {
+                    selection = (ss.MS1?.Selection ?? "qscore").ToLower(),
+                    max_precursors = ms1Max,
+                    max_fragments = ms1Max
+                },
+                ms2 = new JsonMsLevelConfig
+                {
+                    selection = (ss.MS2?.Selection ?? "intensity").ToLower(),
+                    max_precursors = ms2Max,
+                    max_fragments = ms2Max
+                },
+                ms3 = new JsonMsLevelConfig
+                {
+                    selection = (ss.MS3?.Selection ?? "none").ToLower(),
+                    max_precursors = ms3Max,
+                    max_fragments = ms3Max
+                }
+            };
+
+            var defaultExpl = new JsonExplorationBlockConfig
+            {
+                metric = "none", ce_min = 20, ce_max = 40, ce_step = 5, activation = "HCD"
+            };
+            result.ms1.exploration = defaultExpl;
+            result.ms2.exploration = defaultExpl;
+            result.ms3.exploration = defaultExpl;
+
+            if (ss.MS2?.Exploration != null && ss.MS2.Exploration.Metric != "none")
+            {
+                result.ms2.exploration = new JsonExplorationBlockConfig
+                {
+                    metric = ss.MS2.Exploration.Metric.ToLower(),
+                    ce_min = ss.MS2.Exploration.CEMin,
+                    ce_max = ss.MS2.Exploration.CEMax,
+                    ce_step = ss.MS2.Exploration.CEStep,
+                    activation = ss.MS2.Exploration.Activation ?? "HCD"
+                };
+            }
+
+            if (ss.MS3?.Exploration != null && ss.MS3.Exploration.Metric != "none")
+            {
+                result.ms3.exploration = new JsonExplorationBlockConfig
+                {
+                    metric = ss.MS3.Exploration.Metric.ToLower(),
+                    ce_min = ss.MS3.Exploration.CEMin,
+                    ce_max = ss.MS3.Exploration.CEMax,
+                    ce_step = ss.MS3.Exploration.CEStep,
+                    activation = ss.MS3.Exploration.Activation ?? "CID"
+                };
+            }
+
+            return result;
+        }
+
         public string ToLogString()
         {
             var sb = new StringBuilder();
             sb.AppendLine("--- Method Parameters ---");
-
-            // Global
-            sb.AppendFormat("Global: Duration={0}min\n", Duration);
-
-            // Precursor selection
-            var ida = IDA;
-            sb.AppendFormat("Precursor: QScore>={0}, TQScore>={1}, Charge=[{2},{3}], Mass=[{4},{5}], RTWindow={6}s, Tol=[{7}]\n",
-                ida.QScoreThreshold, ida.TQScoreThreshold, ida.MinCharge, ida.MaxCharge,
-                ida.MinMass, ida.MaxMass, ida.RTWindow,
-                String.Join(",", ida.Tolerances));
-
-            // Targeting mode
-            var targetMode = AcquisitionModes?.TargetingMode ?? "None";
-            sb.AppendFormat("Targeting: {0}\n", targetMode);
-
-            // Inclusion
-            sb.AppendFormat("Inclusion: Strict={0}, TieThreshold={1}\n", ida.StrictInclusion, ida.TieThreshold);
-
-            // MS2 Tagging
-            if (ida.MS2Tagging)
-                sb.AppendFormat("MS2Tagging: ConditionalMS2={0}, Fasta={1}, Tags=[{2},{3}], MaxPtm={4}\n",
-                    ida.ConditionalMS2, ida.FastaFile ?? "", ida.MinTagLength, ida.MaxTagLength, ida.MaxPtmCount);
+            var c = Config;
+            sb.AppendFormat("Global: Duration={0}min\n", c.Global.Duration);
+            sb.AppendFormat("Deconv: QScore>={0}, TQScore>={1}, Charge=[{2},{3}], Mass=[{4},{5}], Tol=[{6}]\n",
+                c.Deconvolution.ScoreThreshold, c.Deconvolution.TQScoreThreshold,
+                c.Deconvolution.MinCharge, c.Deconvolution.MaxCharge,
+                c.Deconvolution.MinMass, c.Deconvolution.MaxMass,
+                String.Join(",", c.Deconvolution.Tolerances));
+            sb.AppendFormat("Precursor: RTWindow={0}s, TargetMode={1}\n",
+                c.PrecursorSelection.RTWindow, c.PrecursorSelection.TargetingMode);
+            sb.AppendFormat("Inclusion: Strict={0}, TieThreshold={1}\n",
+                c.PrecursorSelection.StrictInclusion, c.PrecursorSelection.TieThreshold);
+            if (c.Tagging.Active)
+                sb.AppendFormat("Tagging: ConditionalMS2={0}, Tags=[{1},{2}], MaxPtm={3}\n",
+                    c.Tagging.ConditionalMS2, c.Tagging.MinTagLength, c.Tagging.MaxTagLength, c.Tagging.MaxPtmCount);
             else
-                sb.AppendLine("MS2Tagging: Off");
-
-            // Quant
-            if (isobaricQuantification)
-                sb.AppendFormat("Quant: MZTol={0}, FoldChange={1}, OneCondition={2}\n",
-                    ida.quantReporterMZTol, ida.quantFoldChangeThreshold, ida.quantOnlyOneCondition);
+                sb.AppendLine("Tagging: Off");
+            if (c.Quantification.Active)
+                sb.AppendFormat("Quant: MZTol={0}, FoldChange={1}\n",
+                    c.Quantification.ReporterMZTol, c.Quantification.FoldChangeThreshold);
             else
                 sb.AppendLine("Quant: Off");
-
-            // MS3
-            if (ida.EnableMS3)
-                sb.AppendFormat("MS3: Mode={0}, MaxPerMS2={1}, AllCharges={2}, Seq={3}\n",
-                    ida.MS3Mode, ida.MaxMs3PerMs2, ida.MS3AllCharges, ida.MS3ProteinSequence ?? "");
+            if (c.Ms3.Active)
+                sb.AppendFormat("MS3: Mode={0}, MaxPerMS2={1}, AllCharges={2}\n",
+                    c.Ms3.Mode, c.Ms3.MaxPerMs2, c.Ms3.AllCharges);
             else
                 sb.AppendLine("MS3: Off");
-
-            // Developer
-            sb.AppendFormat("Developer: IDScore={0}, AllCharges={1}, HCDEnergy={2}, MaxCVSkip={3}, MassThreshold={4}\n",
-                ida.UseIDScore, ida.ConsiderAllChargeStates, ida.HCDEnergy, ida.MaxCVSkip, ida.MassThreshold);
-
-            // MS settings
-            sb.AppendFormat("MS: CV=[{0}]\n",
-                String.Join(",", ida.CVValues));
-
-            // MS1
-            var ms1 = MS1;
-            sb.AppendFormat("MS1: {0} {1}k, mz=[{2},{3}], AGC={4}, MaxIT={5}ms, uScans={6}, {7}, RF={8}, sCID={9}\n",
+            sb.AppendFormat("Developer: IDScore={0}, AllCharges={1}, HCDEnergy={2}, MaxCVSkip={3}\n",
+                c.PrecursorSelection.UseIDScore, c.PrecursorSelection.ConsiderAllChargeStates,
+                c.PrecursorSelection.HCDEnergy, c.Faims.MaxCVSkip);
+            sb.AppendFormat("FAIMS: CV=[{0}]\n", String.Join(",", c.Faims.CVValues));
+            var ms1 = c.MsSettings.MS1;
+            sb.AppendFormat("MS1: {0} {1}k, mz=[{2},{3}], AGC={4}, MaxIT={5}ms\n",
                 ms1.Analyzer, ms1.OrbitrapResolution / 1000, ms1.FirstMass, ms1.LastMass,
-                ms1.AGCTarget, ms1.MaxIT, ms1.Microscans, ms1.DataType, ms1.RFLens, ms1.SourceCID);
-
-            // MS2 entries
-            for (int i = 0; i < MS2.Count; i++)
+                ms1.AGCTarget, ms1.MaxIT);
+            var ms2List = c.MsSettings.MS2 ?? new List<MS2Parameters>();
+            for (int i = 0; i < ms2List.Count; i++)
             {
-                var m = MS2[i];
+                var m = ms2List[i];
                 var activation = m.Activation ?? "";
                 if (activation.Equals("ETD", StringComparison.OrdinalIgnoreCase))
-                    sb.AppendFormat("MS2[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} RT={10}ms\n",
-                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
-                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.ReactionTime);
+                    sb.AppendFormat("MS2[{0}]: {1} {2}k, {3} RT={4}ms\n",
+                        i, m.Analyzer, m.OrbitrapResolution / 1000, activation, m.ReactionTime);
                 else
-                    sb.AppendFormat("MS2[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} CE={10}\n",
-                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
-                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.CollisionEnergy);
+                    sb.AppendFormat("MS2[{0}]: {1} {2}k, {3} CE={4}\n",
+                        i, m.Analyzer, m.OrbitrapResolution / 1000, activation, m.CollisionEnergy);
             }
-
-            // MS3 entries
-            for (int i = 0; i < MS3.Count; i++)
-            {
-                var m = MS3[i];
-                var activation = m.Activation ?? "";
-                if (activation.Equals("ETD", StringComparison.OrdinalIgnoreCase))
-                    sb.AppendFormat("MS3[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} RT={10}ms\n",
-                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
-                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.ReactionTime);
-                else
-                    sb.AppendFormat("MS3[{0}]: {1} {2}k, mz=[{3},{4}], AGC={5}, MaxIT={6}ms, uScans={7}, {8}, {9} CE={10}\n",
-                        i, m.Analyzer, m.OrbitrapResolution / 1000, m.FirstMass, m.LastMass,
-                        m.AGCTarget, m.MaxIT, m.Microscans, m.DataType, activation, m.CollisionEnergy);
-            }
-
             return sb.ToString().TrimEnd();
-        }
-
-        /// <summary>
-        /// Serialize <see cref="MethodParameters"/> to an XML file on disk
-        /// </summary>
-        /// <param name="path">Path to write the result</param>
-        public void Save(string path)
-        {
-            using (StreamWriter output = new StreamWriter(path))
-            {
-                XmlSerializer serializer = new XmlSerializer(typeof(MethodParameters));
-                serializer.Serialize(output, this);
-            }
-        }
-
-        /// <summary>
-        /// Deserialize <see cref="MethodParameters"/> from an XML file on disk
-        /// </summary>
-        /// <param name="path">Path to read from</param>
-        /// <returns></returns>
-        public static MethodParameters Load(string path)
-        {
-            using (StreamReader input = new StreamReader(path))
-            {
-                XmlSerializer serializer = new XmlSerializer(typeof(MethodParameters));
-                var mp = (MethodParameters)serializer.Deserialize(input);
-                mp.InitializeIDA();
-                return mp;
-            }
         }
     }
 }

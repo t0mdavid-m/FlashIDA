@@ -100,7 +100,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT04_EmptySpectrum_ZeroCommands()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var scan = MockMsScan.EmptyMS1();
                 harness.PushScan(scan);
@@ -115,7 +115,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT05_NoiseOnlySpectrum_ZeroCommands()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var scan = MockMsScan.NoiseOnlyMS1();
                 harness.PushScan(scan);
@@ -130,7 +130,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT03_StandardDDA_AllOutputsAreMSn()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
@@ -147,7 +147,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT01_StandardDDA_PrecursorMasses()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
@@ -160,8 +160,8 @@ namespace Flash.Tests.AcquisitionLoop
                     Assert.That(r.PrecursorMz, Is.GreaterThan(0),
                         "Precursor m/z must be positive");
                     Assert.That(r.PrecursorMz, Is.InRange(
-                        harness.MethodParams.MS1.FirstMass,
-                        harness.MethodParams.MS1.LastMass),
+                        harness.MethodParams.Config.MsSettings.MS1.FirstMass,
+                        harness.MethodParams.Config.MsSettings.MS1.LastMass),
                         "Precursor m/z should be within MS1 scan range");
                 }
             }
@@ -170,7 +170,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT02_StandardDDA_CollisionEnergiesMatchConfig()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
@@ -178,7 +178,7 @@ namespace Flash.Tests.AcquisitionLoop
                     "Deconvolution must find at least one precursor (was Assume; promoted to Assert since golden baselines exist)");
 
                 // All collision energies should match the configured MS2 parameters
-                var configuredEnergies = harness.MethodParams.MS2
+                var configuredEnergies = harness.MethodParams.Config.MsSettings.MS2
                     .Select(p => p.CollisionEnergy).ToList();
 
                 foreach (var r in results)
@@ -201,7 +201,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT06_StandardDDA_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 Assume.That(results.Count, Is.GreaterThan(0),
@@ -214,7 +214,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT07_TrackingIDs_UniqueAcross1000Scans()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var allDescriptions = new HashSet<string>();
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
@@ -252,14 +252,14 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT08_MS2Count_RespectsMaxMs2CountPerMs1()
         {
-            using (var harness = CreateHarness("method_default_topn5.xml"))
+            using (var harness = CreateHarness("method_default_topn5.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 Assert.That(results.Count, Is.GreaterThan(0),
                     "TopN=5 must produce at least one MS2 command from smoke spectrum");
 
-                int maxPerMs1 = harness.MethodParams.SelectionStrategy.MS1.MaxPrecursors;
-                int ms2Types = harness.MethodParams.MS2.Count;
+                int maxPerMs1 = harness.MethodParams.Config.SelectionStrategy.MS1.MaxPrecursors;
+                int ms2Types = harness.MethodParams.Config.MsSettings.MS2.Count;
 
                 Assert.AreEqual(5, maxPerMs1,
                     "Config should have MaxPrecursors=5");
@@ -279,9 +279,9 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT09_FAIMS_CVCycling_3CVsInOrder()
         {
-            using (var harness = CreateHarness("method_faims_3cv.xml", forceFaims: true))
+            using (var harness = CreateHarness("method_faims_3cv.json", forceFaims: true))
             {
-                double[] expectedCVs = harness.MethodParams.IDA.CVValues;
+                double[] expectedCVs = harness.MethodParams.Config.Faims.CVValues;
                 Assert.AreEqual(5, expectedCVs.Length, "Config should have 5 CVs");
 
                 // Load real FAIMS spectra with per-CV peak data and CV annotations
@@ -312,9 +312,9 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT10_FAIMS_MS2CarriesParentCV()
         {
-            using (var harness = CreateHarness("method_faims_3cv.xml", forceFaims: true))
+            using (var harness = CreateHarness("method_faims_3cv.json", forceFaims: true))
             {
-                double[] configuredCVs = harness.MethodParams.IDA.CVValues;
+                double[] configuredCVs = harness.MethodParams.Config.Faims.CVValues;
 
                 // Load real FAIMS spectra with per-CV peak data and CV annotations
                 var faimsScans = MockMsScan.FromTsvAllScans(
@@ -344,7 +344,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT11_NonFAIMS_CVIsZero()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
@@ -369,14 +369,14 @@ namespace Flash.Tests.AcquisitionLoop
             int standardCount, deepCount;
 
             // Run standard DDA with TopN=5
-            using (var harness = CreateHarness("method_default_topn5.xml"))
+            using (var harness = CreateHarness("method_default_topn5.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 standardCount = results.Count;
             }
 
             // Run deep mode with TopN=5
-            using (var harness = CreateHarness("method_deep.xml"))
+            using (var harness = CreateHarness("method_deep.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 deepCount = results.Count;
@@ -395,7 +395,7 @@ namespace Flash.Tests.AcquisitionLoop
             // Non-strict inclusion: targets get priority but non-targets can fill remaining slots.
             // With this test spectrum, no masses match the inclusion list (10k, 15k, 20k, 25k, 30k),
             // so all results are non-target fill-ins. Verify it runs and produces results.
-            using (var harness = CreateHarness("method_inclusion.xml"))
+            using (var harness = CreateHarness("method_inclusion.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
@@ -408,7 +408,7 @@ namespace Flash.Tests.AcquisitionLoop
             // Strict inclusion: only inclusion-list masses are selected.
             // With this test spectrum, no masses match the inclusion list,
             // so strict mode should produce zero results.
-            using (var harness = CreateHarness("method_inclusion_strict.xml"))
+            using (var harness = CreateHarness("method_inclusion_strict.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
@@ -425,12 +425,12 @@ namespace Flash.Tests.AcquisitionLoop
             List<ScanCommandRecord> standardResults;
             List<ScanCommandRecord> exclusionResults;
 
-            using (var stdHarness = CreateHarness("method_default.xml"))
+            using (var stdHarness = CreateHarness("method_default.json"))
             {
                 standardResults = PushSmokeSpectrumAndCollect(stdHarness);
             }
 
-            using (var exclHarness = CreateHarness("method_exclusion.xml"))
+            using (var exclHarness = CreateHarness("method_exclusion.json"))
             {
                 exclusionResults = PushSmokeSpectrumAndCollect(exclHarness);
             }
@@ -459,7 +459,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT15_Inclusion_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_inclusion.xml"))
+            using (var harness = CreateHarness("method_inclusion.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 AssertGolden("continuity_inclusion.json", results);
@@ -469,7 +469,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT16_Exclusion_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_exclusion.xml"))
+            using (var harness = CreateHarness("method_exclusion.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 AssertGolden("continuity_exclusion.json", results);
@@ -483,7 +483,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT17_TagTargeting_TriggersFollowUpMS2()
         {
-            using (var harness = CreateHarness("method_tag_targeting.xml"))
+            using (var harness = CreateHarness("method_tag_targeting.json"))
             {
                 // Push MS1 to get initial MS2 commands
                 var ms1Results = PushSmokeSpectrumAndCollect(harness);
@@ -500,7 +500,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT18_ConditionalMS2_FollowUpOnlyWhenTagsDetected()
         {
-            using (var harness = CreateHarness("method_tag_targeting.xml"))
+            using (var harness = CreateHarness("method_tag_targeting.json"))
             {
                 // Push MS1 scan
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
@@ -516,10 +516,10 @@ namespace Flash.Tests.AcquisitionLoop
                 // (the conditional mode sends only the first MS2 parameter set)
                 Assume.That(ms2Commands.Count, Is.GreaterThan(0),
                     "Conditional MS2 test requires MS2 commands from MS1 processing");
-                Assume.That(harness.MethodParams.IDA.ConditionalMS2, Is.True,
+                Assume.That(harness.MethodParams.Config.Tagging.ConditionalMS2, Is.True,
                     "Config must have ConditionalMS2 enabled for this test");
 
-                int maxPrecursors = harness.MethodParams.SelectionStrategy.MS1.MaxPrecursors;
+                int maxPrecursors = harness.MethodParams.Config.SelectionStrategy.MS1.MaxPrecursors;
                 Assert.That(ms2Commands.Count, Is.LessThanOrEqualTo(maxPrecursors),
                     "Conditional MS2: initial batch should have at most 1 scan per precursor");
             }
@@ -528,7 +528,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT19_TagTargeting_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_tag_targeting.xml"))
+            using (var harness = CreateHarness("method_tag_targeting.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 AssertGolden("continuity_tag_targeting.json", results);
@@ -541,11 +541,11 @@ namespace Flash.Tests.AcquisitionLoop
             // Quant mode requires exactly 2 MS2 parameter sets
             Assert.DoesNotThrow(() =>
             {
-                using (var harness = CreateHarness("method_quant.xml"))
+                using (var harness = CreateHarness("method_quant.json"))
                 {
                     Assert.IsNotNull(harness.Processor,
                         "Quant processor should be created successfully");
-                    Assert.AreEqual(2, harness.MethodParams.MS2.Count,
+                    Assert.AreEqual(2, harness.MethodParams.Config.MsSettings.MS2.Count,
                         "Quant config should have exactly 2 MS2 parameter sets");
                 }
             }, "Quant mode construction should not throw");
@@ -554,7 +554,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT21_Quant_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_quant.xml"))
+            using (var harness = CreateHarness("method_quant.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
                 AssertGolden("continuity_quant.json", results);
@@ -568,7 +568,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT22_MS3Enabled_MsnLevel3RecordsExist()
         {
-            using (var harness = CreateHarness("method_ms3_mode1.xml"))
+            using (var harness = CreateHarness("method_ms3_mode1.json"))
             {
                 // Push MS1 to get MS2 commands
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
@@ -614,7 +614,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT23_MS3Disabled_NoMsnLevel3()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
@@ -627,7 +627,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT24_MS3Mode1_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_ms3_mode1.xml"))
+            using (var harness = CreateHarness("method_ms3_mode1.json"))
             {
                 // Push MS1
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
@@ -658,7 +658,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT25_MS3Mode2_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_ms3_mode2.xml"))
+            using (var harness = CreateHarness("method_ms3_mode2.json"))
             {
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
                 harness.PushScan(smokeScan);
@@ -687,7 +687,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT26_MS3Mode3_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_ms3_mode3.xml"))
+            using (var harness = CreateHarness("method_ms3_mode3.json"))
             {
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
                 harness.PushScan(smokeScan);
@@ -720,11 +720,11 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT27_FAIMSAdaptiveSkip_LowPrecursorCVLessFrequent()
         {
-            using (var harness = CreateHarness("method_faims_skip.xml", forceFaims: true))
+            using (var harness = CreateHarness("method_faims_skip.json", forceFaims: true))
             {
-                double[] configuredCVs = harness.MethodParams.IDA.CVValues;
+                double[] configuredCVs = harness.MethodParams.Config.Faims.CVValues;
                 Assert.AreEqual(5, configuredCVs.Length, "Config should have 5 CVs");
-                Assert.That(harness.MethodParams.IDA.MaxCVSkip, Is.GreaterThan(0),
+                Assert.That(harness.MethodParams.Config.Faims.MaxCVSkip, Is.GreaterThan(0),
                     "MaxCVSkip should be configured for adaptive skip");
 
                 // Load real FAIMS spectra with per-CV peak data (distinct precursor counts per CV)
@@ -755,7 +755,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT28_FAIMSSkip_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_faims_skip.xml", forceFaims: true))
+            using (var harness = CreateHarness("method_faims_skip.json", forceFaims: true))
             {
                 // Load real FAIMS spectra with per-CV peak data and CV annotations
                 var faimsScans = MockMsScan.FromTsvAllScans(
@@ -837,7 +837,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT33_TagTargeting_MS2Return()
         {
-            using (var harness = CreateHarness("method_tag_targeting.xml"))
+            using (var harness = CreateHarness("method_tag_targeting.json"))
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
@@ -859,7 +859,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT34_ConditionalMS2_FollowUp()
         {
-            using (var harness = CreateHarness("method_tag_targeting.xml"))
+            using (var harness = CreateHarness("method_tag_targeting.json"))
             {
                 // Step 1: push MS1 only, before any MS2 return
                 var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
@@ -915,7 +915,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT35_MS3Mode1_MS2ReturnPipeline()
         {
-            using (var harness = CreateHarness("method_ms3_mode1_hcd.xml"))
+            using (var harness = CreateHarness("method_ms3_mode1_hcd.json"))
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
@@ -934,7 +934,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT36_MS3Mode2_MS2ReturnPipeline()
         {
-            using (var harness = CreateHarness("method_ms3_mode2_hcd.xml"))
+            using (var harness = CreateHarness("method_ms3_mode2_hcd.json"))
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
@@ -953,7 +953,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT37_MS3Mode3_MS2ReturnPipeline()
         {
-            using (var harness = CreateHarness("method_ms3_mode3_hcd.xml"))
+            using (var harness = CreateHarness("method_ms3_mode3_hcd.json"))
             {
                 var results = PushMS1ThenMS2Return(
                     harness,
@@ -972,7 +972,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT38_QuantMode_MS2Return()
         {
-            using (var harness = CreateHarness("method_quant.xml"))
+            using (var harness = CreateHarness("method_quant.json"))
             {
                 // Push all MS1 scans to get initial quant MS2 commands
                 var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
@@ -1014,7 +1014,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT39_Inclusion_MatchingTargets()
         {
-            using (var harness = CreateHarness("method_inclusion.xml"))
+            using (var harness = CreateHarness("method_inclusion.json"))
             {
                 var results = PushStandardSpectrumAndCollect(harness);
 
@@ -1030,7 +1030,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT40_StrictInclusion_Matching()
         {
-            using (var harness = CreateHarness("method_inclusion_strict.xml"))
+            using (var harness = CreateHarness("method_inclusion_strict.json"))
             {
                 var results = PushStandardSpectrumAndCollect(harness);
 
@@ -1043,7 +1043,7 @@ namespace Flash.Tests.AcquisitionLoop
                     "Strict inclusion should find at least one matching target in ms1_standard");
 
                 Assert.That(results.Count, Is.LessThanOrEqualTo(
-                    5 * harness.MethodParams.MS2.Count), // at most 5 targets * MS2 types
+                    5 * harness.MethodParams.Config.MsSettings.MS2.Count), // at most 5 targets * MS2 types
                     "Strict inclusion should produce at most target_count * MS2_types results");
 
                 Assert.IsTrue(results.All(r => r.PrecursorMz > 0),
@@ -1058,7 +1058,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_AL_CT41_StandardDDA_RichSpectrum()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushStandardSpectrumAndCollect(harness);
 
@@ -1080,7 +1080,7 @@ namespace Flash.Tests.AcquisitionLoop
             // Standard DDA with TopN=5 as baseline (same TopN as deep mode config)
             int standardCount;
             List<double> standardMasses;
-            using (var harness = CreateHarness("method_default_topn5.xml"))
+            using (var harness = CreateHarness("method_default_topn5.json"))
             {
                 var results = PushStandardSpectrumAndCollect(harness);
                 standardCount = results.Count;
@@ -1093,7 +1093,7 @@ namespace Flash.Tests.AcquisitionLoop
             // Deep mode with target log — previously seen masses should be deprioritized
             int deepCount;
             List<double> deepMasses;
-            using (var harness = CreateHarness("method_deep.xml"))
+            using (var harness = CreateHarness("method_deep.json"))
             {
                 var results = PushStandardSpectrumAndCollect(harness);
                 deepCount = results.Count;
@@ -1121,10 +1121,10 @@ namespace Flash.Tests.AcquisitionLoop
         public void P3_AL_CT31_StressTest_1000ScansSequential()
         {
             string configsDir = Path.Combine(TestDir, "..", "test-data", "configs");
-            string configPath = Path.Combine(configsDir, "method_default.xml");
+            string configPath = Path.Combine(configsDir, "method_default.json");
             if (!File.Exists(configPath))
             {
-                Assert.Ignore("method_default.xml not found");
+                Assert.Ignore("method_default.json not found");
                 return;
             }
 
@@ -1167,10 +1167,10 @@ namespace Flash.Tests.AcquisitionLoop
         public void P3_AL_CT32_StressTest_ConcurrentProcessing()
         {
             string configsDir = Path.Combine(TestDir, "..", "test-data", "configs");
-            string configPath = Path.Combine(configsDir, "method_default.xml");
+            string configPath = Path.Combine(configsDir, "method_default.json");
             if (!File.Exists(configPath))
             {
-                Assert.Ignore("method_default.xml not found");
+                Assert.Ignore("method_default.json not found");
                 return;
             }
 
@@ -1237,7 +1237,7 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P4_I06_ScoringFields_NonZeroForMS2Commands()
         {
-            using (var harness = CreateHarness("method_default.xml"))
+            using (var harness = CreateHarness("method_default.json"))
             {
                 // Push all 50 MS1 scans from ms1_standard.txt for engine state accumulation
                 var allScans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));

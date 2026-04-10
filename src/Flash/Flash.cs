@@ -95,7 +95,7 @@ namespace Flash
                 { "v|version", "Show version information", _ => showVersion = true },
                 { "o|nocc", "Ignore contact closure. Default: false",  _ => args.OverrideCC = true },
                 { "t|test", "Run in test mode without connection to the instrument. Default: false", _ => args.TestMode = true },
-                { "m|method=", "Location of method file. Default: method.xml in the program folder", v => args.MethodPath = v },
+                { "m|method=", "Location of method file. Default: method.json in the program folder", v => args.MethodPath = v },
                 { "r|rawname=", "The name or path to raw file, that will be used to name the log files. If not specified timestamp will be used", v => args.Rename = v }
             };
 
@@ -132,7 +132,7 @@ namespace Flash
 
             if (args.MethodPath == null) //no method file provided
             {
-                args.MethodPath = Path.Combine(selfLocation, "method.xml");
+                args.MethodPath = Path.Combine(selfLocation, "method.json");
             }
 
             if (!File.Exists(args.MethodPath))
@@ -313,7 +313,7 @@ namespace Flash
                 msscans.MsScanArrived += ProcessSpectrum;
 
                 //start method
-                duration = new Timer(methodParams.Duration * 60000); //Timer acepts milliseconds, but the duration is in minutes
+                duration = new Timer(methodParams.Config.Global.Duration * 60000); //Timer acepts milliseconds, but the duration is in minutes
                 duration.Elapsed += StopExecution; //run StopExecution when the time is up
                 duration.AutoReset = false;
                 duration.Start();
@@ -326,8 +326,8 @@ namespace Flash
                         new ScanParameters
                         {
                             Analyzer = "IonTrap",
-                            FirstMass = new double[] { methodParams.MS1.FirstMass },
-                            LastMass = new double[] { methodParams.MS1.LastMass },
+                            FirstMass = new double[] { methodParams.Config.MsSettings.MS1.FirstMass },
+                            LastMass = new double[] { methodParams.Config.MsSettings.MS1.LastMass },
                             ScanRate = "Turbo",
                             AGCTarget = 30000,
                             MaxIT = 1,
@@ -365,7 +365,7 @@ namespace Flash
             msscans.MsScanArrived += ProcessSpectrum;
 
             //start method
-            duration = new Timer(methodParams.Duration * 60000);
+            duration = new Timer(methodParams.Config.Global.Duration * 60000);
             duration.Elapsed += StopExecution;
             duration.AutoReset = false;
             duration.Start();
@@ -383,29 +383,6 @@ namespace Flash
             {
                 log.Error(String.Format("First magic scan failed: {0}\n{1}", ex.Message, ex.StackTrace));
             }
-        }
-
-        /// <summary>
-        /// Handler for CanAcceptNextCustomScan event
-        /// </summary>
-        /// <remarks>
-        /// Never happens in the current version of API (3.4), might be fixed in 3.5
-        /// </remarks>
-        private static void CustomScanListner(object sender, EventArgs e)
-        {
-            // Instrument requested a scan — send a default MS1
-            SendCustomScan(scanFactory.CreateFusionCustomScan(
-                new ScanParameters
-                {
-                    Analyzer = methodParams.MS1.Analyzer,
-                    FirstMass = new double[] { methodParams.MS1.FirstMass },
-                    LastMass = new double[] { methodParams.MS1.LastMass },
-                    OrbitrapResolution = methodParams.MS1.OrbitrapResolution,
-                    AGCTarget = methodParams.MS1.AGCTarget,
-                    MaxIT = methodParams.MS1.MaxIT,
-                    DataType = methodParams.MS1.DataType,
-                    ScanType = "Full",
-                }, delay: 3));
         }
 
         /// <summary>

@@ -114,7 +114,7 @@ namespace Flash.IDA
         /// <param name="mp">Full method parameters — serialized to JSON for C++ engine</param>
         public FLASHIdaWrapper(MethodParameters mp)
         {
-            string arg = mp.IDA.ToJSON(mp);
+            string arg = mp.ToCppJson();
             m_pNativeObject = CreateFLASHIda(arg);
         }
 
@@ -378,14 +378,14 @@ namespace Flash.IDA
         /// Test harness entry point for offline deconvolution.
         /// </summary>
         /// <remarks>
-        /// Usage: Flash.exe input_file output_file method.xml [ms2_spectrum_file]
+        /// Usage: Flash.exe input_file output_file method.json [ms2_spectrum_file]
         /// </remarks>
         /// <param name="args">Command line arguments</param>
         static public void Main(string[] args)
         {
             if (args.Length < 3)
             {
-                Console.WriteLine("Usage: input_file output_file method.xml [ms2_spectrum_file]");
+                Console.WriteLine("Usage: input_file output_file method.json [ms2_spectrum_file]");
                 Environment.Exit(1);
             }
 

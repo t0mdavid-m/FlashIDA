@@ -25,7 +25,7 @@ namespace Flash.Tests
             Path.Combine(TestDataDir, "spectra", "ms1_smoke_test.txt");
 
         private static readonly string DefaultMethodPath =
-            Path.Combine(TestDataDir, "configs", "method_default.xml");
+            Path.Combine(TestDataDir, "configs", "method_default.json");
 
         // P0-U01: Flash.sln compiles without error.
         // This test is validated by the fact that this assembly was compiled.

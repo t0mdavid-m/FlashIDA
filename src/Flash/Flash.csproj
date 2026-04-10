@@ -128,8 +128,8 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="etc\method.xml">
-      <Link>method.xml</Link>
+    <None Include="etc\method.json">
+      <Link>method.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="..\..\dll\OpenMS.dll">

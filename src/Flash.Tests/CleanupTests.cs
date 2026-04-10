@@ -64,21 +64,21 @@ namespace Flash.Tests
         }
 
         /// <summary>
-        /// P8-U03: MethodDocGenerator produces correct output for IDAParameters.
+        /// P8-U03: MethodDocGenerator produces correct output for MethodConfig.
         /// Verifies the reflection utility reads [Description] attributes.
         /// </summary>
         [Test]
         public void P8_U03_MethodDocGeneratorProducesOutput()
         {
-            string output = MethodDocGenerator.Generate(typeof(IDAParameters));
+            string output = MethodDocGenerator.Generate(typeof(Flash.MethodConfig));
 
             Assert.IsNotEmpty(output, "MethodDocGenerator returned empty string");
-            Assert.That(output, Does.Contain("QScoreThreshold"),
-                "Output should contain QScoreThreshold");
-            Assert.That(output, Does.Contain("MinCharge"),
-                "Output should contain MinCharge");
-            Assert.That(output, Does.Contain("HCDEnergy"),
-                "Output should contain HCDEnergy");
+            Assert.That(output, Does.Contain("score_threshold"),
+                "Output should contain score_threshold");
+            Assert.That(output, Does.Contain("min_charge"),
+                "Output should contain min_charge");
+            Assert.That(output, Does.Contain("hcd_energy"),
+                "Output should contain hcd_energy");
         }
     }
 }

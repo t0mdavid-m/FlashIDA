@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using Flash;
@@ -96,23 +97,23 @@ namespace Flash.Tests
                 "CreateFLASHIda should return null for legacy config after Phase 8.");
         }
 
-        // P1-I03: CreateFLASHIda with JSON from method_json_roundtrip.xml (non-default values)
+        // P1-I03: CreateFLASHIda with JSON from method_json_roundtrip.json (non-default values)
         [Test]
         [Category("Tier2")]
         public void P1_I03_CreateFLASHIda_RoundtripJson_DoesNotCrash()
         {
             string configsDir = Path.Combine(
                 TestContext.CurrentContext.TestDirectory, "..", "test-data", "configs");
-            string roundtripPath = Path.Combine(configsDir, "method_json_roundtrip.xml");
+            string roundtripPath = Path.Combine(configsDir, "method_json_roundtrip.json");
 
             if (!File.Exists(roundtripPath))
             {
-                Assert.Ignore("method_json_roundtrip.xml not yet created");
+                Assert.Ignore("method_json_roundtrip.json not yet created");
                 return;
             }
 
             var mp = MethodParameters.Load(roundtripPath);
-            string jsonConfig = mp.IDA.ToJSON(mp);
+            string jsonConfig = mp.ToCppJson();
             Assert.IsTrue(jsonConfig.StartsWith("{"), "JSON config must start with '{'");
 
             IntPtr ptr = IntPtr.Zero;
@@ -129,49 +130,41 @@ namespace Flash.Tests
         }
 
         /// <summary>
-        /// Build a JSON config string matching method_default.xml values.
+        /// Build a JSON config string matching method_default.json values.
         /// </summary>
         private static string BuildJsonConfigString()
         {
             var mp = new MethodParameters();
-            mp.PrecursorSelection = new PrecursorSelectionParameters
+            mp.Config = new MethodConfig
             {
-                QScoreThreshold = 0,
-                TQScoreThreshold = 0.9,
-                MinCharge = 4,
-                MaxCharge = 50,
-                MinMass = 500,
-                MaxMass = 50000,
-                RTWindow = 180,
-                Tolerances = new double[] { 10, 10 }
-            };
-            mp.MSSettings = new MSSettingsConfig
-            {
-                FAIMS = new FAIMSSettings { CVValues = new double[] { -50 } },
-                MS1 = new MS1Parameters { Analyzer = "Orbitrap", FirstMass = 500, LastMass = 2000, OrbitrapResolution = 120000, AGCTarget = 800000, MaxIT = 246 },
-                MS2 = new System.Collections.Generic.List<MS2Parameters>
+                Deconvolution = new DeconvolutionConfig
                 {
-                    new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0 }
-                }
-            };
-            mp.AcquisitionModes = new AcquisitionModesConfig
-            {
-                Developer = new DeveloperConfig
+                    ScoreThreshold = 0, TQScoreThreshold = 0.9,
+                    MinCharge = 4, MaxCharge = 50,
+                    MinMass = 500, MaxMass = 50000,
+                    Tolerances = new double[] { 10, 10 }
+                },
+                PrecursorSelection = new PrecursorSelectionConfig
                 {
-                    PrecursorSelection = new DeveloperPrecursorSelectionConfig
+                    RTWindow = 180, HCDEnergy = 29
+                },
+                Faims = new FaimsConfig { CVValues = new double[] { -50 } },
+                MsSettings = new MsSettingsConfig
+                {
+                    MS1 = new MS1Parameters { Analyzer = "Orbitrap", FirstMass = 500, LastMass = 2000, OrbitrapResolution = 120000, AGCTarget = 800000, MaxIT = 246 },
+                    MS2 = new List<MS2Parameters>
                     {
-                        HCDEnergy = 29
+                        new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0 }
                     }
+                },
+                SelectionStrategy = new SelectionStrategyConfig
+                {
+                    MS1 = new MS1SelectionConfig { Selection = "qscore", MaxPrecursors = 1 },
+                    MS2 = new MS2SelectionConfig { Selection = "intensity" },
+                    MS3 = new MS3SelectionConfig { Selection = "none" }
                 }
             };
-            mp.SelectionStrategy = new SelectionStrategyConfig
-            {
-                MS1 = new MS1SelectionConfig { Selection = "qscore", MaxPrecursors = 1 },
-                MS2 = new MS2SelectionConfig { Selection = "intensity" },
-                MS3 = new MS3SelectionConfig { Selection = "none" }
-            };
-            mp.InitializeIDA();
-            return mp.IDA.ToJSON(mp);
+            return mp.ToCppJson();
         }
     }
 }

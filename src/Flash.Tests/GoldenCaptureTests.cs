@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Flash.Tests
 {
     /// <summary>
-    /// Capture utilities that write ToJSON() output to disk during CI.
+    /// Capture utilities that write ToCppJson() output to disk during CI.
     /// Always pass — the CI workflow uploads the output as an artifact.
     /// </summary>
     [TestFixture]
@@ -25,8 +25,8 @@ namespace Flash.Tests
         [Test]
         public void CaptureConfigDefault()
         {
-            var mp = MethodParameters.Load(Path.Combine(TestDataDir, "configs", "method_default.xml"));
-            string json = mp.IDA.ToJSON(mp);
+            var mp = MethodParameters.Load(Path.Combine(TestDataDir, "configs", "method_default.json"));
+            string json = mp.ToCppJson();
             var serializer = new JavaScriptSerializer();
             var parsed = serializer.Deserialize<Dictionary<string, object>>(json);
             Assert.That(parsed, Does.ContainKey("deconvolution"),
@@ -39,11 +39,11 @@ namespace Flash.Tests
         [Test]
         public void CaptureConfigFull()
         {
-            string xmlPath = Path.Combine(TestDataDir, "configs", "method_json_roundtrip.xml");
-            Assume.That(File.Exists(xmlPath), Is.True,
-                "method_json_roundtrip.xml not present — skipping capture");
-            var mp = MethodParameters.Load(xmlPath);
-            string json = mp.IDA.ToJSON(mp);
+            string jsonPath = Path.Combine(TestDataDir, "configs", "method_json_roundtrip.json");
+            Assume.That(File.Exists(jsonPath), Is.True,
+                "method_json_roundtrip.json not present — skipping capture");
+            var mp = MethodParameters.Load(jsonPath);
+            string json = mp.ToCppJson();
             var serializer = new JavaScriptSerializer();
             var parsed = serializer.Deserialize<Dictionary<string, object>>(json);
             Assert.That(parsed, Does.ContainKey("deconvolution"),

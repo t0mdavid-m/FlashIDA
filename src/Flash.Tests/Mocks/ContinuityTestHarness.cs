@@ -49,27 +49,27 @@ namespace Flash.Tests.Mocks
             MethodParams = MethodParameters.Load(methodXmlPath);
             Factory = new MockScanFactory();
 
-            double[] CVs = MethodParams.IDA.CVValues;
+            double[] CVs = MethodParams.Config.Faims.CVValues;
             UseFaimsCycling = forceFaims && CVs.Length > 1;
 
-            // Resolve relative file paths in IDA parameters (relative to config directory)
+            // Resolve relative file paths in config (relative to config directory)
             string configDir = Path.GetDirectoryName(methodXmlPath);
-            ResolveRelativePath(configDir, () => MethodParams.IDA.InclusionList, v => MethodParams.IDA.InclusionList = v);
-            ResolveRelativePath(configDir, () => MethodParams.IDA.FastaFile, v => MethodParams.IDA.FastaFile = v);
-            ResolveRelativePath(configDir, () => MethodParams.IDA.PtmList, v => MethodParams.IDA.PtmList = v);
+            ResolveRelativePath(configDir, () => MethodParams.Config.Files.InclusionList, v => MethodParams.Config.Files.InclusionList = v);
+            ResolveRelativePath(configDir, () => MethodParams.Config.Files.FastaFile, v => MethodParams.Config.Files.FastaFile = v);
+            ResolveRelativePath(configDir, () => MethodParams.Config.Files.PtmList, v => MethodParams.Config.Files.PtmList = v);
 
             // Resolve target log paths (List<string>)
-            if (MethodParams.IDA.TargetLogs != null)
+            if (MethodParams.Config.Files.TargetLogs != null)
             {
-                for (int i = 0; i < MethodParams.IDA.TargetLogs.Count; i++)
+                for (int i = 0; i < MethodParams.Config.Files.TargetLogs.Count; i++)
                 {
-                    string path = MethodParams.IDA.TargetLogs[i];
+                    string path = MethodParams.Config.Files.TargetLogs[i];
                     if (!string.IsNullOrEmpty(path) && !Path.IsPathRooted(path))
                     {
                         string resolved = Path.Combine(configDir, path);
                         if (File.Exists(resolved))
                         {
-                            MethodParams.IDA.TargetLogs[i] = Path.GetFullPath(resolved);
+                            MethodParams.Config.Files.TargetLogs[i] = Path.GetFullPath(resolved);
                         }
                     }
                 }

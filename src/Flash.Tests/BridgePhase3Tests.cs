@@ -37,19 +37,19 @@ namespace Flash.Tests
         [OneTimeSetUp]
         public void Setup()
         {
-            // Use MethodParameters to build JSON config matching method_default.xml
+            // Use MethodParameters to build JSON config matching method_default.json
             string configsDir = Path.Combine(
                 TestContext.CurrentContext.TestDirectory, "..", "test-data", "configs");
-            string configPath = Path.Combine(configsDir, "method_default.xml");
+            string configPath = Path.Combine(configsDir, "method_default.json");
 
             if (!File.Exists(configPath))
             {
-                Assert.Ignore("method_default.xml not found at " + configPath);
+                Assert.Ignore("method_default.json not found at " + configPath);
                 return;
             }
 
             var mp = MethodParameters.Load(configPath);
-            string jsonConfig = mp.IDA.ToJSON(mp);
+            string jsonConfig = mp.ToCppJson();
             nativePtr = CreateFLASHIda(jsonConfig);
             Assume.That(nativePtr, Is.Not.EqualTo(IntPtr.Zero), "CreateFLASHIda returned null");
         }
