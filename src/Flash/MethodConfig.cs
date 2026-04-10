@@ -87,11 +87,6 @@ namespace Flash
         public bool ConsiderAllChargeStates { get; set; }
 
         [Developer]
-        [JsonKey("ms3_all_charges")]
-        [Description("Consider all charge states for MS3 selection")]
-        public bool MS3AllCharges { get; set; }
-
-        [Developer]
         [JsonKey("hcd_energy")]
         [Description("HCD collision energy for charge-state determination")]
         public int HCDEnergy { get; set; } = 29;

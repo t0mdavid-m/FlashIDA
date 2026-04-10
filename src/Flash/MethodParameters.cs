@@ -129,7 +129,7 @@ namespace Flash
                     target_mode = targetMode,
                     IDScore = c.PrecursorSelection.UseIDScore,
                     AllCharges = c.PrecursorSelection.ConsiderAllChargeStates,
-                    MS3AllCharges = c.PrecursorSelection.MS3AllCharges,
+                    MS3AllCharges = c.Ms3.AllCharges,
                     HCDEnergy = c.PrecursorSelection.HCDEnergy,
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
                     tie_threshold = c.PrecursorSelection.TieThreshold
