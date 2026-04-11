@@ -351,6 +351,22 @@ namespace Flash
 
         [JsonKey("files")]
         public FilesConfig Files { get; set; } = new FilesConfig();
+
+        [JsonKey("runtime")]
+        public RuntimeConfig Runtime { get; set; } = new RuntimeConfig();
+    }
+
+    [JsonKey("runtime")]
+    public class RuntimeConfig
+    {
+        [JsonKey("ida_log_path")]
+        public string IdaLogPath { get; set; } = "";
+
+        [JsonKey("scan_commands_path")]
+        public string ScanCommandsPath { get; set; } = "";
+
+        [JsonKey("scan_results_path")]
+        public string ScanResultsPath { get; set; } = "";
     }
 
     // --- Phase 1: JSON serialization classes for C++ bridge ---
@@ -492,6 +508,13 @@ namespace Flash
         public string protein_sequence { get; set; }
     }
 
+    public class JsonRuntimeConfig
+    {
+        public string ida_log_path { get; set; }
+        public string scan_commands_path { get; set; }
+        public string scan_results_path { get; set; }
+    }
+
     public class JsonMethodConfig
     {
         public JsonDeconvolutionConfig deconvolution { get; set; }
@@ -506,5 +529,6 @@ namespace Flash
         public JsonMs3Config ms3 { get; set; }
         public bool conditional_ms2 { get; set; }
         public JsonSelectionStrategyConfig selection_strategy { get; set; }
+        public JsonRuntimeConfig runtime { get; set; }
     }
 }

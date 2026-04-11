@@ -207,6 +207,12 @@ namespace Flash
                     fasta = c.Files.FastaFile ?? "",
                     inclusion_list = c.Files.InclusionList ?? "",
                     ptm_list = c.Files.PtmList ?? ""
+                },
+                runtime = new JsonRuntimeConfig
+                {
+                    ida_log_path = c.Runtime.IdaLogPath ?? "",
+                    scan_commands_path = c.Runtime.ScanCommandsPath ?? "",
+                    scan_results_path = c.Runtime.ScanResultsPath ?? ""
                 }
             };
 

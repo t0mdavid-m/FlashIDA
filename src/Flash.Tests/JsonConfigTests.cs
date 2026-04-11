@@ -148,5 +148,43 @@ namespace Flash.Tests
                 Assert.AreEqual(Convert.ToDouble(expected[i]), Convert.ToDouble(actual[i]), 0.001,
                     string.Format("{0}[{1}] mismatch", path, i));
         }
+
+        [Test, Category("Tier1")]
+        public void ToCppJson_ContainsRuntimeSection()
+        {
+            var mp = new MethodParameters();
+            mp.Config.Runtime.IdaLogPath = "IDALog_test.log";
+            mp.Config.Runtime.ScanCommandsPath = "ScanCommands_test.tsv";
+            mp.Config.Runtime.ScanResultsPath = "ScanResults_test.tsv";
+
+            string json = mp.ToCppJson();
+            var parsed = new JavaScriptSerializer()
+                .Deserialize<Dictionary<string, object>>(json);
+
+            Assert.IsTrue(parsed.ContainsKey("runtime"), "JSON should contain runtime section");
+            var runtime = parsed["runtime"] as Dictionary<string, object>;
+            Assert.IsNotNull(runtime, "runtime should be a dictionary");
+            Assert.AreEqual("IDALog_test.log", runtime["ida_log_path"]);
+            Assert.AreEqual("ScanCommands_test.tsv", runtime["scan_commands_path"]);
+            Assert.AreEqual("ScanResults_test.tsv", runtime["scan_results_path"]);
+        }
+
+        [Test, Category("Tier1")]
+        public void RuntimeConfig_UserOverridePreserved()
+        {
+            string methodJson = @"{
+                ""global"": { ""duration"": 90 },
+                ""runtime"": {
+                    ""ida_log_path"": ""user_ida.log"",
+                    ""scan_commands_path"": ""user_commands.tsv"",
+                    ""scan_results_path"": ""user_results.tsv""
+                }
+            }";
+
+            var config = MethodConfigSerializer.Deserialize(methodJson);
+            Assert.AreEqual("user_ida.log", config.Runtime.IdaLogPath);
+            Assert.AreEqual("user_commands.tsv", config.Runtime.ScanCommandsPath);
+            Assert.AreEqual("user_results.tsv", config.Runtime.ScanResultsPath);
+        }
     }
 }
