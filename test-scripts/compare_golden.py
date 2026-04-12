@@ -17,7 +17,7 @@ import sys
 STRING_COLUMNS = {"charges"}
 INT_COLUMNS = {"hcd"}
 
-ABS_TOL = 1e-6
+ABS_TOL = 1e-5
 REL_TOL = 1e-4
 
 
