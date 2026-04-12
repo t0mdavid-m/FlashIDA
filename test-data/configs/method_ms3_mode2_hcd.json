@@ -18,7 +18,7 @@
   },
   "precursor_selection": {
     "rt_window": 180,
-    "targeting_mode": "none",
+    "targeting_mode": "inclusion",
     "strict_inclusion": false,
     "tie_threshold": 0.1
   },
@@ -108,7 +108,7 @@
   "files": {
     "target_logs": [],
     "fasta": "",
-    "inclusion_list": "",
+    "inclusion_list": "inclusion_cytc.txt",
     "ptm_list": ""
   },
   "selection_strategy": {
