@@ -178,6 +178,11 @@ namespace Flash
             if (rawValue == null)
                 return targetType.IsValueType ? Activator.CreateInstance(targetType) : null;
 
+            // Nullable<T> — unwrap to underlying type T
+            Type nullableUnderlying = Nullable.GetUnderlyingType(targetType);
+            if (nullableUnderlying != null)
+                return ConvertValue(rawValue, nullableUnderlying);
+
             // double[] — from ArrayList
             if (targetType == typeof(double[]))
             {
@@ -367,6 +372,11 @@ namespace Flash
         {
             if (value == null)
                 return null;
+
+            // Nullable<T> — unwrap to underlying type T
+            Type nullableUnderlying = Nullable.GetUnderlyingType(valueType);
+            if (nullableUnderlying != null)
+                return SerializeValue(value, nullableUnderlying);
 
             // Primitives and string pass through
             if (valueType == typeof(string) || valueType == typeof(double)

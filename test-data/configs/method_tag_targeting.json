@@ -28,7 +28,17 @@
     "min_tag_length": 3,
     "max_tag_length": 8,
     "max_ptm_count": 3,
-    "max_flanking_mass_diff": 50000
+    "max_flanking_mass_diff": 50000,
+    "follow_up_scan": {
+      "Analyzer": "Orbitrap",
+      "FirstMass": 100,
+      "LastMass": 2000,
+      "OrbitrapResolution": 120000,
+      "AGCTarget": 500000,
+      "MaxIT": 100,
+      "Activation": "HCD",
+      "CollisionEnergy": 30
+    }
   },
   "quantification": {
     "active": false,
@@ -80,18 +90,6 @@
         "ReactionTime": 7,
         "ReagentAGCTarget": 700000,
         "ReagentMaxIT": 200
-      },
-      {
-        "Analyzer": "Orbitrap",
-        "FirstMass": 100,
-        "LastMass": 2000,
-        "OrbitrapResolution": 120000,
-        "AGCTarget": 500000,
-        "MaxIT": 100,
-        "Microscans": 4,
-        "DataType": "Centroid",
-        "Activation": "HCD",
-        "CollisionEnergy": 30
       }
     ],
     "ms3": [
