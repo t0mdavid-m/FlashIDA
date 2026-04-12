@@ -545,8 +545,8 @@ namespace Flash.Tests.AcquisitionLoop
                 {
                     Assert.IsNotNull(harness.Processor,
                         "Quant processor should be created successfully");
-                    Assert.AreEqual(2, harness.MethodParams.Config.MsSettings.MS2.Count,
-                        "Quant config should have exactly 2 MS2 parameter sets");
+                    Assert.AreEqual(1, harness.MethodParams.Config.MsSettings.MS2.Count,
+                        "Quant config should have exactly 1 MS2 parameter set (follow-up is in quantification.follow_up_scan)");
                 }
             }, "Quant mode construction should not throw");
         }
