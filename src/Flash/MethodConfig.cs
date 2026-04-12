@@ -118,6 +118,10 @@ namespace Flash
         [JsonKey("max_flanking_mass_diff")]
         [Description("Maximum flanking mass difference in Da")]
         public double MaxFlankingMassDiff { get; set; } = 50000;
+
+        [JsonKey("follow_up_scan")]
+        [Description("Follow-up scan config for conditional MS2")]
+        public MS2Parameters? FollowUpScan { get; set; }
     }
 
     [JsonKey("quantification")]
@@ -138,6 +142,10 @@ namespace Flash
         [JsonKey("only_one_condition")]
         [Description("Only quantify targets present in one condition")]
         public bool OnlyOneCondition { get; set; }
+
+        [JsonKey("follow_up_scan")]
+        [Description("Follow-up scan config for quantification")]
+        public MS2Parameters? FollowUpScan { get; set; }
     }
 
     [JsonKey("faims")]
@@ -400,6 +408,7 @@ namespace Flash
         public int max_tag_length { get; set; }
         public int max_ptm_count { get; set; }
         public double max_flanking_mass_diff { get; set; }
+        public JsonMs2Config follow_up_scan { get; set; }
     }
 
     public class JsonQuantificationConfig
@@ -407,6 +416,7 @@ namespace Flash
         public bool enabled { get; set; }
         public double reporter_mz_tol { get; set; }
         public double fold_change_threshold { get; set; }
+        public JsonMs2Config follow_up_scan { get; set; }
     }
 
     public class JsonFaimsConfig

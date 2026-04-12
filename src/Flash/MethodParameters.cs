@@ -139,13 +139,27 @@ namespace Flash
                     min_tag_length = c.Tagging.MinTagLength,
                     max_tag_length = c.Tagging.MaxTagLength,
                     max_ptm_count = c.Tagging.MaxPtmCount,
-                    max_flanking_mass_diff = c.Tagging.MaxFlankingMassDiff
+                    max_flanking_mass_diff = c.Tagging.MaxFlankingMassDiff,
+                    follow_up_scan = c.Tagging.FollowUpScan.HasValue ? new JsonMs2Config
+                    {
+                        analyzer = c.Tagging.FollowUpScan.Value.Analyzer ?? "",
+                        activation = c.Tagging.FollowUpScan.Value.Activation ?? "",
+                        collision_energy = c.Tagging.FollowUpScan.Value.CollisionEnergy,
+                        resolution = c.Tagging.FollowUpScan.Value.OrbitrapResolution
+                    } : null
                 },
                 quantification = new JsonQuantificationConfig
                 {
                     enabled = c.Quantification.Active,
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
-                    fold_change_threshold = c.Quantification.FoldChangeThreshold
+                    fold_change_threshold = c.Quantification.FoldChangeThreshold,
+                    follow_up_scan = c.Quantification.FollowUpScan.HasValue ? new JsonMs2Config
+                    {
+                        analyzer = c.Quantification.FollowUpScan.Value.Analyzer ?? "",
+                        activation = c.Quantification.FollowUpScan.Value.Activation ?? "",
+                        collision_energy = c.Quantification.FollowUpScan.Value.CollisionEnergy,
+                        resolution = c.Quantification.FollowUpScan.Value.OrbitrapResolution
+                    } : null
                 },
                 faims = new JsonFaimsConfig
                 {

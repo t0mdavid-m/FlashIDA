@@ -34,7 +34,17 @@
     "active": true,
     "reporter_mz_tol": 0.002,
     "fold_change_threshold": 1.4,
-    "only_one_condition": false
+    "only_one_condition": false,
+    "follow_up_scan": {
+      "Analyzer": "Orbitrap",
+      "FirstMass": 100,
+      "LastMass": 2000,
+      "OrbitrapResolution": 120000,
+      "AGCTarget": 500000,
+      "MaxIT": 100,
+      "Activation": "HCD",
+      "CollisionEnergy": 30
+    }
   },
   "faims": {
     "cv_values": [
@@ -80,18 +90,6 @@
         "ReactionTime": 7,
         "ReagentAGCTarget": 700000,
         "ReagentMaxIT": 200
-      },
-      {
-        "Analyzer": "Orbitrap",
-        "FirstMass": 100,
-        "LastMass": 2000,
-        "OrbitrapResolution": 120000,
-        "AGCTarget": 500000,
-        "MaxIT": 100,
-        "Microscans": 4,
-        "DataType": "Centroid",
-        "Activation": "HCD",
-        "CollisionEnergy": 30
       }
     ],
     "ms3": [
