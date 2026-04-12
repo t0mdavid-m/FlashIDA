@@ -920,7 +920,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var results = PushMS1ThenMS2Return(
                     harness,
                     Path.Combine(SpectraDir, "ms1_standard.txt"),
-                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
+                    Path.Combine(SpectraDir, "ms2_cytc_scan149.txt"),
                     maxMS2Returns: 1);
 
                 Assert.That(results.Count, Is.GreaterThan(0),
@@ -939,7 +939,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var results = PushMS1ThenMS2Return(
                     harness,
                     Path.Combine(SpectraDir, "ms1_standard.txt"),
-                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
+                    Path.Combine(SpectraDir, "ms2_cytc_scan149.txt"),
                     maxMS2Returns: 1);
 
                 Assert.That(results.Count, Is.GreaterThan(0),
