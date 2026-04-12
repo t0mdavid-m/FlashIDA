@@ -129,7 +129,6 @@ namespace Flash
                     target_mode = targetMode,
                     IDScore = c.PrecursorSelection.UseIDScore,
                     AllCharges = c.PrecursorSelection.ConsiderAllChargeStates,
-                    MS3AllCharges = c.Ms3.AllCharges,
                     HCDEnergy = c.PrecursorSelection.HCDEnergy,
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
                     tie_threshold = c.PrecursorSelection.TieThreshold
@@ -209,9 +208,6 @@ namespace Flash
                 selection_strategy = BuildSelectionStrategy(),
                 ms3 = new JsonMs3Config
                 {
-                    enabled = c.Ms3.Active,
-                    mode = c.Ms3.Mode,
-                    max_per_ms2 = c.Ms3.MaxPerMs2,
                     protein_sequence = c.Ms3.ProteinSequence ?? ""
                 },
                 conditional_ms2 = c.Tagging.ConditionalMS2,
@@ -323,11 +319,11 @@ namespace Flash
                     c.Quantification.ReporterMZTol, c.Quantification.FoldChangeThreshold);
             else
                 sb.AppendLine("Quant: Off");
-            if (c.Ms3.Active)
-                sb.AppendFormat("MS3: Mode={0}, MaxPerMS2={1}, AllCharges={2}\n",
-                    c.Ms3.Mode, c.Ms3.MaxPerMs2, c.Ms3.AllCharges);
+            if (!string.IsNullOrEmpty(c.Ms3.ProteinSequence))
+                sb.AppendFormat("MS3: ProteinSequence={0}\n",
+                    c.Ms3.ProteinSequence.Substring(0, Math.Min(20, c.Ms3.ProteinSequence.Length)) + "...");
             else
-                sb.AppendLine("MS3: Off");
+                sb.AppendLine("MS3: No protein sequence");
             sb.AppendFormat("Developer: IDScore={0}, AllCharges={1}, HCDEnergy={2}, MaxCVSkip={3}\n",
                 c.PrecursorSelection.UseIDScore, c.PrecursorSelection.ConsiderAllChargeStates,
                 c.PrecursorSelection.HCDEnergy, c.Faims.MaxCVSkip);

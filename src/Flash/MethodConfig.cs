@@ -202,24 +202,8 @@ namespace Flash
     [JsonKey("ms3")]
     public class Ms3Config
     {
-        [JsonKey("active")]
-        [Description("Enable MS3 characterization")]
-        public bool Active { get; set; }
-
-        [JsonKey("mode")]
-        [Description("MS3 characterization mode (1, 2, or 3)")]
-        public int Mode { get; set; }
-
-        [JsonKey("max_per_ms2")]
-        [Description("Maximum MS3 scans per MS2 scan")]
-        public int MaxPerMs2 { get; set; } = 4;
-
-        [JsonKey("all_charges")]
-        [Description("Consider all charge states for MS3")]
-        public bool AllCharges { get; set; }
-
         [JsonKey("protein_sequence")]
-        [Description("Protein sequence for MS3 targeted characterization")]
+        [Description("Protein sequence for targeted MS3 characterization")]
         public string ProteinSequence { get; set; } = "";
     }
 
@@ -396,7 +380,6 @@ namespace Flash
         public int target_mode { get; set; }
         public bool IDScore { get; set; }
         public bool AllCharges { get; set; }
-        public bool MS3AllCharges { get; set; }
         public int HCDEnergy { get; set; }
         public bool strict_inclusion { get; set; }
         public double tie_threshold { get; set; }
@@ -511,9 +494,6 @@ namespace Flash
 
     public class JsonMs3Config
     {
-        public bool enabled { get; set; }
-        public int mode { get; set; }
-        public int max_per_ms2 { get; set; }
         public string protein_sequence { get; set; }
     }
 

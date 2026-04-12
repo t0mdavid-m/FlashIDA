@@ -115,10 +115,6 @@
     "timeout_ms": 30000
   },
   "ms3": {
-    "active": false,
-    "mode": 1,
-    "max_per_ms2": 1000,
-    "all_charges": true,
     "protein_sequence": "SEQUENCE"
   },
   "files": {

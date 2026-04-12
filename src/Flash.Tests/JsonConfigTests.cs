@@ -66,7 +66,7 @@ namespace Flash.Tests
                 "min_mass", "max_mass", "tol");
             CompareJsonSection(actual, expected, "precursor_selection",
                 "RT_window", "target_mode", "IDScore", "AllCharges",
-                "MS3AllCharges", "HCDEnergy", "strict_inclusion", "tie_threshold");
+                "HCDEnergy", "strict_inclusion", "tie_threshold");
             CompareJsonSection(actual, expected, "tagging",
                 "min_tag_length", "max_tag_length", "max_ptm_count", "max_flanking_mass_diff");
         }
