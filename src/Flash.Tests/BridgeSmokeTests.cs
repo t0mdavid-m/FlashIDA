@@ -159,7 +159,7 @@ namespace Flash.Tests
                 },
                 SelectionStrategy = new SelectionStrategyConfig
                 {
-                    MS1 = new MS1SelectionConfig { Selection = "qscore", MaxPrecursors = 1 },
+                    MS1 = new MS1SelectionConfig { Selection = "qscore", MaxTargets = 1 },
                     MS2 = new MS2SelectionConfig { Selection = "intensity" },
                     MS3 = new MS3SelectionConfig { Selection = "none" }
                 }
