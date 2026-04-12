@@ -274,9 +274,9 @@ namespace Flash
         [Description("MS1 precursor selection metric: qscore, intensity, or none")]
         public string Selection { get; set; } = "qscore";
 
-        [JsonKey("max_precursors")]
-        [Description("Maximum number of precursors to select per MS1 scan")]
-        public int MaxPrecursors { get; set; } = 10;
+        [JsonKey("max_targets")]
+        [Description("Maximum number of targets to select per MS1 scan")]
+        public int MaxTargets { get; set; } = 10;
     }
 
     [JsonKey("ms2")]
@@ -286,9 +286,9 @@ namespace Flash
         [Description("MS2 fragment selection metric: qscore, intensity, or none")]
         public string Selection { get; set; } = "intensity";
 
-        [JsonKey("max_fragments")]
-        [Description("Maximum number of fragments to select per MS2 scan")]
-        public int MaxFragments { get; set; } = 3;
+        [JsonKey("max_targets")]
+        [Description("Maximum number of targets to select per MS2 scan")]
+        public int MaxTargets { get; set; } = 3;
 
         [JsonKey("exploration")]
         public ExplorationBlockConfig Exploration { get; set; }
@@ -301,9 +301,9 @@ namespace Flash
         [Description("MS3 fragment selection metric: qscore, intensity, or none")]
         public string Selection { get; set; } = "none";
 
-        [JsonKey("max_fragments")]
-        [Description("Maximum number of fragments to select per MS3 scan")]
-        public int MaxFragments { get; set; } = 3;
+        [JsonKey("max_targets")]
+        [Description("Maximum number of targets to select per MS3 scan")]
+        public int MaxTargets { get; set; } = 3;
 
         [JsonKey("exploration")]
         public ExplorationBlockConfig Exploration { get; set; }
@@ -490,8 +490,7 @@ namespace Flash
     public class JsonMsLevelConfig
     {
         public string selection { get; set; }
-        public int max_precursors { get; set; }
-        public int max_fragments { get; set; }
+        public int max_targets { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
     }
 

@@ -120,7 +120,7 @@
   "selection_strategy": {
     "ms1": {
       "selection": "qscore",
-      "max_precursors": 5
+      "max_targets": 5
     },
     "ms2": {
       "selection": "intensity"

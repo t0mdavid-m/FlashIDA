@@ -240,29 +240,26 @@ namespace Flash
                 throw new InvalidOperationException(
                     "Method config must contain selection_strategy block.");
 
-            int ms1Max = ss.MS1?.MaxPrecursors ?? 10;
-            int ms2Max = ss.MS2?.MaxFragments ?? 3;
-            int ms3Max = ss.MS3?.MaxFragments ?? 3;
+            int ms1Max = ss.MS1?.MaxTargets ?? 10;
+            int ms2Max = ss.MS2?.MaxTargets ?? 3;
+            int ms3Max = ss.MS3?.MaxTargets ?? 3;
 
             var result = new JsonSelectionStrategyConfig
             {
                 ms1 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS1?.Selection ?? "qscore").ToLower(),
-                    max_precursors = ms1Max,
-                    max_fragments = ms1Max
+                    max_targets = ms1Max
                 },
                 ms2 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS2?.Selection ?? "intensity").ToLower(),
-                    max_precursors = ms2Max,
-                    max_fragments = ms2Max
+                    max_targets = ms2Max
                 },
                 ms3 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS3?.Selection ?? "none").ToLower(),
-                    max_precursors = ms3Max,
-                    max_fragments = ms3Max
+                    max_targets = ms3Max
                 }
             };
 
