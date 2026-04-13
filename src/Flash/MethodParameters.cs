@@ -268,7 +268,7 @@ namespace Flash
 
             var defaultExpl = new JsonExplorationBlockConfig
             {
-                metric = "none", ce_min = 20, ce_max = 40, ce_step = 5, activation = "HCD",
+                metric = "none", ce_min = 20, ce_max = 40, ce_step = 5,
                 overrides = null
             };
             result.ms1.exploration = defaultExpl;
@@ -283,7 +283,6 @@ namespace Flash
                     ce_min = ss.MS2.Exploration.CEMin,
                     ce_max = ss.MS2.Exploration.CEMax,
                     ce_step = ss.MS2.Exploration.CEStep,
-                    activation = ss.MS2.Exploration.Activation ?? "HCD",
                     overrides = ss.MS2.Exploration.Overrides
                 };
             }
@@ -296,7 +295,6 @@ namespace Flash
                     ce_min = ss.MS3.Exploration.CEMin,
                     ce_max = ss.MS3.Exploration.CEMax,
                     ce_step = ss.MS3.Exploration.CEStep,
-                    activation = ss.MS3.Exploration.Activation ?? "CID",
                     overrides = ss.MS3.Exploration.Overrides
                 };
             }
