@@ -183,6 +183,13 @@ namespace Flash
                         activation = m.Activation ?? "",
                         collision_energy = m.CollisionEnergy,
                         resolution = m.OrbitrapResolution
+                    }).ToArray(),
+                    ms3 = c.MsSettings.MS3.Select(m => new JsonMs2Config
+                    {
+                        analyzer = m.Analyzer ?? "",
+                        activation = m.Activation ?? "",
+                        collision_energy = m.CollisionEnergy,
+                        resolution = m.OrbitrapResolution
                     }).ToArray()
                 },
                 scheduling = new JsonSchedulingConfig

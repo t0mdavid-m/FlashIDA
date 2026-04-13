@@ -431,6 +431,7 @@ namespace Flash
     {
         public JsonMs1Config ms1 { get; set; }
         public JsonMs2Config[] ms2 { get; set; }
+        public JsonMs2Config[] ms3 { get; set; }
     }
 
     public class JsonCycleTimeConfig
