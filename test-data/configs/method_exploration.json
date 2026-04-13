@@ -103,7 +103,7 @@
     "timeout_ms": 30000
   },
   "ms3": {
-    "protein_sequence": ""
+    "protein_sequence": "GDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFSYTDANKNKGITWGEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
   },
   "files": {
     "target_logs": [],
