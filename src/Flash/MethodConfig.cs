@@ -249,6 +249,10 @@ namespace Flash
         [JsonKey("activation")]
         [Description("Activation method for exploration (HCD or CID)")]
         public string Activation { get; set; } = "HCD";
+
+        [JsonKey("overrides")]
+        [Description("Per-field scan config overrides for exploration variants (e.g. analyzer, resolution)")]
+        public Dictionary<string, string> Overrides { get; set; }
     }
 
     [JsonKey("ms1")]
@@ -469,6 +473,7 @@ namespace Flash
         public double ce_max { get; set; }
         public double ce_step { get; set; }
         public string activation { get; set; }
+        public Dictionary<string, string> overrides { get; set; }
     }
 
     public class JsonMsLevelConfig
