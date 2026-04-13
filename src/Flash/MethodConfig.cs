@@ -249,6 +249,10 @@ namespace Flash
         [JsonKey("overrides")]
         [Description("Per-field scan config overrides for exploration variants (e.g. analyzer, resolution)")]
         public Dictionary<string, string> Overrides { get; set; }
+
+        [JsonKey("remaining_precursor_target")]
+        [Description("Target remaining precursor ratio for exploration (0.1 = 10%)")]
+        public double RemainingPrecursorTarget { get; set; } = 0.1;
     }
 
     [JsonKey("ms1")]
@@ -469,6 +473,7 @@ namespace Flash
         public double ce_max { get; set; }
         public double ce_step { get; set; }
         public Dictionary<string, string> overrides { get; set; }
+        public double remaining_precursor_target { get; set; }
     }
 
     public class JsonMsLevelConfig
