@@ -227,6 +227,25 @@ namespace Flash
                 p.FAIMS_Voltages = "on";
             }
 
+            // New scan parameters from C++ engine
+            if (cmd.Microscans > 0)
+                p.Microscans = cmd.Microscans;
+
+            if (cmd.RfLens > 0)
+                p.SrcRFLens = new double[] { cmd.RfLens };
+
+            if (cmd.SourceCid > 0)
+                p.SourceCIDEnergy = cmd.SourceCid;
+
+            if (cmd.SourceCidScaling > 0)
+                p.SourceCIDScalingFactor = cmd.SourceCidScaling;
+
+            if (!string.IsNullOrEmpty(cmd.DataType))
+                p.DataType = cmd.DataType;
+
+            if (!string.IsNullOrEmpty(cmd.ScanRate))
+                p.ScanRate = cmd.ScanRate;
+
             bool isAgc = cmd.IsAgc != 0;
             return CreateFusionCustomScan(p, cmd.ScanId, delay: 0.0, IsAGC: isAgc, AGCgroup: 1);
         }
