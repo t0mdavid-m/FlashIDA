@@ -18,8 +18,8 @@ namespace Flash.Tests
         [Test, Category("Tier1")]
         public void P3_U01_ScanCommand_SizeMatchesCpp()
         {
-            Assert.AreEqual(1248, Marshal.SizeOf<ScanCommand>(),
-                "ScanCommand must be 1248 bytes to match C++ layout");
+            Assert.AreEqual(2048, Marshal.SizeOf<ScanCommand>(),
+                "ScanCommand must be 2048 bytes to match C++ layout");
         }
 
         // P3-U02: IsolationStage is exactly 80 bytes
@@ -66,6 +66,16 @@ namespace Flash.Tests
             Assert.AreEqual(1236, (int)Marshal.OffsetOf<ScanCommand>("Pad2"), "Pad2 offset");
             Assert.AreEqual(1240, (int)Marshal.OffsetOf<ScanCommand>("FaimsCv"), "FaimsCv offset");
 
+            // New scan parameter fields (after FaimsCv at 1240 + 8 = 1248)
+            Assert.AreEqual(1248, (int)Marshal.OffsetOf<ScanCommand>("Microscans"), "Microscans offset");
+            Assert.AreEqual(1252, (int)Marshal.OffsetOf<ScanCommand>("Pad3"), "Pad3 offset");
+            Assert.AreEqual(1256, (int)Marshal.OffsetOf<ScanCommand>("RfLens"), "RfLens offset");
+            Assert.AreEqual(1264, (int)Marshal.OffsetOf<ScanCommand>("SourceCid"), "SourceCid offset");
+            Assert.AreEqual(1272, (int)Marshal.OffsetOf<ScanCommand>("SourceCidScaling"), "SourceCidScaling offset");
+            Assert.AreEqual(1280, (int)Marshal.OffsetOf<ScanCommand>("DataType"), "DataType offset");
+            Assert.AreEqual(1312, (int)Marshal.OffsetOf<ScanCommand>("ScanRate"), "ScanRate offset");
+            Assert.AreEqual(1344, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
             Assert.AreEqual(8, (int)Marshal.OffsetOf<IsolationStage>("IsolationWidth"), "IsolationWidth offset");
@@ -98,6 +108,24 @@ namespace Flash.Tests
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(actAttr, "ActivationType should have MarshalAs attribute");
             Assert.AreEqual(32, actAttr.SizeConst, "ActivationType SizeConst");
+
+            // ScanCommand.DataType should be SizeConst=32
+            var dataTypeAttr = typeof(ScanCommand).GetField("DataType")
+                .GetCustomAttribute<MarshalAsAttribute>();
+            Assert.IsNotNull(dataTypeAttr, "DataType should have MarshalAs attribute");
+            Assert.AreEqual(32, dataTypeAttr.SizeConst, "DataType SizeConst");
+
+            // ScanCommand.ScanRate should be SizeConst=32
+            var scanRateAttr = typeof(ScanCommand).GetField("ScanRate")
+                .GetCustomAttribute<MarshalAsAttribute>();
+            Assert.IsNotNull(scanRateAttr, "ScanRate should have MarshalAs attribute");
+            Assert.AreEqual(32, scanRateAttr.SizeConst, "ScanRate SizeConst");
+
+            // ScanCommand.Reserved should be SizeConst=704
+            var reservedAttr = typeof(ScanCommand).GetField("Reserved")
+                .GetCustomAttribute<MarshalAsAttribute>();
+            Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
+            Assert.AreEqual(704, reservedAttr.SizeConst, "Reserved SizeConst");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)
