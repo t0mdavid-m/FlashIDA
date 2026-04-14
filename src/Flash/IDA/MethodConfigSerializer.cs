@@ -258,6 +258,28 @@ namespace Flash
                 return Activator.CreateInstance(targetType);
             }
 
+            if (targetType.IsGenericType &&
+                targetType.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                Type[] args = targetType.GetGenericArguments();
+                Type keyType = args[0];
+                Type valueType = args[1];
+
+                // JavaScriptSerializer JSON object -> Dictionary<string, object>
+                var rawDict = rawValue as Dictionary<string, object>;
+                if (rawDict == null)
+                    return Activator.CreateInstance(targetType);
+
+                var result = (IDictionary)Activator.CreateInstance(targetType);
+                foreach (var kv in rawDict)
+                {
+                    object key = keyType == typeof(string) ? kv.Key : ConvertValue(kv.Key, keyType);
+                    object val = ConvertValue(kv.Value, valueType);
+                    result.Add(key, val);
+                }
+                return result;
+            }
+
             // Nested config class (has [JsonKey] on the class)
             if (targetType.IsClass && !targetType.IsPrimitive
                 && targetType != typeof(string)
