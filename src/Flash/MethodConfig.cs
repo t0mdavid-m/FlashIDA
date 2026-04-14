@@ -429,6 +429,8 @@ namespace Flash
         public string activation { get; set; }
         public int collision_energy { get; set; }
         public int resolution { get; set; }
+        public int agc_target { get; set; }
+        public double max_it { get; set; }
     }
 
     public class JsonMsSettingsConfig
