@@ -14,7 +14,7 @@ namespace Flash.Tests
     [TestFixture]
     public class ScanCommandLayoutTests
     {
-        // P3-U01: ScanCommand is exactly 1248 bytes (Phase 6: added faims_cv)
+        // P3-U01: ScanCommand is exactly 2048 bytes (scan parameter expansion + reserved block)
         [Test, Category("Tier1")]
         public void P3_U01_ScanCommand_SizeMatchesCpp()
         {
