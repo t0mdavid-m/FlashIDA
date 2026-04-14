@@ -175,25 +175,41 @@ namespace Flash
                         last_mass = c.MsSettings.MS1.LastMass,
                         resolution = c.MsSettings.MS1.OrbitrapResolution,
                         agc_target = c.MsSettings.MS1.AGCTarget,
-                        max_it = c.MsSettings.MS1.MaxIT
+                        max_it = c.MsSettings.MS1.MaxIT,
+                        microscans = c.MsSettings.MS1.Microscans,
+                        rf_lens = c.MsSettings.MS1.RFLens,
+                        source_cid = c.MsSettings.MS1.SourceCID,
+                        source_cid_scaling = c.MsSettings.MS1.SourceCIDScaling,
+                        data_type = c.MsSettings.MS1.DataType ?? "",
+                        scan_rate = ""
                     },
                     ms2 = ms2List.Select(m => new JsonMs2Config
                     {
                         analyzer = m.Analyzer ?? "",
                         activation = m.Activation ?? "",
                         collision_energy = m.CollisionEnergy,
-                        resolution = m.OrbitrapResolution
+                        resolution = m.OrbitrapResolution,
                         agc_target = m.AGCTarget,
-                        max_it = m.MaxIT
+                        max_it = m.MaxIT,
+                        first_mass = m.FirstMass,
+                        last_mass = m.LastMass,
+                        microscans = m.Microscans,
+                        data_type = m.DataType ?? "",
+                        scan_rate = ""
                     }).ToArray(),
                     ms3 = c.MsSettings.MS3.Select(m => new JsonMs2Config
                     {
                         analyzer = m.Analyzer ?? "",
                         activation = m.Activation ?? "",
                         collision_energy = m.CollisionEnergy,
-                        resolution = m.OrbitrapResolution
+                        resolution = m.OrbitrapResolution,
                         agc_target = m.AGCTarget,
-                        max_it = m.MaxIT
+                        max_it = m.MaxIT,
+                        first_mass = m.FirstMass,
+                        last_mass = m.LastMass,
+                        microscans = m.Microscans,
+                        data_type = m.DataType ?? "",
+                        scan_rate = ""
                     }).ToArray()
                 },
                 scheduling = new JsonSchedulingConfig

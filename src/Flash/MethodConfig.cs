@@ -421,6 +421,12 @@ namespace Flash
         public int resolution { get; set; }
         public int agc_target { get; set; }
         public double max_it { get; set; }
+        public int microscans { get; set; }
+        public double rf_lens { get; set; }
+        public double source_cid { get; set; }
+        public double source_cid_scaling { get; set; }
+        public string data_type { get; set; }
+        public string scan_rate { get; set; }
     }
 
     public class JsonMs2Config
@@ -431,6 +437,14 @@ namespace Flash
         public int resolution { get; set; }
         public int agc_target { get; set; }
         public double max_it { get; set; }
+        public double first_mass { get; set; }
+        public double last_mass { get; set; }
+        public int microscans { get; set; }
+        public double rf_lens { get; set; }
+        public double source_cid { get; set; }
+        public double source_cid_scaling { get; set; }
+        public string data_type { get; set; }
+        public string scan_rate { get; set; }
     }
 
     public class JsonMsSettingsConfig
