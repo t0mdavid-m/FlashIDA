@@ -74,7 +74,8 @@ namespace Flash.Tests
             Assert.AreEqual(1272, (int)Marshal.OffsetOf<ScanCommand>("SourceCidScaling"), "SourceCidScaling offset");
             Assert.AreEqual(1280, (int)Marshal.OffsetOf<ScanCommand>("DataType"), "DataType offset");
             Assert.AreEqual(1312, (int)Marshal.OffsetOf<ScanCommand>("ScanRate"), "ScanRate offset");
-            Assert.AreEqual(1344, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            Assert.AreEqual(1344, (int)Marshal.OffsetOf<ScanCommand>("ParentScanId"), "ParentScanId offset");
+            Assert.AreEqual(1348, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
@@ -121,11 +122,17 @@ namespace Flash.Tests
             Assert.IsNotNull(scanRateAttr, "ScanRate should have MarshalAs attribute");
             Assert.AreEqual(32, scanRateAttr.SizeConst, "ScanRate SizeConst");
 
-            // ScanCommand.Reserved should be SizeConst=704
+            // ScanCommand.ParentScanId should be SizeConst=4
+            var parentScanIdAttr = typeof(ScanCommand).GetField("ParentScanId")
+                .GetCustomAttribute<MarshalAsAttribute>();
+            Assert.IsNotNull(parentScanIdAttr, "ParentScanId should have MarshalAs attribute");
+            Assert.AreEqual(4, parentScanIdAttr.SizeConst, "ParentScanId SizeConst");
+
+            // ScanCommand.Reserved should be SizeConst=700
             var reservedAttr = typeof(ScanCommand).GetField("Reserved")
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
-            Assert.AreEqual(704, reservedAttr.SizeConst, "Reserved SizeConst");
+            Assert.AreEqual(700, reservedAttr.SizeConst, "Reserved SizeConst");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)

@@ -78,7 +78,9 @@ namespace Flash.IDA
         public string DataType;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
         public string ScanRate;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 704)]
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 4)]
+        public string ParentScanId;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 700)]
         public byte[] Reserved;
     }
 
