@@ -29,9 +29,9 @@ namespace Flash.IDA
     }
 
     /// <summary>
-    /// Blittable struct matching C++ ScanCommand (1240 bytes).
-    /// Layout: 8 int32 (32) + 3 doubles (24) + char[32] + char[256] + IsolationStage[10] (800) + uint64 (8)
-    ///       + 10 doubles (80) + 2 int32 (8) = 1240.
+    /// Blittable struct matching C++ ScanCommand (2048 bytes).
+    /// Layout: 1248 (existing) + 8 (microscans+pad3) + 24 (rf_lens+source_cid+source_cid_scaling)
+    ///       + 64 (data_type+scan_rate) + 704 (reserved) = 2048.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
@@ -69,6 +69,17 @@ namespace Flash.IDA
         public int HcdEnergy;
         public int Pad2;
         public double FaimsCv;
+        public int Microscans;
+        public int Pad3;
+        public double RfLens;
+        public double SourceCid;
+        public double SourceCidScaling;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string DataType;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string ScanRate;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 704)]
+        public byte[] Reserved;
     }
 
     /// <summary>
