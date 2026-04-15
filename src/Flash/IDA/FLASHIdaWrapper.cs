@@ -30,8 +30,9 @@ namespace Flash.IDA
 
     /// <summary>
     /// Blittable struct matching C++ ScanCommand (2048 bytes).
-    /// Layout: 1248 (existing) + 8 (microscans+pad3) + 24 (rf_lens+source_cid+source_cid_scaling)
-    ///       + 64 (data_type+scan_rate) + 704 (reserved) = 2048.
+    /// Layout: 1248 (existing) + 8 (dequeue_timestamp_ms) + 8 (microscans+pad3)
+    ///       + 24 (rf_lens+source_cid+source_cid_scaling) + 64 (data_type+scan_rate)
+    ///       + 4 (parent_scan_id) + 692 (reserved) = 2048.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
