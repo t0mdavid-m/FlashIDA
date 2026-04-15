@@ -178,7 +178,13 @@ namespace Flash
 
             // MSn scan type
             if (cmd.MsnLevel > 1)
+            {
                 p.ScanType = "MSn";
+            }
+            else
+            {
+                p.ScanType = "Full";
+            } 
 
             // Isolation stages
             if (cmd.NumStages > 0 && cmd.Stages != null)
