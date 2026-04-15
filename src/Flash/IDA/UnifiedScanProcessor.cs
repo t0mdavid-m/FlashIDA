@@ -19,8 +19,7 @@ namespace Flash.IDA
             double rt = double.Parse(msScan.Header["StartTime"]);
             int msLevel = int.Parse(msScan.Header["MSOrder"]);
             string scanDesc = "";
-            if (msLevel >= 2)
-                msScan.Trailer.TryGetValue("Scan Description", out scanDesc);
+            msScan.Trailer.TryGetValue("Scan Description", out scanDesc);
 
             double faimsCv = 0.0;
             if (msScan.Trailer.TryGetValue("FAIMS CV", out var cvStr))
