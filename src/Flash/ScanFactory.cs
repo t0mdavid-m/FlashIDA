@@ -48,7 +48,7 @@ namespace Flash
         public double? FAIMS_CV;
         public string FAIMS_Voltages;
         public string ScanDescription;
-        public string ScanRangeMode;
+        public string ;
     }
 
     /// <summary>
@@ -163,6 +163,12 @@ namespace Flash
                 p.FirstMass = new double[] { cmd.FirstMass };
             if (cmd.LastMass > 0)
                 p.LastMass = new double[] { cmd.LastMass };
+            if (cmd.FirstMass > 0 && cmd.LastMass > 0) {
+                p.ScanRangeMode = "DefineMZRange";
+            }
+            else if (cmd.FirstMass > 0) {
+                p.ScanRangeMode = "DefineFirstMass";
+            }
 
             // Orbitrap resolution (nullable — leave null if 0 = not set)
             if (cmd.OrbitrapResolution > 0)
