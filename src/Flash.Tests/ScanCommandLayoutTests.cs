@@ -50,32 +50,33 @@ namespace Flash.Tests
             Assert.AreEqual(88, (int)Marshal.OffsetOf<ScanCommand>("ScanDescription"), "ScanDescription offset");
             Assert.AreEqual(344, (int)Marshal.OffsetOf<ScanCommand>("Stages"), "Stages offset");
             Assert.AreEqual(1144, (int)Marshal.OffsetOf<ScanCommand>("EnqueueTimestampMs"), "EnqueueTimestampMs offset");
+            Assert.AreEqual(1152, (int)Marshal.OffsetOf<ScanCommand>("DequeueTimestampMs"), "DequeueTimestampMs offset");
 
-            // Scoring fields (after EnqueueTimestampMs at 1144 + 8 = 1152)
-            Assert.AreEqual(1152, (int)Marshal.OffsetOf<ScanCommand>("Qscore"), "Qscore offset");
-            Assert.AreEqual(1160, (int)Marshal.OffsetOf<ScanCommand>("MonoMass"), "MonoMass offset");
-            Assert.AreEqual(1168, (int)Marshal.OffsetOf<ScanCommand>("ChargeCos"), "ChargeCos offset");
-            Assert.AreEqual(1176, (int)Marshal.OffsetOf<ScanCommand>("ChargeSnr"), "ChargeSnr offset");
-            Assert.AreEqual(1184, (int)Marshal.OffsetOf<ScanCommand>("IsoCos"), "IsoCos offset");
-            Assert.AreEqual(1192, (int)Marshal.OffsetOf<ScanCommand>("Snr"), "Snr offset");
-            Assert.AreEqual(1200, (int)Marshal.OffsetOf<ScanCommand>("ChargeScore"), "ChargeScore offset");
-            Assert.AreEqual(1208, (int)Marshal.OffsetOf<ScanCommand>("PpmError"), "PpmError offset");
-            Assert.AreEqual(1216, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensity"), "PrecursorIntensity offset");
-            Assert.AreEqual(1224, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensity"), "PeakgroupIntensity offset");
-            Assert.AreEqual(1232, (int)Marshal.OffsetOf<ScanCommand>("HcdEnergy"), "HcdEnergy offset");
-            Assert.AreEqual(1236, (int)Marshal.OffsetOf<ScanCommand>("Pad2"), "Pad2 offset");
-            Assert.AreEqual(1240, (int)Marshal.OffsetOf<ScanCommand>("FaimsCv"), "FaimsCv offset");
+            // Scoring fields (after DequeueTimestampMs at 1152 + 8 = 1160)
+            Assert.AreEqual(1160, (int)Marshal.OffsetOf<ScanCommand>("Qscore"), "Qscore offset");
+            Assert.AreEqual(1168, (int)Marshal.OffsetOf<ScanCommand>("MonoMass"), "MonoMass offset");
+            Assert.AreEqual(1176, (int)Marshal.OffsetOf<ScanCommand>("ChargeCos"), "ChargeCos offset");
+            Assert.AreEqual(1184, (int)Marshal.OffsetOf<ScanCommand>("ChargeSnr"), "ChargeSnr offset");
+            Assert.AreEqual(1192, (int)Marshal.OffsetOf<ScanCommand>("IsoCos"), "IsoCos offset");
+            Assert.AreEqual(1200, (int)Marshal.OffsetOf<ScanCommand>("Snr"), "Snr offset");
+            Assert.AreEqual(1208, (int)Marshal.OffsetOf<ScanCommand>("ChargeScore"), "ChargeScore offset");
+            Assert.AreEqual(1216, (int)Marshal.OffsetOf<ScanCommand>("PpmError"), "PpmError offset");
+            Assert.AreEqual(1224, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensity"), "PrecursorIntensity offset");
+            Assert.AreEqual(1232, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensity"), "PeakgroupIntensity offset");
+            Assert.AreEqual(1240, (int)Marshal.OffsetOf<ScanCommand>("HcdEnergy"), "HcdEnergy offset");
+            Assert.AreEqual(1244, (int)Marshal.OffsetOf<ScanCommand>("Pad2"), "Pad2 offset");
+            Assert.AreEqual(1248, (int)Marshal.OffsetOf<ScanCommand>("FaimsCv"), "FaimsCv offset");
 
-            // New scan parameter fields (after FaimsCv at 1240 + 8 = 1248)
-            Assert.AreEqual(1248, (int)Marshal.OffsetOf<ScanCommand>("Microscans"), "Microscans offset");
-            Assert.AreEqual(1252, (int)Marshal.OffsetOf<ScanCommand>("Pad3"), "Pad3 offset");
-            Assert.AreEqual(1256, (int)Marshal.OffsetOf<ScanCommand>("RfLens"), "RfLens offset");
-            Assert.AreEqual(1264, (int)Marshal.OffsetOf<ScanCommand>("SourceCid"), "SourceCid offset");
-            Assert.AreEqual(1272, (int)Marshal.OffsetOf<ScanCommand>("SourceCidScaling"), "SourceCidScaling offset");
-            Assert.AreEqual(1280, (int)Marshal.OffsetOf<ScanCommand>("DataType"), "DataType offset");
-            Assert.AreEqual(1312, (int)Marshal.OffsetOf<ScanCommand>("ScanRate"), "ScanRate offset");
-            Assert.AreEqual(1344, (int)Marshal.OffsetOf<ScanCommand>("ParentScanId"), "ParentScanId offset");
-            Assert.AreEqual(1348, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            // New scan parameter fields (after FaimsCv at 1248 + 8 = 1256)
+            Assert.AreEqual(1256, (int)Marshal.OffsetOf<ScanCommand>("Microscans"), "Microscans offset");
+            Assert.AreEqual(1260, (int)Marshal.OffsetOf<ScanCommand>("Pad3"), "Pad3 offset");
+            Assert.AreEqual(1264, (int)Marshal.OffsetOf<ScanCommand>("RfLens"), "RfLens offset");
+            Assert.AreEqual(1272, (int)Marshal.OffsetOf<ScanCommand>("SourceCid"), "SourceCid offset");
+            Assert.AreEqual(1280, (int)Marshal.OffsetOf<ScanCommand>("SourceCidScaling"), "SourceCidScaling offset");
+            Assert.AreEqual(1288, (int)Marshal.OffsetOf<ScanCommand>("DataType"), "DataType offset");
+            Assert.AreEqual(1320, (int)Marshal.OffsetOf<ScanCommand>("ScanRate"), "ScanRate offset");
+            Assert.AreEqual(1352, (int)Marshal.OffsetOf<ScanCommand>("ParentScanId"), "ParentScanId offset");
+            Assert.AreEqual(1356, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
@@ -128,11 +129,11 @@ namespace Flash.Tests
             Assert.IsNotNull(parentScanIdAttr, "ParentScanId should have MarshalAs attribute");
             Assert.AreEqual(4, parentScanIdAttr.SizeConst, "ParentScanId SizeConst");
 
-            // ScanCommand.Reserved should be SizeConst=700
+            // ScanCommand.Reserved should be SizeConst=692
             var reservedAttr = typeof(ScanCommand).GetField("Reserved")
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
-            Assert.AreEqual(700, reservedAttr.SizeConst, "Reserved SizeConst");
+            Assert.AreEqual(692, reservedAttr.SizeConst, "Reserved SizeConst");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)

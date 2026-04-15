@@ -54,6 +54,7 @@ namespace Flash.IDA
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
         public IsolationStage[] Stages;
         public ulong EnqueueTimestampMs;
+        public ulong DequeueTimestampMs;
 
         // Precursor scoring data (populated by C++ buildMS2Command_ for diagnostic output)
         public double Qscore;
@@ -80,7 +81,7 @@ namespace Flash.IDA
         public string ScanRate;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 4)]
         public string ParentScanId;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 700)]
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 692)]
         public byte[] Reserved;
     }
 
