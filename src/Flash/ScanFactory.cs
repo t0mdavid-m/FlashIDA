@@ -48,7 +48,7 @@ namespace Flash
         public double? FAIMS_CV;
         public string FAIMS_Voltages;
         public string ScanDescription;
-        public string ;
+        public string ScanRangeMode;
     }
 
     /// <summary>
