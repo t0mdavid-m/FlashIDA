@@ -198,7 +198,7 @@ namespace Flash
                     var stage = cmd.Stages[i];
                     if (stage.PrecursorMz > 0) precursorMasses.Add(stage.PrecursorMz);
                     if (stage.IsolationWidth > 0) isolationWidths.Add(stage.IsolationWidth);
-                    if (stage.CollisionEnergy > 0) collisionEnergies.Add((int)Math.Round(stage.CollisionEnergy));
+                    if (stage.CollisionEnergy >= 0) collisionEnergies.Add((int)Math.Round(stage.CollisionEnergy));
                     if (!string.IsNullOrEmpty(stage.ActivationType)) activationTypes.Add(stage.ActivationType);
                     if (stage.ChargeState > 0) chargeStates.Add(Math.Min(stage.ChargeState, 25));
                     if (stage.ReactionTime > 0) reactionTimes.Add(stage.ReactionTime);
