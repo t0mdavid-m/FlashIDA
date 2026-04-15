@@ -14,10 +14,6 @@ namespace Flash.IDA
 
         public void ProcessMS(IMsScan msScan)
         {
-            // Guard: only FTMS scans (skip ion trap)
-            if (msScan.Header["MassAnalyzer"] != "FTMS")
-                return;
-
             double[] mzs = msScan.Centroids.Select(c => c.Mz).ToArray();
             double[] ints = msScan.Centroids.Select(c => c.Intensity).ToArray();
             double rt = double.Parse(msScan.Header["StartTime"]);
