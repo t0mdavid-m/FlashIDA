@@ -265,6 +265,10 @@ namespace Flash
         [JsonKey("max_targets")]
         [Description("Maximum number of targets to select per MS1 scan")]
         public int MaxTargets { get; set; } = 10;
+
+        [JsonKey("min_charge")]
+        [Description("Minimum charge state for target selection (0 = no filter)")]
+        public int MinCharge { get; set; } = 0;
     }
 
     [JsonKey("ms2")]
@@ -277,6 +281,10 @@ namespace Flash
         [JsonKey("max_targets")]
         [Description("Maximum number of targets to select per MS2 scan")]
         public int MaxTargets { get; set; } = 3;
+
+        [JsonKey("min_charge")]
+        [Description("Minimum charge state for target selection (0 = no filter)")]
+        public int MinCharge { get; set; } = 0;
 
         [JsonKey("exploration")]
         public ExplorationBlockConfig Exploration { get; set; }
@@ -292,6 +300,10 @@ namespace Flash
         [JsonKey("max_targets")]
         [Description("Maximum number of targets to select per MS3 scan")]
         public int MaxTargets { get; set; } = 3;
+
+        [JsonKey("min_charge")]
+        [Description("Minimum charge state for target selection (0 = no filter)")]
+        public int MinCharge { get; set; } = 0;
 
         [JsonKey("exploration")]
         public ExplorationBlockConfig Exploration { get; set; }
@@ -496,6 +508,7 @@ namespace Flash
     {
         public string selection { get; set; }
         public int max_targets { get; set; }
+        public int min_charge { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
     }
 

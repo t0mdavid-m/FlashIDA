@@ -272,17 +272,20 @@ namespace Flash
                 ms1 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS1?.Selection ?? "qscore").ToLower(),
-                    max_targets = ms1Max
+                    max_targets = ms1Max,
+                    min_charge = ss.MS1?.MinCharge ?? 0
                 },
                 ms2 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS2?.Selection ?? "intensity").ToLower(),
-                    max_targets = ms2Max
+                    max_targets = ms2Max,
+                    min_charge = ss.MS2?.MinCharge ?? 0
                 },
                 ms3 = new JsonMsLevelConfig
                 {
                     selection = (ss.MS3?.Selection ?? "none").ToLower(),
-                    max_targets = ms3Max
+                    max_targets = ms3Max,
+                    min_charge = ss.MS3?.MinCharge ?? 0
                 }
             };
 
