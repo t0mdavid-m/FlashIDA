@@ -195,7 +195,10 @@ namespace Flash
                         last_mass = m.LastMass,
                         microscans = m.Microscans,
                         data_type = m.DataType ?? "",
-                        scan_rate = ""
+                        scan_rate = "",
+                        reaction_time = m.ReactionTime,
+                        reagent_max_it = m.ReagentMaxIT,
+                        reagent_agc_target = m.ReagentAGCTarget
                     }).ToArray(),
                     ms3 = c.MsSettings.MS3.Select(m => new JsonMs2Config
                     {
@@ -209,7 +212,10 @@ namespace Flash
                         last_mass = m.LastMass,
                         microscans = m.Microscans,
                         data_type = m.DataType ?? "",
-                        scan_rate = ""
+                        scan_rate = "",
+                        reaction_time = m.ReactionTime,
+                        reagent_max_it = m.ReagentMaxIT,
+                        reagent_agc_target = m.ReagentAGCTarget
                     }).ToArray()
                 },
                 scheduling = new JsonSchedulingConfig
@@ -292,7 +298,8 @@ namespace Flash
             var defaultExpl = new JsonExplorationBlockConfig
             {
                 metric = "none", ce_min = 20, ce_max = 40, ce_step = 5,
-                overrides = null, remaining_precursor_target = 0.1
+                overrides = null, remaining_precursor_target = 0.1,
+                rt_min = 0, rt_max = 0, rt_step = 1, activations = null
             };
             result.ms1.exploration = defaultExpl;
             result.ms2.exploration = defaultExpl;
@@ -307,7 +314,11 @@ namespace Flash
                     ce_max = ss.MS2.Exploration.CEMax,
                     ce_step = ss.MS2.Exploration.CEStep,
                     overrides = ss.MS2.Exploration.Overrides,
-                    remaining_precursor_target = ss.MS2.Exploration.RemainingPrecursorTarget
+                    remaining_precursor_target = ss.MS2.Exploration.RemainingPrecursorTarget,
+                    rt_min = ss.MS2.Exploration.RTMin,
+                    rt_max = ss.MS2.Exploration.RTMax,
+                    rt_step = ss.MS2.Exploration.RTStep,
+                    activations = ss.MS2.Exploration.Activations
                 };
             }
 
@@ -320,7 +331,11 @@ namespace Flash
                     ce_max = ss.MS3.Exploration.CEMax,
                     ce_step = ss.MS3.Exploration.CEStep,
                     overrides = ss.MS3.Exploration.Overrides,
-                    remaining_precursor_target = ss.MS3.Exploration.RemainingPrecursorTarget
+                    remaining_precursor_target = ss.MS3.Exploration.RemainingPrecursorTarget,
+                    rt_min = ss.MS3.Exploration.RTMin,
+                    rt_max = ss.MS3.Exploration.RTMax,
+                    rt_step = ss.MS3.Exploration.RTStep,
+                    activations = ss.MS3.Exploration.Activations
                 };
             }
 

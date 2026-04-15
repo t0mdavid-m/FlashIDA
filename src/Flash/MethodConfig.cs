@@ -253,6 +253,22 @@ namespace Flash
         [JsonKey("remaining_precursor_target")]
         [Description("Target remaining precursor ratio for exploration (0.1 = 10%)")]
         public double RemainingPrecursorTarget { get; set; } = 0.1;
+
+        [JsonKey("rt_min")]
+        [Description("Minimum reaction time for ETD exploration sweep (ms)")]
+        public double RTMin { get; set; }
+
+        [JsonKey("rt_max")]
+        [Description("Maximum reaction time for ETD exploration sweep (ms)")]
+        public double RTMax { get; set; }
+
+        [JsonKey("rt_step")]
+        [Description("Reaction time step size (ms)")]
+        public double RTStep { get; set; } = 1;
+
+        [JsonKey("activations")]
+        [Description("Activation types to sweep (e.g. HCD, ETD, CID, EThcD)")]
+        public List<string> Activations { get; set; }
     }
 
     [JsonKey("ms1")]
@@ -457,6 +473,9 @@ namespace Flash
         public double source_cid_scaling { get; set; }
         public string data_type { get; set; }
         public string scan_rate { get; set; }
+        public double reaction_time { get; set; }
+        public double reagent_max_it { get; set; }
+        public int reagent_agc_target { get; set; }
     }
 
     public class JsonMsSettingsConfig
@@ -502,6 +521,10 @@ namespace Flash
         public double ce_step { get; set; }
         public Dictionary<string, string> overrides { get; set; }
         public double remaining_precursor_target { get; set; }
+        public double rt_min { get; set; }
+        public double rt_max { get; set; }
+        public double rt_step { get; set; }
+        public List<string> activations { get; set; }
     }
 
     public class JsonMsLevelConfig
