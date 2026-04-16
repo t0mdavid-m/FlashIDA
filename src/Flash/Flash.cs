@@ -292,6 +292,7 @@ namespace Flash
             catch (Exception ex)
             {
                 log.Error(String.Format("Processor creation failed: {0}\n{1}", ex.Message, ex.StackTrace));
+                Environment.Exit(1);
             }
 
             //Initialize data processing pipeline

@@ -131,6 +131,9 @@ namespace Flash.IDA
         {
             string arg = mp.ToCppJson();
             m_pNativeObject = CreateFLASHIda(arg);
+            if (m_pNativeObject == IntPtr.Zero)
+                throw new InvalidOperationException(
+                    "C++ engine initialization failed (check console for details)");
         }
 
         /// <summary>
