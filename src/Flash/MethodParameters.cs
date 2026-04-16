@@ -255,7 +255,8 @@ namespace Flash
                 {
                     ida_log_path = c.Runtime.IdaLogPath ?? "",
                     scan_commands_path = c.Runtime.ScanCommandsPath ?? "",
-                    scan_results_path = c.Runtime.ScanResultsPath ?? ""
+                    scan_results_path = c.Runtime.ScanResultsPath ?? "",
+                    identification_log_path = c.Runtime.IdentificationLogPath ?? ""
                 }
             };
 
