@@ -142,7 +142,7 @@ namespace Flash.Tests
                     ScoreThreshold = 0, TQScoreThreshold = 0.9,
                     MinCharge = 4, MaxCharge = 50,
                     MinMass = 500, MaxMass = 50000,
-                    Tolerances = new double[] { 10, 10 }
+                    Tolerances = new double[] { 10, 10, 10 }
                 },
                 PrecursorSelection = new PrecursorSelectionConfig
                 {
