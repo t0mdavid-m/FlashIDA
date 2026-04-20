@@ -90,6 +90,11 @@ namespace Flash
         [JsonKey("hcd_energy")]
         [Description("HCD collision energy for charge-state determination")]
         public int HCDEnergy { get; set; } = 29;
+
+        [Developer]
+        [JsonKey("charge_based_exclusion")]
+        [Description("Treat each (mass, charge) as an independent acquisition target; the mass itself is never globally excluded.")]
+        public bool ChargeBasedExclusion { get; set; }
     }
 
     [JsonKey("tagging")]
@@ -418,6 +423,7 @@ namespace Flash
         public int HCDEnergy { get; set; }
         public bool strict_inclusion { get; set; }
         public double tie_threshold { get; set; }
+        public bool ChargeBasedExclusion { get; set; }
     }
 
     public class JsonTaggingConfig
