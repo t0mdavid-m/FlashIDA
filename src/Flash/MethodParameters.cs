@@ -131,7 +131,8 @@ namespace Flash
                     AllCharges = c.PrecursorSelection.ConsiderAllChargeStates,
                     HCDEnergy = c.PrecursorSelection.HCDEnergy,
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
-                    tie_threshold = c.PrecursorSelection.TieThreshold
+                    tie_threshold = c.PrecursorSelection.TieThreshold,
+                    ChargeBasedExclusion = c.PrecursorSelection.ChargeBasedExclusion
                 },
                 tagging = new JsonTaggingConfig
                 {
