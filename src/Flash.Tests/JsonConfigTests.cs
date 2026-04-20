@@ -106,6 +106,34 @@ namespace Flash.Tests
         }
 
         [Test, Category("Tier1")]
+        public void Deserialize_ChargeBasedExclusion_RoundTrip()
+        {
+            var mp = LoadJsonMethod("method_charge_based_exclusion.json");
+            Assert.IsTrue(mp.Config.PrecursorSelection.ChargeBasedExclusion);
+
+            // Roundtrip preserves the flag.
+            string serialized = MethodConfigSerializer.Serialize(mp.Config);
+            var config2 = MethodConfigSerializer.Deserialize(serialized);
+            Assert.IsTrue(config2.PrecursorSelection.ChargeBasedExclusion);
+
+            // ToCppJson surfaces the flag on the wire-JSON.
+            var cpp = mp.ToCppJson();
+            Assert.IsTrue(cpp.Contains("\"ChargeBasedExclusion\":true") ||
+                          cpp.Contains("\"ChargeBasedExclusion\": true"));
+        }
+
+        [Test, Category("Tier1")]
+        public void Deserialize_ChargeBasedExclusion_DefaultsFalse()
+        {
+            var mp = LoadJsonMethod("method_default.json");
+            Assert.IsFalse(mp.Config.PrecursorSelection.ChargeBasedExclusion);
+
+            var cpp = mp.ToCppJson();
+            Assert.IsTrue(cpp.Contains("\"ChargeBasedExclusion\":false") ||
+                          cpp.Contains("\"ChargeBasedExclusion\": false"));
+        }
+
+        [Test, Category("Tier1")]
         public void Deserialize_RoundTrip()
         {
             var mp = LoadJsonMethod("method_default.json");
