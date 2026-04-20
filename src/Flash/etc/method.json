@@ -46,7 +46,8 @@
     "precursor_selection": {
       "use_id_score": false,
       "consider_all_charges": false,
-      "hcd_energy": 29
+      "hcd_energy": 29,
+      "charge_based_exclusion": false
     },
     "faims": {
       "max_cv_skip": 0,
