@@ -77,6 +77,24 @@ namespace Flash.Tests.Mocks
 
         // === Factory methods ===
 
+        /// <summary>
+        /// Synthetic MS1 "Scan Description" trailer value.
+        ///
+        /// FLASHIda::processScan rejects any scan whose description is shorter than 3 chars
+        /// (FLASHIda.cpp: <c>if (desc_str.size() &lt; 3) return 0;</c>) — a guard for
+        /// instrument method/AGC scans. On a real instrument every MS1 echoes back the
+        /// "&lt;3-char id&gt;S" description FLASHIda stamps via makeMS1, so the guard never
+        /// fires in production. The mock MS1 factories must mirror that shape or the engine
+        /// returns zero precursors for every test spectrum.
+        ///
+        /// The exact value does not affect the emitted commands: the golden ScanDescription
+        /// uses each MS2 command's OWN counter-based tracking id (encode(nextTrackingId)),
+        /// not the parent MS1's. "~~~" decodes to 830583 (far above any engine-generated id,
+        /// so it never collides in the pending map) and the trailing 'S' (not 'A') keeps it
+        /// from being treated as an AGC/method scan.
+        /// </summary>
+        private const string Ms1ScanDescription = "~~~S";
+
         /// <summary>Create a minimal MS1 scan with the given peaks</summary>
         public static MockMsScan WithPeaks(double rt, string scanNumber, params (double mz, double intensity)[] peaks)
         {
@@ -87,6 +105,7 @@ namespace Flash.Tests.Mocks
             scan._headerDict["Scan"] = scanNumber;
 
             scan._trailerAccess.Set("Access ID", scanNumber);
+            scan._trailerAccess.Set("Scan Description", Ms1ScanDescription);
 
             foreach (var peak in peaks)
             {
@@ -181,6 +200,7 @@ namespace Flash.Tests.Mocks
             scan._headerDict["StartTime"] = rt.ToString();
             scan._headerDict["Scan"] = scanNumber;
             scan._trailerAccess.Set("Access ID", scanNumber);
+            scan._trailerAccess.Set("Scan Description", Ms1ScanDescription);
             return scan;
         }
 
@@ -193,6 +213,7 @@ namespace Flash.Tests.Mocks
             scan._headerDict["StartTime"] = rt.ToString();
             scan._headerDict["Scan"] = scanNumber;
             scan._trailerAccess.Set("Access ID", scanNumber);
+            scan._trailerAccess.Set("Scan Description", Ms1ScanDescription);
 
             var rng = new Random(42);
             for (int i = 0; i < 50; i++)
@@ -230,6 +251,7 @@ namespace Flash.Tests.Mocks
                     string scanNum = tokens[0].Replace("Spec scan=", "");
                     current._headerDict["Scan"] = scanNum;
                     current._trailerAccess.Set("Access ID", scanNum);
+                    current._trailerAccess.Set("Scan Description", Ms1ScanDescription);
                     if (tokens.Length >= 3 && tokens[2].StartsWith("cv="))
                     {
                         string cvStr = tokens[2].Substring(3);
