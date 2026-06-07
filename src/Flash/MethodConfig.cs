@@ -77,11 +77,6 @@ namespace Flash
         public double TieThreshold { get; set; } = 0.1;
 
         [Developer]
-        [JsonKey("use_id_score")]
-        [Description("Use identification-based scoring instead of QScore")]
-        public bool UseIDScore { get; set; }
-
-        [Developer]
         [JsonKey("consider_all_charges")]
         [Description("Consider all charge states for precursor selection")]
         public bool ConsiderAllChargeStates { get; set; }
@@ -418,7 +413,6 @@ namespace Flash
     {
         public double RT_window { get; set; }
         public int target_mode { get; set; }
-        public bool IDScore { get; set; }
         public bool AllCharges { get; set; }
         public int HCDEnergy { get; set; }
         public bool strict_inclusion { get; set; }

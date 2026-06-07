@@ -65,7 +65,7 @@ namespace Flash.Tests
                 "score_threshold", "tqscore_threshold", "min_charge", "max_charge",
                 "min_mass", "max_mass", "tol");
             CompareJsonSection(actual, expected, "precursor_selection",
-                "RT_window", "target_mode", "IDScore", "AllCharges",
+                "RT_window", "target_mode", "AllCharges",
                 "HCDEnergy", "strict_inclusion", "tie_threshold");
             CompareJsonSection(actual, expected, "tagging",
                 "min_tag_length", "max_tag_length", "max_ptm_count", "max_flanking_mass_diff");
@@ -86,7 +86,7 @@ namespace Flash.Tests
                 "score_threshold", "tqscore_threshold", "min_charge", "max_charge",
                 "min_mass", "max_mass", "tol");
             CompareJsonSection(actual, expected, "precursor_selection",
-                "RT_window", "target_mode", "IDScore", "AllCharges",
+                "RT_window", "target_mode", "AllCharges",
                 "HCDEnergy", "strict_inclusion", "tie_threshold");
             var msSettings = (Dictionary<string, object>)actual["ms_settings"];
             var ms2Array = (System.Collections.ArrayList)msSettings["ms2"];
@@ -100,7 +100,6 @@ namespace Flash.Tests
         public void Deserialize_DeveloperRouting()
         {
             var mp = LoadJsonMethod("method_json_roundtrip.json");
-            Assert.IsTrue(mp.Config.PrecursorSelection.UseIDScore);
             Assert.AreEqual(35, mp.Config.PrecursorSelection.HCDEnergy);
             Assert.AreEqual(2, mp.Config.Faims.MaxCVSkip);
         }

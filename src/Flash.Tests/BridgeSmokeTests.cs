@@ -88,7 +88,7 @@ namespace Flash.Tests
         {
             string legacyConfig = "max_mass_count 1 score_threshold 0 min_charge 4 max_charge 50 " +
                    "min_mass 500 max_mass 50000 RT_window 180 tol 10 10 " +
-                   "tqscore_threshold 0.9 target_mode 0 IDScore 0 AllCharges 0 " +
+                   "tqscore_threshold 0.9 target_mode 0 AllCharges 0 " +
                    "HCDEnergy 29 strict_inclusion 0 tie_threshold 0.1 MS3AllCharges 1 ";
 
             // C++ CreateFLASHIda catches std::invalid_argument and returns nullptr

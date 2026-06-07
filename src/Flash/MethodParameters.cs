@@ -127,7 +127,6 @@ namespace Flash
                 {
                     RT_window = c.PrecursorSelection.RTWindow,
                     target_mode = targetMode,
-                    IDScore = c.PrecursorSelection.UseIDScore,
                     AllCharges = c.PrecursorSelection.ConsiderAllChargeStates,
                     HCDEnergy = c.PrecursorSelection.HCDEnergy,
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
@@ -374,8 +373,8 @@ namespace Flash
                     c.Ms3.ProteinSequence.Substring(0, Math.Min(20, c.Ms3.ProteinSequence.Length)) + "...");
             else
                 sb.AppendLine("MS3: No protein sequence");
-            sb.AppendFormat("Developer: IDScore={0}, AllCharges={1}, HCDEnergy={2}, MaxCVSkip={3}\n",
-                c.PrecursorSelection.UseIDScore, c.PrecursorSelection.ConsiderAllChargeStates,
+            sb.AppendFormat("Developer: AllCharges={0}, HCDEnergy={1}, MaxCVSkip={2}\n",
+                c.PrecursorSelection.ConsiderAllChargeStates,
                 c.PrecursorSelection.HCDEnergy, c.Faims.MaxCVSkip);
             sb.AppendFormat("FAIMS: CV=[{0}]\n", String.Join(",", c.Faims.CVValues));
             var ms1 = c.MsSettings.MS1;
