@@ -51,8 +51,8 @@ namespace Flash.Tests
             string jsonConfig = BuildJsonConfigString();
             IntPtr ptr = CreateFLASHIda(jsonConfig);
 
-            Assume.That(ptr, Is.Not.EqualTo(IntPtr.Zero),
-                "Skipping dispose test: CreateFLASHIda returned null.");
+            Assert.AreNotEqual(IntPtr.Zero, ptr,
+                "CreateFLASHIda returned null; cannot test Dispose.");
 
             Assert.DoesNotThrow(() =>
             {
@@ -106,11 +106,8 @@ namespace Flash.Tests
                 TestContext.CurrentContext.TestDirectory, "..", "test-data", "configs");
             string roundtripPath = Path.Combine(configsDir, "method_json_roundtrip.json");
 
-            if (!File.Exists(roundtripPath))
-            {
-                Assert.Ignore("method_json_roundtrip.json not yet created");
-                return;
-            }
+            Assert.IsTrue(File.Exists(roundtripPath),
+                "method_json_roundtrip.json not found at " + roundtripPath);
 
             var mp = MethodParameters.Load(roundtripPath);
             string jsonConfig = mp.ToCppJson();

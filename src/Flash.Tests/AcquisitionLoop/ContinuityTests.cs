@@ -86,10 +86,10 @@ namespace Flash.Tests.AcquisitionLoop
             }
             else
             {
-                Assert.Inconclusive(
+                Assert.Fail(
                     "Golden file not found: " + goldenFileName +
                     ". Actual output written to continuity-output/. " +
-                    "Review and commit to test-data/golden/.");
+                    "Capture and commit it to test-data/golden/.");
             }
         }
 
@@ -204,7 +204,7 @@ namespace Flash.Tests.AcquisitionLoop
             using (var harness = CreateHarness("method_default.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
-                Assume.That(results.Count, Is.GreaterThan(0),
+                Assert.That(results.Count, Is.GreaterThan(0),
                     "Deconvolution must find at least one precursor");
 
                 AssertGolden("continuity_standard_dda.json", results);
@@ -234,7 +234,7 @@ namespace Flash.Tests.AcquisitionLoop
                 smokeScan.Dispose();
 
                 var results = harness.CollectResults();
-                Assume.That(results.Count, Is.GreaterThan(0),
+                Assert.That(results.Count, Is.GreaterThan(0),
                     "Should have produced scan commands from 1000 MS1 scans");
 
                 // Extract tracking IDs from scan descriptions
@@ -439,17 +439,18 @@ namespace Flash.Tests.AcquisitionLoop
             Assert.That(exclusionResults.Count, Is.GreaterThan(0),
                 "Exclusion mode should produce results with smoke test data");
 
-            // Verify exclusion produces fewer or different results than standard DDA
-            if (standardResults.Count > 0)
-            {
-                var stdMasses = new HashSet<double>(standardResults.Select(r => r.PrecursorMz));
-                var exclMasses = new HashSet<double>(exclusionResults.Select(r => r.PrecursorMz));
+            // Standard DDA must produce a baseline to compare exclusion against.
+            Assert.That(standardResults.Count, Is.GreaterThan(0),
+                "Standard DDA must produce precursors to compare exclusion against");
 
-                bool fewerResults = exclusionResults.Count < standardResults.Count;
-                bool differentTargets = !exclMasses.SetEquals(stdMasses);
-                Assert.IsTrue(fewerResults || differentTargets,
-                    "Exclusion mode should produce fewer or different targets than standard DDA");
-            }
+            // Verify exclusion produces fewer or different results than standard DDA
+            var stdMasses = new HashSet<double>(standardResults.Select(r => r.PrecursorMz));
+            var exclMasses = new HashSet<double>(exclusionResults.Select(r => r.PrecursorMz));
+
+            bool fewerResults = exclusionResults.Count < standardResults.Count;
+            bool differentTargets = !exclMasses.SetEquals(stdMasses);
+            Assert.IsTrue(fewerResults || differentTargets,
+                "Exclusion mode should produce fewer or different targets than standard DDA");
 
             // All exclusion mode results should have valid precursor m/z values
             Assert.IsTrue(exclusionResults.All(r => r.PrecursorMz > 0),
@@ -514,9 +515,9 @@ namespace Flash.Tests.AcquisitionLoop
                 // Follow-up MS2 types are only sent if tags are detected in the first MS2.
                 // Verify that at most 1 MS2 per precursor was sent initially
                 // (the conditional mode sends only the first MS2 parameter set)
-                Assume.That(ms2Commands.Count, Is.GreaterThan(0),
+                Assert.That(ms2Commands.Count, Is.GreaterThan(0),
                     "Conditional MS2 test requires MS2 commands from MS1 processing");
-                Assume.That(harness.MethodParams.Config.Tagging.ConditionalMS2, Is.True,
+                Assert.That(harness.MethodParams.Config.Tagging.ConditionalMS2, Is.True,
                     "Config must have ConditionalMS2 enabled for this test");
 
                 int maxPrecursors = harness.MethodParams.Config.SelectionStrategy.MS1.MaxTargets;
@@ -563,53 +564,11 @@ namespace Flash.Tests.AcquisitionLoop
 
         #endregion
 
-        #region AL-CT22 through CT26: MS3 Tests
-
-        [Test, Category("Tier2")]
-        public void P0_AL_CT22_MS3Enabled_MsnLevel3RecordsExist()
-        {
-            using (var harness = CreateHarness("method_ms3_mode1.json"))
-            {
-                // Push MS1 to get MS2 commands
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                var ms1Results = harness.PushScan(smokeScan);
-                smokeScan.Dispose();
-
-                // Get MS2 commands from the MS1 processing
-                var ms2Commands = harness.Factory.CreatedScans
-                    .Select(s => ScanCommandRecord.FromCustomScan(s))
-                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
-                    .ToList();
-
-                Assert.That(ms2Commands.Count, Is.GreaterThan(0),
-                    "MS3 test requires MS2 commands from MS1 processing");
-
-                // Simulate MS2 scan coming back to trigger MS3
-                // Use the first MS2 command's parameters to create a mock MS2 response
-                var firstMS2 = ms2Commands[0];
-                var ms2Scan = MockMsScan.MS2WithDescription(
-                    1.1, "1001", firstMS2.ScanDescription,
-                    firstMS2.PrecursorMz, firstMS2.ChargeState,
-                    // Simple MS2 fragment peaks
-                    (200.0, 10000), (300.0, 15000), (400.0, 20000),
-                    (500.0, 25000), (600.0, 30000));
-                harness.PushScan(ms2Scan);
-                ms2Scan.Dispose();
-
-                // Check if any MS3 scans were produced
-                var allResults = harness.CollectResults();
-                var ms3Results = allResults.Where(r => r.MsnLevel == 3).ToList();
-
-                // MS3 results are data-dependent: require MS2 deconvolution to find
-                // peak groups matching the protein sequence. The real behavioral check
-                // is in CT24 (golden file comparison). Here we just verify structure.
-                if (ms3Results.Count > 0)
-                {
-                    Assert.IsTrue(ms3Results.All(r => r.MsnLevel == 3),
-                        "MS3 records should have MsnLevel == 3");
-                }
-            }
-        }
+        #region AL-CT23 through CT26: MS3 Tests
+        // CT22 removed: it fed synthetic MS2 peaks that never match the proteoform, so the
+        // engine emits 0 MS3 and its only assertion was both skipped (if count>0) and
+        // tautological. Real MS3 existence is golden-covered by CT24 (synthetic, 0 MS3) and
+        // CT35/CT36 (real CytC, 4 MS3 records each).
 
         [Test, Category("Tier2")]
         public void P0_AL_CT23_MS3Disabled_NoMsnLevel3()

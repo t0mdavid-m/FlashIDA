@@ -27,15 +27,6 @@ namespace Flash.Tests
         private static readonly string DefaultMethodPath =
             Path.Combine(TestDataDir, "configs", "method_default.json");
 
-        // P0-U01: Flash.sln compiles without error.
-        // This test is validated by the fact that this assembly was compiled.
-        [Test]
-        [Category("Tier1")]
-        public void P0_U01_SolutionCompilesWithoutError()
-        {
-            Assert.Pass("Assembly compiled successfully — build is clean.");
-        }
-
         // P0-U02: Flash.exe exists in the build output directory.
         [Test]
         [Category("Tier1")]

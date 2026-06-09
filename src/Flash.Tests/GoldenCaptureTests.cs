@@ -40,8 +40,8 @@ namespace Flash.Tests
         public void CaptureConfigFull()
         {
             string jsonPath = Path.Combine(TestDataDir, "configs", "method_json_roundtrip.json");
-            Assume.That(File.Exists(jsonPath), Is.True,
-                "method_json_roundtrip.json not present — skipping capture");
+            Assert.That(File.Exists(jsonPath), Is.True,
+                "method_json_roundtrip.json not found at " + jsonPath);
             var mp = MethodParameters.Load(jsonPath);
             string json = mp.ToCppJson();
             var serializer = new JavaScriptSerializer();

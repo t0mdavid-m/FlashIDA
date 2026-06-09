@@ -42,16 +42,13 @@ namespace Flash.Tests
                 TestContext.CurrentContext.TestDirectory, "..", "test-data", "configs");
             string configPath = Path.Combine(configsDir, "method_default.json");
 
-            if (!File.Exists(configPath))
-            {
-                Assert.Ignore("method_default.json not found at " + configPath);
-                return;
-            }
+            Assert.IsTrue(File.Exists(configPath),
+                "method_default.json not found at " + configPath);
 
             var mp = MethodParameters.Load(configPath);
             string jsonConfig = mp.ToCppJson();
             nativePtr = CreateFLASHIda(jsonConfig);
-            Assume.That(nativePtr, Is.Not.EqualTo(IntPtr.Zero), "CreateFLASHIda returned null");
+            Assert.That(nativePtr, Is.Not.EqualTo(IntPtr.Zero), "CreateFLASHIda returned null");
         }
 
         [OneTimeTearDown]

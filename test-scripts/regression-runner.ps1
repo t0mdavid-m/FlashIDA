@@ -7,6 +7,11 @@ param (
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
+if (-not (Test-Path $FlashExe)) {
+    Write-Host "FAIL: Flash.exe not found at $FlashExe"
+    exit 1
+}
+
 # Copy supporting config files (inclusion lists, FASTA) to working directory
 # so C++ engine can resolve bare filenames in method config
 $configDir = Join-Path $TestDataDir "configs"
@@ -138,15 +143,27 @@ foreach ($cfg in $configs) {
 
     Write-Host "  Args: $($flashArgs -join ' ')"
     Write-Host "  CWD: $(Get-Location)"
-    & $FlashExe @flashArgs 2>&1 | ForEach-Object { Write-Host "  [Flash] $_" }
+    $global:LASTEXITCODE = $null
+    try {
+        & $FlashExe @flashArgs 2>&1 | ForEach-Object { Write-Host "  [Flash] $_" }
+    } catch {
+        Write-Host "FAIL: Flash.exe failed to launch for $($cfg.name): $_"
+        $failures++
+        continue
+    }
 
-    if ($LASTEXITCODE -ne 0) {
+    if ($null -eq $LASTEXITCODE -or $LASTEXITCODE -ne 0) {
         Write-Host "FAIL: Flash.exe exited with code $LASTEXITCODE for $($cfg.name)"
         $failures++
         continue
     }
 
     if ($captureMode) {
+        if (-not (Test-Path $outputFile) -or ((Get-Item $outputFile).Length -eq 0)) {
+            Write-Host "FAIL: capture produced no/empty output for $($cfg.name): $outputFile"
+            $failures++
+            continue
+        }
         Write-Host "CAPTURE: $($cfg.name) -> $outputFile"
         continue
     }
