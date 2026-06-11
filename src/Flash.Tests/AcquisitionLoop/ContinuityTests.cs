@@ -65,8 +65,10 @@ namespace Flash.Tests.AcquisitionLoop
         }
 
         /// <summary>
-        /// Assert against golden file. If golden doesn't exist, write actual output
-        /// and mark test as Inconclusive for first-run capture.
+        /// Assert the JSON-serialized results against the committed golden file. The actual
+        /// output is always written to continuity-output/ for capture/debugging. If the golden
+        /// file is missing, the test FAILS (Assert.Fail) so a missing reference can never pass
+        /// silently — capture and commit the written output to test-data/golden/.
         /// </summary>
         private void AssertGolden(string goldenFileName, List<ScanCommandRecord> results)
         {
@@ -167,29 +169,60 @@ namespace Flash.Tests.AcquisitionLoop
             }
         }
 
+        // CT02 was a single "CollisionEnergiesMatchConfig" test whose only CE assertion sat
+        // behind `if (CollisionEnergy != 0)`; on its all-ETD config (CE always 0) that branch
+        // never ran, so the test passed without checking anything. Split into two focused tests
+        // — one ETD, one HCD — each asserting scan type + activation + the activation-specific
+        // energy/reaction-time on EVERY MS2 command, so neither can pass vacuously.
+        // CapturedRecords (raw ScanCommand structs) is used because ReactionTime is not exposed
+        // on the Values-based CollectResults() path.
+
         [Test, Category("Tier2")]
-        public void P0_AL_CT02_StandardDDA_CollisionEnergiesMatchConfig()
+        public void P0_AL_CT02a_StandardDDA_ETD()
         {
-            using (var harness = CreateHarness("method_default.json"))
+            using (var harness = CreateHarness("method_dda_etd.json"))
             {
-                var results = PushSmokeSpectrumAndCollect(harness);
+                PushSmokeSpectrumAndCollect(harness);
 
-                Assert.That(results.Count, Is.GreaterThan(0),
-                    "Deconvolution must find at least one precursor (was Assume; promoted to Assert since golden baselines exist)");
+                var ms2 = harness.CapturedRecords.Where(r => r.MsnLevel == 2).ToList();
+                Assert.That(ms2, Is.Not.Empty, "ETD standard DDA must produce at least one MS2 command");
 
-                // All collision energies should match the configured MS2 parameters
-                var configuredEnergies = harness.MethodParams.Config.MsSettings.MS2
-                    .Select(p => p.CollisionEnergy).ToList();
+                double expectedReactionTime = harness.MethodParams.Config.MsSettings.MS2[0].ReactionTime;
+                Assert.That(expectedReactionTime, Is.GreaterThan(0), "ETD fixture must configure a reaction time");
 
-                foreach (var r in results)
+                foreach (var r in ms2)
                 {
-                    // CollisionEnergy 0 means not set (ETD mode uses ReactionTime instead)
-                    if (r.CollisionEnergy != 0)
-                    {
-                        Assert.That(configuredEnergies, Has.Member(r.CollisionEnergy),
-                            string.Format("Collision energy {0} not in configured values [{1}]",
-                                r.CollisionEnergy, string.Join(",", configuredEnergies)));
-                    }
+                    Assert.That(r.ScanType, Is.EqualTo("MSn"), "ETD command must be an MSn scan");
+                    Assert.That(r.ActivationType, Is.EqualTo("ETD"), "MS2 activation must be ETD");
+                    Assert.That(r.ReactionTime, Is.EqualTo(expectedReactionTime).Within(0.001),
+                        "ETD reaction time must match the configured value");
+                    Assert.That(r.CollisionEnergy, Is.EqualTo(0),
+                        "ETD MS2 must not carry a collision energy");
+                }
+            }
+        }
+
+        [Test, Category("Tier2")]
+        public void P0_AL_CT02b_StandardDDA_HCD()
+        {
+            using (var harness = CreateHarness("method_dda_hcd.json"))
+            {
+                PushSmokeSpectrumAndCollect(harness);
+
+                var ms2 = harness.CapturedRecords.Where(r => r.MsnLevel == 2).ToList();
+                Assert.That(ms2, Is.Not.Empty, "HCD standard DDA must produce at least one MS2 command");
+
+                int expectedCe = harness.MethodParams.Config.MsSettings.MS2[0].CollisionEnergy;
+                Assert.That(expectedCe, Is.GreaterThan(0), "HCD fixture must configure a non-zero collision energy");
+
+                foreach (var r in ms2)
+                {
+                    Assert.That(r.ScanType, Is.EqualTo("MSn"), "HCD command must be an MSn scan");
+                    Assert.That(r.ActivationType, Is.EqualTo("HCD"), "MS2 activation must be HCD");
+                    Assert.That(r.CollisionEnergy, Is.EqualTo(expectedCe),
+                        "HCD collision energy must match the configured value");
+                    Assert.That(r.ReactionTime, Is.EqualTo(0.0).Within(0.001),
+                        "HCD MS2 must not carry a reaction time");
                 }
             }
         }
@@ -246,6 +279,15 @@ namespace Flash.Tests.AcquisitionLoop
                             "Duplicate scan description (tracking ID): " + r.ScanDescription);
                     }
                 }
+
+                // Fail closed: prove the loop actually examined data. Every MSn result must
+                // carry a tracking-ID description, and all must be unique — otherwise an
+                // all-empty-description regression would pass this test vacuously.
+                int checkedCount = results.Count(r => !string.IsNullOrEmpty(r.ScanDescription));
+                Assert.That(checkedCount, Is.EqualTo(results.Count),
+                    "Every MSn command must carry a tracking-ID scan description");
+                Assert.That(allDescriptions.Count, Is.EqualTo(results.Count),
+                    "All scan descriptions (tracking IDs) must be unique across 1000 scans");
             }
         }
 
@@ -382,8 +424,13 @@ namespace Flash.Tests.AcquisitionLoop
                 deepCount = results.Count;
             }
 
+            // Floor the standard count first, otherwise an all-zero engine run (both configs
+            // emitting nothing) would satisfy 0 >= 0 and pass without exercising deep mode.
+            Assert.That(standardCount, Is.GreaterThan(0),
+                "Standard DDA must produce at least one MS2 command for the smoke spectrum");
+
             // Deep mode should produce at least as many MS2 scans as standard DDA
-            // for the same input spectrum and TopN setting
+            // for the same input spectrum and TopN setting (deepCount > 0 follows).
             Assert.That(deepCount, Is.GreaterThanOrEqualTo(standardCount),
                 string.Format("Deep mode ({0}) should produce >= standard DDA ({1}) MS2 scans",
                     deepCount, standardCount));
@@ -392,28 +439,32 @@ namespace Flash.Tests.AcquisitionLoop
         [Test, Category("Tier2")]
         public void P0_AL_CT13_InclusionList_OnlyListedMasses()
         {
-            // Non-strict inclusion: targets get priority but non-targets can fill remaining slots.
-            // With this test spectrum, no masses match the inclusion list (10k, 15k, 20k, 25k, 30k),
-            // so all results are non-target fill-ins. Verify it runs and produces results.
+            // Non-strict inclusion: targets get priority but non-targets can fill remaining
+            // slots. None of the inclusion-list masses match this test spectrum's precursors,
+            // so all results are non-target fill-ins. This run also establishes the baseline
+            // that the engine DOES deconvolve precursors for this spectrum.
+            int nonStrictCount;
             using (var harness = CreateHarness("method_inclusion.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
+                nonStrictCount = results.Count;
 
-                Assert.That(results.Count, Is.GreaterThan(0),
+                Assert.That(nonStrictCount, Is.GreaterThan(0),
                     "Non-strict inclusion mode should produce scan commands even when no targets match");
                 Assert.IsTrue(results.All(r => r.PrecursorMz > 0),
                     "All results should have valid precursor m/z");
             }
 
-            // Strict inclusion: only inclusion-list masses are selected.
-            // With this test spectrum, no masses match the inclusion list,
-            // so strict mode should produce zero results.
+            // Strict inclusion: only inclusion-list masses are selected. Because the non-strict
+            // run above proved precursors exist for this spectrum, a zero strict result is
+            // attributable to strict suppression rather than a dead engine / failed deconvolution.
             using (var harness = CreateHarness("method_inclusion_strict.json"))
             {
                 var results = PushSmokeSpectrumAndCollect(harness);
 
                 Assert.That(results.Count, Is.EqualTo(0),
-                    "Strict inclusion should produce zero commands when no targets match the spectrum");
+                    string.Format("Strict inclusion must suppress the {0} non-target precursor(s) the " +
+                        "non-strict run produced (none match the inclusion list)", nonStrictCount));
             }
         }
 
@@ -1081,11 +1132,11 @@ namespace Flash.Tests.AcquisitionLoop
         {
             string configsDir = Path.Combine(TestDir, "..", "test-data", "configs");
             string configPath = Path.Combine(configsDir, "method_default.json");
-            if (!File.Exists(configPath))
-            {
-                Assert.Ignore("method_default.json not found");
-                return;
-            }
+            // method_default.json is a committed, must-exist fixture. A missing file is
+            // test-data layout drift (a real failure), not a reason to silently skip the
+            // stress coverage — fail closed instead of Assert.Ignore.
+            Assert.That(File.Exists(configPath), Is.True,
+                "REQUIRED committed config missing: " + configPath);
 
             var mp = MethodParameters.Load(configPath);
             using (var wrapper = new FLASHIdaWrapper(mp))
@@ -1127,11 +1178,11 @@ namespace Flash.Tests.AcquisitionLoop
         {
             string configsDir = Path.Combine(TestDir, "..", "test-data", "configs");
             string configPath = Path.Combine(configsDir, "method_default.json");
-            if (!File.Exists(configPath))
-            {
-                Assert.Ignore("method_default.json not found");
-                return;
-            }
+            // method_default.json is a committed, must-exist fixture. A missing file is
+            // test-data layout drift (a real failure), not a reason to silently skip the
+            // stress coverage — fail closed instead of Assert.Ignore.
+            Assert.That(File.Exists(configPath), Is.True,
+                "REQUIRED committed config missing: " + configPath);
 
             var mp = MethodParameters.Load(configPath);
             using (var wrapper = new FLASHIdaWrapper(mp))

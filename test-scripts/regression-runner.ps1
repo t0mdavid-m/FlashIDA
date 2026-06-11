@@ -5,6 +5,12 @@ param (
     [switch]$captureMode
 )
 
+# Non-capture mode: wipe the output dir first so a stale TSV from a prior run can never be
+# compared against a golden (two cases can share a golden). Capture mode writes to its own
+# dir and keeps existing contents.
+if (-not $captureMode -and (Test-Path $OutputDir)) {
+    Remove-Item -Recurse -Force $OutputDir
+}
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 if (-not (Test-Path $FlashExe)) {
@@ -15,9 +21,14 @@ if (-not (Test-Path $FlashExe)) {
 # Copy supporting config files (inclusion lists, FASTA) to working directory
 # so C++ engine can resolve bare filenames in method config
 $configDir = Join-Path $TestDataDir "configs"
-Copy-Item (Join-Path $configDir "test_inclusion_list.txt") . -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $configDir "test_fasta.fasta") . -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $configDir "test_target_log.log") . -Force -ErrorAction SilentlyContinue
+foreach ($supportFile in @("test_inclusion_list.txt", "test_fasta.fasta", "test_target_log.log")) {
+    $src = Join-Path $configDir $supportFile
+    if (-not (Test-Path $src)) {
+        Write-Host "FAIL: required support file missing: $src"
+        exit 1
+    }
+    Copy-Item $src . -Force -ErrorAction Stop
+}
 Write-Host "Copied supporting files from $configDir to $(Get-Location)"
 
 $configs = @(
@@ -165,6 +176,20 @@ foreach ($cfg in $configs) {
             continue
         }
         Write-Host "CAPTURE: $($cfg.name) -> $outputFile"
+        continue
+    }
+
+    # The output dir was cleaned at startup, so a missing/empty file here means Flash.exe
+    # exited 0 without producing output — fail closed instead of relying on
+    # compare_golden.py's FileNotFoundError to catch it.
+    if (-not (Test-Path $outputFile)) {
+        Write-Host "FAIL: no output produced for $($cfg.name): $outputFile"
+        $failures++
+        continue
+    }
+    if ((Get-Item $outputFile).Length -eq 0) {
+        Write-Host "FAIL: empty output for $($cfg.name): $outputFile"
+        $failures++
         continue
     }
 

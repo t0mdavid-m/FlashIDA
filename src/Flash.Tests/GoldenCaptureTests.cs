@@ -7,8 +7,10 @@ using NUnit.Framework;
 namespace Flash.Tests
 {
     /// <summary>
-    /// Capture utilities that write ToCppJson() output to disk during CI.
-    /// Always pass — the CI workflow uploads the output as an artifact.
+    /// Capture the ToCppJson() output to disk for CI artifact upload, AND assert the rendered
+    /// config contains the required 'deconvolution' and 'precursor_selection' sections (and that
+    /// the input loads). These FAIL if Load throws or a required section is missing — they do
+    /// not unconditionally pass.
     /// </summary>
     [TestFixture]
     [Category("GoldenCapture")]

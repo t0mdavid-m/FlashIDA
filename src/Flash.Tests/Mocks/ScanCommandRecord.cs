@@ -26,6 +26,9 @@ namespace Flash.Tests.Mocks
         /// <summary>First collision energy (0 if not set)</summary>
         public int CollisionEnergy { get; set; }
 
+        /// <summary>First reaction time for ETD (0 if not set). In-memory only — intentionally NOT serialized to golden JSON.</summary>
+        public double ReactionTime { get; set; }
+
         /// <summary>Mass analyzer (e.g. "Orbitrap")</summary>
         public string Analyzer { get; set; }
 
@@ -80,6 +83,7 @@ namespace Flash.Tests.Mocks
                 record.PrecursorMz = stage.PrecursorMz;
                 record.IsolationWidth = stage.IsolationWidth;
                 record.CollisionEnergy = (int)Math.Round(stage.CollisionEnergy);
+                record.ReactionTime = stage.ReactionTime;
                 record.ActivationType = stage.ActivationType ?? "";
                 record.ChargeState = stage.ChargeState;
             }

@@ -115,29 +115,27 @@ namespace Flash.Tests
             }
         }
 
-        // P3-I05: DLL export verification is done by CI dumpbin step
+        // P3-I05: the 3 new bridge exports resolve AND behave (not just "don't throw").
         [Test, Category("Tier2")]
         public void P3_I05_DllExports_IncludeNewFunctions()
         {
-            // Actual DLL export verification is performed by the CI dumpbin step.
-            // This test verifies that all 3 P/Invoke bindings resolve at runtime.
-            Assert.DoesNotThrow(() =>
-            {
-                double[] mzs = { 500.0 };
-                double[] ints = { 1000.0 };
-                ProcessScan(nativePtr, mzs, ints, 1, 1.0, 1, "export_test");
-            }, "ProcessScan P/Invoke binding should resolve");
+            // Enqueue an MS1 scan: ProcessScan must return 0 (enqueue success).
+            double[] mzs = { 500.0 };
+            double[] ints = { 1000.0 };
+            int processResult = ProcessScan(nativePtr, mzs, ints, 1, 1.0, 1, "export_test");
+            Assert.That(processResult, Is.EqualTo(0), "ProcessScan should return 0 on enqueue");
 
-            Assert.DoesNotThrow(() =>
-            {
-                var cmd = new ScanCommand();
-                GetNextScanCommand(nativePtr, ref cmd);
-            }, "GetNextScanCommand P/Invoke binding should resolve");
+            // Drain a command: GetNextScanCommand must report one was filled (1 — even when the
+            // real queue is empty the engine fills an idle scan) with a valid MS level.
+            var cmd = new ScanCommand();
+            int cmdResult = GetNextScanCommand(nativePtr, ref cmd);
+            Assert.That(cmdResult, Is.EqualTo(1), "GetNextScanCommand should return 1 (a command was filled)");
+            Assert.That(cmd.MsnLevel, Is.GreaterThanOrEqualTo(1), "Drained command must have a valid MS level");
 
-            Assert.DoesNotThrow(() =>
-            {
-                GetNextTrackingId(nativePtr);
-            }, "GetNextTrackingId P/Invoke binding should resolve");
+            // Tracking IDs must advance on each call.
+            int firstId = GetNextTrackingId(nativePtr);
+            int secondId = GetNextTrackingId(nativePtr);
+            Assert.That(secondId, Is.GreaterThan(firstId), "GetNextTrackingId must increase");
         }
     }
 }
