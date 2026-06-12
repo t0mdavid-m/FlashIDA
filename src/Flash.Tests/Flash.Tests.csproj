@@ -88,6 +88,8 @@
   <ItemGroup>
     <Compile Include="SmokeTests.cs" />
     <Compile Include="JsonConfigTests.cs" />
+    <Compile Include="LogGoldenComparer.cs" />
+    <Compile Include="FLASHIdaLogGolden_test.cs" />
     <Compile Include="GoldenCaptureTests.cs" />
     <Compile Include="BridgeSmokeTests.cs" />
     <Compile Include="ScanCommandLayoutTests.cs" />

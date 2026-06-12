@@ -32,7 +32,7 @@ namespace Flash.IDA
     /// Blittable struct matching C++ ScanCommand (2048 bytes).
     /// Layout: 1248 (existing) + 8 (dequeue_timestamp_ms) + 8 (microscans+pad3)
     ///       + 24 (rf_lens+source_cid+source_cid_scaling) + 64 (data_type+scan_rate)
-    ///       + 4 (parent_scan_id) + 692 (reserved) = 2048.
+    ///       + 4 (parent_scan_id) + 84 (stage-1 scoring) + 608 (reserved) = 2048.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
@@ -82,7 +82,21 @@ namespace Flash.IDA
         public string ScanRate;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 4)]
         public string ParentScanId;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 692)]
+
+        // Stage-1 (MS3 fragment) scoring; mirrors C++ ScanCommand.h. HcdEnergyS1 (int) FIRST so the
+        // doubles land 8-aligned with no implicit pad (must match the C++ field order byte-for-byte).
+        public int HcdEnergyS1;
+        public double MonoMassS1;
+        public double QscoreS1;
+        public double ChargeCosS1;
+        public double ChargeSnrS1;
+        public double IsoCosS1;
+        public double SnrS1;
+        public double ChargeScoreS1;
+        public double PpmErrorS1;
+        public double PrecursorIntensityS1;
+        public double PeakgroupIntensityS1;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 608)]
         public byte[] Reserved;
     }
 

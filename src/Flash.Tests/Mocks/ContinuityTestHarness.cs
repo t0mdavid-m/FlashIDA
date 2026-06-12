@@ -44,7 +44,15 @@ namespace Flash.Tests.Mocks
         /// <param name="methodXmlPath">Absolute path to method XML configuration</param>
         /// <param name="forceFaims">Force FAIMS cycling mode regardless of CV count</param>
         /// <param name="forceQuant">Force quant processor mode</param>
-        public ContinuityTestHarness(string methodXmlPath, bool forceFaims = false, bool forceQuant = false)
+        /// <param name="configure">
+        /// Optional mutator applied to the loaded <see cref="MethodParameters"/> AFTER config-file
+        /// load + relative-path resolution but BEFORE the FLASHIdaWrapper (C++ engine) is created.
+        /// The log-golden suite uses it to inject absolute <c>Runtime.*Path</c> values so the engine
+        /// writes its four log streams to a per-case temp directory. (Path resolution above only
+        /// touches <c>Files.*</c>, never <c>Runtime.*</c>, so injected runtime paths are left as-is.)
+        /// </param>
+        public ContinuityTestHarness(string methodXmlPath, bool forceFaims = false, bool forceQuant = false,
+            Action<MethodParameters> configure = null)
         {
             MethodParams = MethodParameters.Load(methodXmlPath);
             Factory = new MockScanFactory();
@@ -74,6 +82,10 @@ namespace Flash.Tests.Mocks
                     }
                 }
             }
+
+            // Inject any test-specific config mutations (e.g. runtime log paths) before the
+            // C++ engine is constructed, so the engine opens its log streams at the right paths.
+            configure?.Invoke(MethodParams);
 
             // Create FLASHIdaWrapper (real C++ engine — handles FAIMS CV cycling in Phase 6+)
             Wrapper = new FLASHIdaWrapper(MethodParams);

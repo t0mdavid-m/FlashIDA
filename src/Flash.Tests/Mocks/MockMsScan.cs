@@ -157,8 +157,20 @@ namespace Flash.Tests.Mocks
         public static MockMsScan FromTsvAsMS2(string filePath, string scanDescription,
             double precursorMz, int chargeState, double isolationWidth = 2.0)
         {
+            return FromTsvAsMSn(filePath, 2, scanDescription, precursorMz, chargeState, isolationWidth);
+        }
+
+        /// <summary>
+        /// Load an MSn (n=2 or 3) scan from a TSV spectrum file with the given precursor metadata.
+        /// Generalizes <see cref="FromTsvAsMS2"/> with an explicit MS order so the log-golden suite
+        /// can feed MS3 responses (MSOrder=3) back through the engine to populate MS3 result /
+        /// identification rows.
+        /// </summary>
+        public static MockMsScan FromTsvAsMSn(string filePath, int msOrder, string scanDescription,
+            double precursorMz, int chargeState, double isolationWidth = 2.0)
+        {
             var scan = new MockMsScan();
-            scan._headerDict["MSOrder"] = "2";
+            scan._headerDict["MSOrder"] = msOrder.ToString();
             scan._headerDict["MassAnalyzer"] = "FTMS";
             scan._headerDict["PrecursorMass[0]"] = precursorMz.ToString();
             scan._headerDict["IsolationWidth[0]"] = isolationWidth.ToString();

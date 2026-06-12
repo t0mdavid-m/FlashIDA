@@ -76,7 +76,18 @@ namespace Flash.Tests
             Assert.AreEqual(1288, (int)Marshal.OffsetOf<ScanCommand>("DataType"), "DataType offset");
             Assert.AreEqual(1320, (int)Marshal.OffsetOf<ScanCommand>("ScanRate"), "ScanRate offset");
             Assert.AreEqual(1352, (int)Marshal.OffsetOf<ScanCommand>("ParentScanId"), "ParentScanId offset");
-            Assert.AreEqual(1356, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            Assert.AreEqual(1356, (int)Marshal.OffsetOf<ScanCommand>("HcdEnergyS1"), "HcdEnergyS1 offset");
+            Assert.AreEqual(1360, (int)Marshal.OffsetOf<ScanCommand>("MonoMassS1"), "MonoMassS1 offset");
+            Assert.AreEqual(1368, (int)Marshal.OffsetOf<ScanCommand>("QscoreS1"), "QscoreS1 offset");
+            Assert.AreEqual(1376, (int)Marshal.OffsetOf<ScanCommand>("ChargeCosS1"), "ChargeCosS1 offset");
+            Assert.AreEqual(1384, (int)Marshal.OffsetOf<ScanCommand>("ChargeSnrS1"), "ChargeSnrS1 offset");
+            Assert.AreEqual(1392, (int)Marshal.OffsetOf<ScanCommand>("IsoCosS1"), "IsoCosS1 offset");
+            Assert.AreEqual(1400, (int)Marshal.OffsetOf<ScanCommand>("SnrS1"), "SnrS1 offset");
+            Assert.AreEqual(1408, (int)Marshal.OffsetOf<ScanCommand>("ChargeScoreS1"), "ChargeScoreS1 offset");
+            Assert.AreEqual(1416, (int)Marshal.OffsetOf<ScanCommand>("PpmErrorS1"), "PpmErrorS1 offset");
+            Assert.AreEqual(1424, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensityS1"), "PrecursorIntensityS1 offset");
+            Assert.AreEqual(1432, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensityS1"), "PeakgroupIntensityS1 offset");
+            Assert.AreEqual(1440, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
@@ -129,11 +140,11 @@ namespace Flash.Tests
             Assert.IsNotNull(parentScanIdAttr, "ParentScanId should have MarshalAs attribute");
             Assert.AreEqual(4, parentScanIdAttr.SizeConst, "ParentScanId SizeConst");
 
-            // ScanCommand.Reserved should be SizeConst=692
+            // ScanCommand.Reserved should be SizeConst=608 (after carving 84 B of stage-1 scoring)
             var reservedAttr = typeof(ScanCommand).GetField("Reserved")
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
-            Assert.AreEqual(692, reservedAttr.SizeConst, "Reserved SizeConst");
+            Assert.AreEqual(608, reservedAttr.SizeConst, "Reserved SizeConst");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)
