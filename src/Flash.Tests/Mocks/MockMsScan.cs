@@ -78,7 +78,7 @@ namespace Flash.Tests.Mocks
         // === Factory methods ===
 
         /// <summary>
-        /// Synthetic MS1 "Scan Description" trailer value.
+        /// Default synthetic MS1 "Scan Description" trailer value.
         ///
         /// FLASHIda::processScan rejects any scan whose description is shorter than 3 chars
         /// (FLASHIda.cpp: <c>if (desc_str.size() &lt; 3) return 0;</c>) — a guard for
@@ -87,16 +87,33 @@ namespace Flash.Tests.Mocks
         /// fires in production. The mock MS1 factories must mirror that shape or the engine
         /// returns zero precursors for every test spectrum.
         ///
-        /// The exact value does not affect the emitted commands: the golden ScanDescription
-        /// uses each MS2 command's OWN counter-based tracking id (encode(nextTrackingId)),
-        /// not the parent MS1's. "~~~" decodes to 830583 (far above any engine-generated id,
-        /// so it never collides in the pending map) and the trailing 'S' (not 'A') keeps it
-        /// from being treated as an AGC/method scan.
+        /// This synthetic default is used by the behavioral-reference continuity suite, where the
+        /// emitted command ScanDescription uses each MS2 command's OWN counter-based tracking id
+        /// (encode(nextTrackingId)), not the parent MS1's, so the constant value is inert.
+        /// "~~~" decodes to 830583 (far above any engine-generated id, so it never collides in the
+        /// pending map) and the trailing 'S' (not 'A') keeps it from being treated as an AGC scan.
+        ///
+        /// The log-golden full-acquisition path (H-cs) instead feeds back the ENGINE-EMITTED MS1
+        /// description (bootstrapped from the first GetNextScanCommand idle MS1), so parent/child
+        /// join edges in scan_results/identification resolve to real engine tracking ids. Every MS1
+        /// factory therefore accepts an optional description that overrides this default.
         /// </summary>
-        private const string Ms1ScanDescription = "~~~S";
+        public const string Ms1ScanDescription = "~~~S";
 
         /// <summary>Create a minimal MS1 scan with the given peaks</summary>
         public static MockMsScan WithPeaks(double rt, string scanNumber, params (double mz, double intensity)[] peaks)
+        {
+            return WithPeaks(rt, scanNumber, Ms1ScanDescription, peaks);
+        }
+
+        /// <summary>
+        /// Create a minimal MS1 scan with the given peaks and an explicit "Scan Description"
+        /// trailer. The log-golden full-acquisition harness supplies the engine-emitted MS1
+        /// description here so the engine chains real tracking ids; other callers use the
+        /// <see cref="Ms1ScanDescription"/> default via the overload above.
+        /// </summary>
+        public static MockMsScan WithPeaks(double rt, string scanNumber, string scanDescription,
+            params (double mz, double intensity)[] peaks)
         {
             var scan = new MockMsScan();
             scan._headerDict["MSOrder"] = "1";
@@ -105,7 +122,7 @@ namespace Flash.Tests.Mocks
             scan._headerDict["Scan"] = scanNumber;
 
             scan._trailerAccess.Set("Access ID", scanNumber);
-            scan._trailerAccess.Set("Scan Description", Ms1ScanDescription);
+            scan._trailerAccess.Set("Scan Description", scanDescription);
 
             foreach (var peak in peaks)
             {
@@ -113,6 +130,16 @@ namespace Flash.Tests.Mocks
             }
 
             return scan;
+        }
+
+        /// <summary>
+        /// Overwrite the "Scan Description" trailer of an already-built scan. Used by the
+        /// full-acquisition harness to re-stamp a TSV-loaded MS1 with the engine-emitted
+        /// idle-MS1 description before feeding it back through the engine.
+        /// </summary>
+        public void SetScanDescription(string scanDescription)
+        {
+            _trailerAccess.Set("Scan Description", scanDescription);
         }
 
         /// <summary>Create a MS1 scan for FAIMS mode with the given CV value</summary>

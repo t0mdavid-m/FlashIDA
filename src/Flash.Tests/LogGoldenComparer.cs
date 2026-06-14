@@ -18,8 +18,15 @@ namespace Flash.Tests
     ///     files so every parent/child join edge is preserved (a flat per-file mask would lose them).
     ///
     /// Column indices below are 0-based and pinned to the header order written by the FLASHIda
-    /// constructor (scan_commands 28 cols, scan_results 32 cols, identification 19 cols). They are
+    /// constructor (scan_commands 29 cols, scan_results 33 cols, identification 19 cols). They are
     /// asserted by the C++ FLASHIda_LoggingFields schema_column_counts section.
+    ///
+    /// E5 inserted ms_level at scan_results column index 1 (int, unmasked), shifting every
+    /// downstream scan_results column by +1: child_ids 8->9, parent_tracking_id 27->28, and the
+    /// eight volatile timestamp/duration columns by +1. E6 appended the raw scan_description as the
+    /// LAST scan_commands column (index 28); its leading 3-char tracking-id prefix is relabeled here
+    /// via the shared id map so descriptors join run-to-run while the deterministic E2 mass/charge
+    /// remainder is compared verbatim.
     /// </summary>
     public static class LogGoldenComparer
     {
@@ -31,25 +38,29 @@ namespace Flash.Tests
         public static readonly string[] FileNames =
             { IdaLogName, CommandsName, ResultsName, IdentificationName };
 
-        // ID-bearing columns per TSV. results child_ids (col 8) is space-split and handled separately.
-        private static readonly int[] CmdIdCols = { 0, 22 };  // tracking_id, parent_tracking_id
-        private static readonly int[] ResIdCols = { 0, 27 };  // tracking_id, parent_tracking_id
-        private static readonly int[] IdfIdCols = { 2 };      // tracking_id
-        private const int ResChildCol = 8;                    // child_ids (space-separated)
+        // ID-bearing columns per TSV. results child_ids (col 9) is space-split and handled separately.
+        private static readonly int[] CmdIdCols = { 0, 22 };  // tracking_id, parent_tracking_id (unchanged by E6)
+        private static readonly int[] ResIdCols = { 0, 28 };  // tracking_id, parent_tracking_id (+1 from E5 ms_level@1)
+        private static readonly int[] IdfIdCols = { 2 };      // tracking_id (identification still leads ms_level,scan_mode,tracking_id)
+        private const int ResChildCol = 9;                    // child_ids (space-separated; +1 from E5 ms_level@1)
+        // scan_commands raw descriptor (E6), appended LAST. Its first 3 chars are the encoded
+        // tracking id (== col 0); relabel just that prefix, keep the marker + mass remainder intact.
+        private const int CmdDescriptionCol = 28;
 
         // Volatile wall-clock columns -> placeholder.
         private static readonly Dictionary<int, string> CmdMask =
-            new Dictionary<int, string> { { 3, "<TS>" } };    // enqueue_ts
+            new Dictionary<int, string> { { 3, "<TS>" } };    // enqueue_ts (unchanged by E6)
+        // E5 shifted every scan_results column after index 0 by +1 (ms_level@1 is an int, left UNMASKED).
         private static readonly Dictionary<int, string> ResMask = new Dictionary<int, string>
         {
-            { 1, "<TS>" },  // resolve_ts
-            { 2, "<DUR>" }, // duration_ms
-            { 3, "<TS>" },  // received_ts
-            { 4, "<DUR>" }, // duration_received_ms
-            { 28, "<TS>" }, // dequeue_ts
-            { 29, "<DUR>" },// queue_duration_ms
-            { 30, "<DUR>" },// instrument_duration_ms
-            { 31, "<DUR>" } // processing_duration_ms
+            { 2, "<TS>" },  // resolve_ts
+            { 3, "<DUR>" }, // duration_ms
+            { 4, "<TS>" },  // received_ts
+            { 5, "<DUR>" }, // duration_received_ms
+            { 29, "<TS>" }, // dequeue_ts
+            { 30, "<DUR>" },// queue_duration_ms
+            { 31, "<DUR>" },// instrument_duration_ms
+            { 32, "<DUR>" } // processing_duration_ms
         };
         private static readonly Dictionary<int, string> NoMask = new Dictionary<int, string>();
 
@@ -86,15 +97,15 @@ namespace Flash.Tests
         public static string Normalize(string caseDir, string fileName, Dictionary<string, string> ids)
         {
             string path = Path.Combine(caseDir, fileName);
-            if (fileName == CommandsName) return NormalizeTsv(path, ids, CmdIdCols, -1, CmdMask);
-            if (fileName == ResultsName) return NormalizeTsv(path, ids, ResIdCols, ResChildCol, ResMask);
-            if (fileName == IdentificationName) return NormalizeTsv(path, ids, IdfIdCols, -1, NoMask);
+            if (fileName == CommandsName) return NormalizeTsv(path, ids, CmdIdCols, -1, CmdMask, CmdDescriptionCol);
+            if (fileName == ResultsName) return NormalizeTsv(path, ids, ResIdCols, ResChildCol, ResMask, -1);
+            if (fileName == IdentificationName) return NormalizeTsv(path, ids, IdfIdCols, -1, NoMask, -1);
             if (fileName == IdaLogName) return NormalizeIdaLog(path);
             throw new ArgumentException("unknown log file: " + fileName);
         }
 
         private static string NormalizeTsv(string path, Dictionary<string, string> ids,
-            int[] idCols, int childCol, Dictionary<int, string> mask)
+            int[] idCols, int childCol, Dictionary<int, string> mask, int descCol)
         {
             if (!File.Exists(path)) return "";
             var lines = File.ReadAllLines(path);
@@ -106,6 +117,10 @@ namespace Flash.Tests
                 foreach (var c in idCols) if (c < cols.Length) cols[c] = Relabel(cols[c], ids);
                 if (childCol >= 0 && childCol < cols.Length && cols[childCol].Length > 0)
                     cols[childCol] = string.Join(" ", cols[childCol].Split(' ').Select(k => Relabel(k, ids)));
+                // E6 scan_description: relabel the leading 3-char tracking-id prefix only, leaving
+                // the deterministic marker + adaptive-precision mass/charge remainder verbatim.
+                if (descCol >= 0 && descCol < cols.Length)
+                    cols[descCol] = RelabelDescriptionPrefix(cols[descCol], ids);
                 foreach (var kv in mask) if (kv.Key < cols.Length) cols[kv.Key] = kv.Value;
                 sb.Append(string.Join("\t", cols)).Append('\n');
             }
@@ -127,6 +142,19 @@ namespace Flash.Tests
         {
             if (string.IsNullOrEmpty(id)) return id;
             return ids.TryGetValue(id, out var v) ? v : id;
+        }
+
+        // Relabel ONLY the leading 3-char base-94 tracking-id prefix of a raw scan_description cell
+        // (E6, scan_commands col 28) to its T&lt;n&gt; label, leaving the marker (S/A/R/F/C/E) and the
+        // deterministic adaptive-precision mass/charge/ion remainder intact. The prefix equals the
+        // row's tracking_id (col 0), already in the id map, so this never introduces new labels and
+        // keeps the descriptor stable run-to-run. Shorter cells (none expected) pass through unchanged.
+        private static string RelabelDescriptionPrefix(string desc, Dictionary<string, string> ids)
+        {
+            if (string.IsNullOrEmpty(desc) || desc.Length < 3) return desc;
+            string prefix = desc.Substring(0, 3);
+            if (!ids.TryGetValue(prefix, out var label)) return desc;
+            return label + desc.Substring(3);
         }
 
         private static IEnumerable<string[]> DataRows(string path)

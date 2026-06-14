@@ -41,6 +41,13 @@ def main():
         help="Extract only the spectrum at this 0-based index (among filtered spectra)",
     )
     parser.add_argument(
+        "--scan-number",
+        type=int,
+        default=None,
+        help="Extract the single spectrum whose native-id scan=<N> matches "
+             "(MS-level-agnostic; mutually exclusive with --scan-index)",
+    )
+    parser.add_argument(
         "--max-scans",
         type=int,
         default=None,
@@ -59,6 +66,9 @@ def main():
     )
     args = parser.parse_args()
 
+    if args.scan_number is not None and args.scan_index is not None:
+        parser.error("--scan-number and --scan-index are mutually exclusive")
+
     filter_cvs = None
     if args.filter_cv:
         filter_cvs = set(float(v.strip()) for v in args.filter_cv.split(","))
@@ -73,12 +83,18 @@ def main():
 
     with open(args.output, "w", newline="") as f:
         for spec in exp:
-            if spec.getMSLevel() != args.ms_level:
-                continue
+            if args.scan_number is not None:
+                # Match by native-id scan number directly. MS-level-agnostic so it is robust to
+                # this mzML mislabeling MS3 spectra as MS level 2. Ignores --ms-level/--scan-index.
+                if extract_scan_number(spec.getNativeID()) != f"scan={args.scan_number}":
+                    continue
+            else:
+                if spec.getMSLevel() != args.ms_level:
+                    continue
 
-            if args.scan_index is not None and filtered_index < args.scan_index:
-                filtered_index += 1
-                continue
+                if args.scan_index is not None and filtered_index < args.scan_index:
+                    filtered_index += 1
+                    continue
 
             # RT in seconds (Flash.exe parser divides by 60 to get minutes)
             rt_seconds = spec.getRT()

@@ -120,6 +120,120 @@ namespace Flash.Tests.Mocks
         }
 
         /// <summary>
+        /// Interleaved full-acquisition drive: mirrors the real instrument round-trip far more
+        /// closely than the staged PushScan helpers. Instead of pushing all MS1, then all MS2,
+        /// then all MS3 in separate phases (each feeding back our OWN synthetic descriptions), this
+        /// drains the engine command queue BY PRIORITY one command at a time and feeds each command
+        /// back as a response scan stamped with the ENGINE-EMITTED ScanCommand.ScanDescription. That
+        /// is exactly how parent/child join edges form on a real instrument: the engine's own
+        /// tracking id round-trips on the "Scan Description" trailer, so an MS3's parent resolves to
+        /// the MS2 scan id the engine actually emitted (not a harness-invented id).
+        ///
+        /// Bootstrap: the engine's idle cycle (FLASHIda::getNextScanCommand step 5) emits an AGC
+        /// command immediately and pushes an idle MS1 (priority 3) for the next dequeue. We harvest
+        /// that idle MS1's description to stamp the first real MS1 spectrum, clearing the
+        /// processScan desc_str.size() < 3 guard with a genuine engine id.
+        /// </summary>
+        /// <param name="ms1Path">TSV MS1 spectrum file (peaks reused for every MS1-level response).</param>
+        /// <param name="ms2Path">TSV MS2 spectrum file (fragment peaks for every MS2-level response).</param>
+        /// <param name="ms3Path">Optional TSV MS3 spectrum file; falls back to <paramref name="ms2Path"/> peaks when null.</param>
+        /// <param name="maxScans">Hard upper bound on response scans fed back, so idle AGC/MS1
+        /// cycling can never loop forever.</param>
+        public void PushScanAndDrainFull(string ms1Path, string ms2Path, string ms3Path = null, int maxScans = 200)
+        {
+            string ms3File = ms3Path ?? ms2Path;
+
+            // Bootstrap: harvest the engine's idle-MS1 description (step-5 fallback). The first
+            // GetNextScanCommand returns an AGC and queues an idle MS1; the second returns that MS1.
+            string ms1Desc = BootstrapMs1Description();
+
+            // Queue of pending engine commands to respond to, seeded with the bootstrap MS1.
+            var pending = new Queue<ScanCommand>();
+
+            // Push the first real MS1 stamped with the engine's idle-MS1 description.
+            var firstMs1 = MockMsScan.FromTsvAllScans(ms1Path);
+            if (firstMs1.Count == 0) return;
+            firstMs1[0].SetScanDescription(ms1Desc);
+            EnqueueDrained(Processor, firstMs1[0], pending);
+            for (int i = 1; i < firstMs1.Count; i++) firstMs1[i].Dispose();
+            firstMs1[0].Dispose();
+
+            int fed = 0;
+            while (pending.Count > 0 && fed < maxScans)
+            {
+                var cmd = pending.Dequeue();
+
+                // AGC commands carry no payload (engine resolves them and returns 0); skip feeding.
+                if (cmd.IsAgc != 0) continue;
+                if (string.IsNullOrEmpty(cmd.ScanDescription)) continue;
+
+                int level = cmd.MsnLevel;
+                MockMsScan response;
+                if (level <= 1)
+                {
+                    var ms1 = MockMsScan.FromTsvAllScans(ms1Path);
+                    if (ms1.Count == 0) continue;
+                    response = ms1[0];
+                    response.SetScanDescription(cmd.ScanDescription);
+                    for (int i = 1; i < ms1.Count; i++) ms1[i].Dispose();
+                }
+                else
+                {
+                    string src = level >= 3 ? ms3File : ms2Path;
+                    double precMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].PrecursorMz : 0.0;
+                    int z = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].ChargeState : 1;
+                    response = MockMsScan.FromTsvAsMSn(src, level, cmd.ScanDescription, precMz, z);
+                }
+
+                EnqueueDrained(Processor, response, pending);
+                response.Dispose();
+                fed++;
+            }
+        }
+
+        /// <summary>
+        /// Drain the engine's idle cycle to obtain a real MS1 tracking-id description. Returns the
+        /// first MS1-level (non-AGC) idle command's ScanDescription, or the hardcoded mock default
+        /// if the engine never surfaces one (defensive — the idle cycle always queues an MS1).
+        /// </summary>
+        private string BootstrapMs1Description()
+        {
+            var cmd = new ScanCommand();
+            for (int i = 0; i < 8 && Wrapper.GetNextScanCommand(ref cmd) == 1; i++)
+            {
+                if (cmd.IsAgc == 0 && cmd.MsnLevel <= 1 && !string.IsNullOrEmpty(cmd.ScanDescription))
+                    return cmd.ScanDescription;
+                cmd = new ScanCommand();
+            }
+            return MockMsScan.Ms1ScanDescription;
+        }
+
+        /// <summary>
+        /// Push one response scan through the processor, then drain every command the engine emits
+        /// in response, capturing each (records + factory scan) and enqueueing it for feed-back.
+        /// Mirrors PushScan's drain semantics but does NOT stop at the first AGC — full acquisition
+        /// keeps consuming the priority queue.
+        /// </summary>
+        private void EnqueueDrained(IScanProcessor processor, IMsScan scan, Queue<ScanCommand> pending)
+        {
+            processor.ProcessMS(scan);
+
+            var cmd = new ScanCommand();
+            int agcSeen = 0;
+            while (Wrapper.GetNextScanCommand(ref cmd) == 1)
+            {
+                CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
+                Factory.BuildFromCommand(cmd);
+                pending.Enqueue(cmd);
+
+                // An AGC means the queue drained to the idle fallback. Allow one idle MS1 to follow
+                // (it is queued at priority 3 by step 5b) then stop, so we don't spin on idle cycling.
+                if (cmd.IsAgc != 0) { if (++agcSeen >= 1) break; }
+                cmd = new ScanCommand();
+            }
+        }
+
+        /// <summary>
         /// Collect all scan command records captured during test execution.
         /// Filters out null entries and Full-type (default/AGC) scans.
         /// </summary>
