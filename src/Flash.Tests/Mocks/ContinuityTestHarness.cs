@@ -151,12 +151,13 @@ namespace Flash.Tests.Mocks
             var pending = new Queue<ScanCommand>();
 
             // Push the first real MS1 stamped with the engine's idle-MS1 description.
+            // ms1[1] = scan 134 carries the cytC envelope; ms1[0] = scan 132 is a weak edge scan from
+            // which the engine correctly selects 0 precursors (=> 0 MS2). Bootstrap from the strong scan.
             var firstMs1 = MockMsScan.FromTsvAllScans(ms1Path);
-            if (firstMs1.Count == 0) return;
-            firstMs1[0].SetScanDescription(ms1Desc);
-            EnqueueDrained(Processor, firstMs1[0], pending);
-            for (int i = 1; i < firstMs1.Count; i++) firstMs1[i].Dispose();
-            firstMs1[0].Dispose();
+            if (firstMs1.Count < 2) return;
+            firstMs1[1].SetScanDescription(ms1Desc);
+            EnqueueDrained(Processor, firstMs1[1], pending);
+            for (int i = 0; i < firstMs1.Count; i++) firstMs1[i].Dispose();
 
             int fed = 0;
             while (pending.Count > 0 && fed < maxScans)
@@ -172,10 +173,11 @@ namespace Flash.Tests.Mocks
                 if (level <= 1)
                 {
                     var ms1 = MockMsScan.FromTsvAllScans(ms1Path);
-                    if (ms1.Count == 0) continue;
-                    response = ms1[0];
+                    if (ms1.Count < 2) continue;
+                    response = ms1[1];  // strong cytC MS1 (scan 134), not the weak scan 132 at [0]
                     response.SetScanDescription(cmd.ScanDescription);
-                    for (int i = 1; i < ms1.Count; i++) ms1[i].Dispose();
+                    ms1[0].Dispose();
+                    for (int i = 2; i < ms1.Count; i++) ms1[i].Dispose();
                 }
                 else
                 {
