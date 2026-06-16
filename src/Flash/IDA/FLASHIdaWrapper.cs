@@ -373,7 +373,28 @@ namespace Flash.IDA
         {
             if (mzs.Count == 0) return 0.0;
 
-            w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, msLevel, scanName);
+            // The always-on MS1 gate (FLASHIda.cpp) rejects an MS1 whose tracking id was never emitted as a
+            // command. Offline mode has no instrument echoing ids back, so for an MS1 we first pull the engine's
+            // OWN survey command and stamp the spectrum with its scan_description — the same engine-id-echo
+            // contract the real instrument and the test harnesses follow. (The MS2 feed below already echoes
+            // cmd.ScanDescription.) Deconvolution is unchanged, so the qScore output is unaffected.
+            string desc = scanName;
+            if (msLevel == 1)
+            {
+                var survey = new ScanCommand();
+                for (int i = 0; i < 16; i++)
+                {
+                    if (w.GetNextScanCommand(ref survey) != 1) break;
+                    if (survey.IsAgc == 0 && survey.MsnLevel == 1 && !String.IsNullOrEmpty(survey.ScanDescription))
+                    {
+                        desc = survey.ScanDescription;
+                        break;
+                    }
+                    survey = new ScanCommand();
+                }
+            }
+
+            w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, msLevel, desc);
 
             double scoreSum = 0.0;
             var cmd = new ScanCommand();
