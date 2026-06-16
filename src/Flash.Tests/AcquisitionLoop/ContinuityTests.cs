@@ -59,7 +59,7 @@ namespace Flash.Tests.AcquisitionLoop
         private List<ScanCommandRecord> PushSmokeSpectrumAndCollect(ContinuityTestHarness harness)
         {
             var scan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-            harness.PushScan(scan);
+            harness.PushMs1(scan);
             scan.Dispose();
             return harness.CollectResults();
         }
@@ -260,7 +260,7 @@ namespace Flash.Tests.AcquisitionLoop
                         i * 0.01, // Incrementing RT
                         i.ToString(),
                         smokeScan.Centroids.Select(c => (c.Mz, c.Intensity)).ToArray());
-                    harness.PushScan(scan);
+                    harness.PushMs1(scan);
                     scan.Dispose();
                 }
 
@@ -334,7 +334,7 @@ namespace Flash.Tests.AcquisitionLoop
                 int pushCount = Math.Min(50, faimsScans.Count);
                 for (int i = 0; i < pushCount; i++)
                 {
-                    harness.PushScan(faimsScans[i]);
+                    harness.PushMs1(faimsScans[i]);
                     faimsScans[i].Dispose();
                 }
                 for (int i = pushCount; i < faimsScans.Count; i++)
@@ -366,7 +366,7 @@ namespace Flash.Tests.AcquisitionLoop
                 int pushCount = Math.Min(50, faimsScans.Count);
                 for (int i = 0; i < pushCount; i++)
                 {
-                    harness.PushScan(faimsScans[i]);
+                    harness.PushMs1(faimsScans[i]);
                     faimsScans[i].Dispose();
                 }
                 for (int i = pushCount; i < faimsScans.Count; i++)
@@ -556,7 +556,7 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 // Push MS1 scan
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                var ms1Scans = harness.PushScan(smokeScan);
+                var ms1Scans = harness.PushMs1(smokeScan);
                 smokeScan.Dispose();
 
                 // Get the MS2 commands from MS1 processing
@@ -641,7 +641,7 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 // Push MS1
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                harness.PushScan(smokeScan);
+                harness.PushMs1(smokeScan);
                 smokeScan.Dispose();
 
                 // Get MS2 commands and simulate MS2 responses
@@ -671,7 +671,7 @@ namespace Flash.Tests.AcquisitionLoop
             using (var harness = CreateHarness("method_ms3_mode2.json"))
             {
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                harness.PushScan(smokeScan);
+                harness.PushMs1(smokeScan);
                 smokeScan.Dispose();
 
                 var ms2Commands = harness.Factory.CreatedScans
@@ -700,7 +700,7 @@ namespace Flash.Tests.AcquisitionLoop
             using (var harness = CreateHarness("method_ms3_mode3.json"))
             {
                 var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                harness.PushScan(smokeScan);
+                harness.PushMs1(smokeScan);
                 smokeScan.Dispose();
 
                 var ms2Commands = harness.Factory.CreatedScans
@@ -745,7 +745,7 @@ namespace Flash.Tests.AcquisitionLoop
                 // accumulate enough engine state across all 5 CVs
                 for (int i = 0; i < faimsScans.Count; i++)
                 {
-                    harness.PushScan(faimsScans[i]);
+                    harness.PushMs1(faimsScans[i]);
                     faimsScans[i].Dispose();
                 }
 
@@ -774,7 +774,7 @@ namespace Flash.Tests.AcquisitionLoop
                 // Push all 300 scans — matches CT27 for consistent golden capture
                 for (int i = 0; i < faimsScans.Count; i++)
                 {
-                    harness.PushScan(faimsScans[i]);
+                    harness.PushMs1(faimsScans[i]);
                     faimsScans[i].Dispose();
                 }
 
@@ -800,7 +800,7 @@ namespace Flash.Tests.AcquisitionLoop
             var ms1Scans = MockMsScan.FromTsvAllScans(ms1File);
             foreach (var scan in ms1Scans)
             {
-                harness.PushScan(scan);
+                harness.PushMs1(scan);
                 scan.Dispose();
             }
 
@@ -836,7 +836,7 @@ namespace Flash.Tests.AcquisitionLoop
             var scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
             foreach (var scan in scans)
             {
-                harness.PushScan(scan);
+                harness.PushMs1(scan);
                 scan.Dispose();
             }
             return harness.CollectResults();
@@ -873,7 +873,7 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 // Step 1: push MS1 only, before any MS2 return
                 var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
-                foreach (var s in ms1Scans) { harness.PushScan(s); s.Dispose(); }
+                foreach (var s in ms1Scans) { harness.PushMs1(s); s.Dispose(); }
 
                 // Initial MS2 commands from MS1 should be ETD only (no HCD yet)
                 var initialResults = harness.CollectResults();
@@ -988,7 +988,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
                 foreach (var scan in ms1Scans)
                 {
-                    harness.PushScan(scan);
+                    harness.PushMs1(scan);
                     scan.Dispose();
                 }
 
@@ -1253,7 +1253,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var allScans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
                 foreach (var scan in allScans)
                 {
-                    harness.PushScan(scan);
+                    harness.PushMs1(scan);
                     scan.Dispose();
                 }
 

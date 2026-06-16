@@ -129,76 +129,102 @@ namespace Flash.Tests.Mocks
         /// tracking id round-trips on the "Scan Description" trailer, so an MS3's parent resolves to
         /// the MS2 scan id the engine actually emitted (not a harness-invented id).
         ///
-        /// Bootstrap: the engine's idle cycle (FLASHIda::getNextScanCommand step 5) emits an AGC
-        /// command immediately and pushes an idle MS1 (priority 3) for the next dequeue. We harvest
-        /// that idle MS1's description to stamp the first real MS1 spectrum, clearing the
-        /// processScan desc_str.size() < 3 guard with a genuine engine id.
+        /// The MS1 ids are the engine's own survey-command ids: each survey MS1 command the engine emits
+        /// is answered with the next TSV MS1 scan stamped with THAT command's ScanDescription, so the
+        /// processScan desc_str.size() &lt; 3 guard and the MS1 gate are both cleared with genuine ids.
+        /// Terminates on 3 consecutive idle ticks (AGC or an MS1 re-survey after all TSV scans are fed),
+        /// exactly mirroring the C++ runFullAcquisition driver.
         /// </summary>
-        /// <param name="ms1Path">TSV MS1 spectrum file (peaks reused for every MS1-level response).</param>
+        /// <param name="ms1Path">TSV MS1 file; each scan is fed once, in order, one per survey command.</param>
         /// <param name="ms2Path">TSV MS2 spectrum file (fragment peaks for every MS2-level response).</param>
-        /// <param name="ms3Path">Optional TSV MS3 spectrum file; falls back to <paramref name="ms2Path"/> peaks when null.</param>
-        /// <param name="maxScans">Hard upper bound on response scans fed back, so idle AGC/MS1
-        /// cycling can never loop forever.</param>
-        public void PushScanAndDrainFull(string ms1Path, string ms2Path, string ms3Path = null, int maxScans = 200)
+        /// <param name="ms3FixtureFor">Per-MS3-command fixture selector; null/empty result => skip that MS3
+        /// (never fabricate). When null, no MS3 is fed.</param>
+        /// <param name="maxIters">Hard upper bound on drain iterations, so idle AGC/MS1 cycling can never loop forever.</param>
+        // [DRAIN-CONTRACT C#<->C++ — see docs/kb/test-harness] canonical C# driver; twin of C++ FLASHIda_TestHelpers::runInterleaved
+        // [DRAIN-CONTRACT C#<->C++: this interleaved engine-id-echo drain MIRRORS the C++
+        //  FLASHIda_TestHelpers.h runFullAcquisition. Keep the idle-termination (idle < 3) and per-level
+        //  dispatch in lockstep with that function. See .claude/hooks/driver-sync-reminder.sh.]
+        //
+        // ms3FixtureFor: per-MS3-command fixture selector — decode the trailing ion from cmd.ScanDescription
+        //   and look it up in the caller's manifest; return null/empty => SKIP that MS3 (never fabricate).
+        // MS1 feed: each engine survey-MS1 command is answered with the NEXT TSV MS1 scan (one per command,
+        //   in order — the same scan coverage the old DriveCycle had), stamped with that command's
+        //   engine-emitted ScanDescription, so the scan_results MS1 tracking_id == the id the engine issued.
+        public void PushScanAndDrainFull(string ms1Path, string ms2Path,
+            Func<ScanCommand, string> ms3FixtureFor = null, int maxIters = 600)
         {
-            string ms3File = ms3Path ?? ms2Path;
+            // Feed each TSV MS1 scan exactly once (nMs1 = scan count); any further MS1 survey is an idle tick.
+            int nMs1;
+            { var probe = MockMsScan.FromTsvAllScans(ms1Path); nMs1 = probe.Count; foreach (var s in probe) s.Dispose(); }
+            if (nMs1 == 0) return;
 
-            // Bootstrap: harvest the engine's idle-MS1 description (step-5 fallback). The first
-            // GetNextScanCommand returns an AGC and queues an idle MS1; the second returns that MS1.
-            string ms1Desc = BootstrapMs1Description();
-
-            // Queue of pending engine commands to respond to, seeded with the bootstrap MS1.
-            var pending = new Queue<ScanCommand>();
-
-            // Push the first real MS1 stamped with the engine's idle-MS1 description.
-            // ms1[1] = scan 134 carries the cytC envelope; ms1[0] = scan 132 is a weak edge scan from
-            // which the engine correctly selects 0 precursors (=> 0 MS2). Bootstrap from the strong scan.
-            var firstMs1 = MockMsScan.FromTsvAllScans(ms1Path);
-            if (firstMs1.Count < 2) return;
-            firstMs1[1].SetScanDescription(ms1Desc);
-            EnqueueDrained(Processor, firstMs1[1], pending);
-            for (int i = 0; i < firstMs1.Count; i++) firstMs1[i].Dispose();
-
-            int fed = 0;
-            while (pending.Count > 0 && fed < maxScans)
+            int idle = 0, ms1Fed = 0;
+            var cmd = new ScanCommand();
+            for (int it = 0; it < maxIters && idle < 3; it++)
             {
-                var cmd = pending.Dequeue();
-
-                // AGC commands carry no payload (engine resolves them and returns 0); skip feeding.
-                if (cmd.IsAgc != 0) continue;
-                if (string.IsNullOrEmpty(cmd.ScanDescription)) continue;
+                if (Wrapper.GetNextScanCommand(ref cmd) != 1) break;
+                CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
+                Factory.BuildFromCommand(cmd);
 
                 int level = cmd.MsnLevel;
+                // Idle tick (mirror of C++ runFullAcquisition): an AGC, an empty-descriptor command, or an MS1
+                // re-survey after we've fed all nMs1 scans. 3 consecutive idle ticks => the real queue is drained.
+                if (cmd.IsAgc != 0 || string.IsNullOrEmpty(cmd.ScanDescription) || (level <= 1 && ms1Fed >= nMs1))
+                {
+                    idle++;
+                    cmd = new ScanCommand();
+                    continue;
+                }
+                idle = 0;
+
                 MockMsScan response;
                 if (level <= 1)
                 {
                     var ms1 = MockMsScan.FromTsvAllScans(ms1Path);
-                    if (ms1.Count < 2) continue;
-                    response = ms1[1];  // strong cytC MS1 (scan 134), not the weak scan 132 at [0]
-                    response.SetScanDescription(cmd.ScanDescription);
-                    ms1[0].Dispose();
-                    for (int i = 2; i < ms1.Count; i++) ms1[i].Dispose();
+                    int pick = ms1Fed;                       // feed TSV MS1 scans in order, one per survey command
+                    if (pick >= ms1.Count) { foreach (var s in ms1) s.Dispose(); cmd = new ScanCommand(); continue; }
+                    response = ms1[pick];
+                    response.SetScanDescription(cmd.ScanDescription);   // echo the engine-emitted survey id
+                    for (int i = 0; i < ms1.Count; i++) if (i != pick) ms1[i].Dispose();
+                    ms1Fed++;
                 }
-                else
+                else if (level >= 3)
                 {
-                    string src = level >= 3 ? ms3File : ms2Path;
+                    // Per-command MS3 fixture (ion-keyed). null/empty => skip; never fabricate from MS2 peaks.
+                    string src = ms3FixtureFor?.Invoke(cmd);
+                    if (string.IsNullOrEmpty(src))
+                    {
+                        Console.WriteLine($"[MS3-SKIP] id={cmd.ScanDescription} status=no_fixture");
+                        cmd = new ScanCommand();
+                        continue;
+                    }
                     double precMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].PrecursorMz : 0.0;
                     int z = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].ChargeState : 1;
                     response = MockMsScan.FromTsvAsMSn(src, level, cmd.ScanDescription, precMz, z);
                 }
+                else
+                {
+                    double precMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].PrecursorMz : 0.0;
+                    int z = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].ChargeState : 1;
+                    response = MockMsScan.FromTsvAsMSn(ms2Path, level, cmd.ScanDescription, precMz, z);
+                }
 
-                EnqueueDrained(Processor, response, pending);
+                Processor.ProcessMS(response);
                 response.Dispose();
-                fed++;
+                cmd = new ScanCommand();
             }
         }
 
         /// <summary>
-        /// Drain the engine's idle cycle to obtain a real MS1 tracking-id description. Returns the
-        /// first MS1-level (non-AGC) idle command's ScanDescription, or the hardcoded mock default
-        /// if the engine never surfaces one (defensive — the idle cycle always queues an MS1).
+        /// Drain the engine's command queue until a real survey-MS1 command surfaces and return its
+        /// engine-emitted ScanDescription (a genuine tracking id). Repeatable: each call advances the
+        /// queue and returns the NEXT survey id. Behavioral feeders stamp their MS1 spectra with this so
+        /// the spectra clear the processScan MS1 gate (an un-emitted id is rejected). Falls back to the
+        /// mock sentinel only if the engine never surfaces an MS1 within 8 drains — the idle cycle always
+        /// queues one, so the fallback is effectively unreachable (and a stamped sentinel would be rejected,
+        /// failing loud rather than silently).
         /// </summary>
-        private string BootstrapMs1Description()
+        public string NextSurveyMs1Description()
         {
             var cmd = new ScanCommand();
             for (int i = 0; i < 8 && Wrapper.GetNextScanCommand(ref cmd) == 1; i++)
@@ -211,28 +237,15 @@ namespace Flash.Tests.Mocks
         }
 
         /// <summary>
-        /// Push one response scan through the processor, then drain every command the engine emits
-        /// in response, capturing each (records + factory scan) and enqueueing it for feed-back.
-        /// Mirrors PushScan's drain semantics but does NOT stop at the first AGC — full acquisition
-        /// keeps consuming the priority queue.
+        /// Feed an MS1 spectrum stamped with a real engine-emitted survey tracking id (see
+        /// <see cref="NextSurveyMs1Description"/>) so it clears the processScan MS1 gate, then drain the
+        /// resulting commands. Use this for every MS1 the behavioral tests push; MS2/MS3 responses keep
+        /// using <see cref="PushScan"/> (they already carry the engine command's ScanDescription).
         /// </summary>
-        private void EnqueueDrained(IScanProcessor processor, IMsScan scan, Queue<ScanCommand> pending)
+        public List<IFusionCustomScan> PushMs1(MockMsScan ms1)
         {
-            processor.ProcessMS(scan);
-
-            var cmd = new ScanCommand();
-            int agcSeen = 0;
-            while (Wrapper.GetNextScanCommand(ref cmd) == 1)
-            {
-                CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
-                Factory.BuildFromCommand(cmd);
-                pending.Enqueue(cmd);
-
-                // An AGC means the queue drained to the idle fallback. Allow one idle MS1 to follow
-                // (it is queued at priority 3 by step 5b) then stop, so we don't spin on idle cycling.
-                if (cmd.IsAgc != 0) { if (++agcSeen >= 1) break; }
-                cmd = new ScanCommand();
-            }
+            ms1.SetScanDescription(NextSurveyMs1Description());
+            return PushScan(ms1);
         }
 
         /// <summary>

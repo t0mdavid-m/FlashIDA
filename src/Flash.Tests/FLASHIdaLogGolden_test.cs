@@ -115,6 +115,7 @@ namespace Flash.Tests
         /// chars must all be digits forming an index &gt;= 1. Returns null on the no-ion form
         /// ({id}R{mass}k@{charge}) or any malformed descriptor (decode tolerated to fail).
         /// </summary>
+        // [ION-DECODE C#<->C++ — see docs/kb/test-harness] byte-for-byte twin of C++ decodeTrailingIonKey
         private static string DecodeIonFromScanDescription(string d)
         {
             if (string.IsNullOrEmpty(d)) return null;
@@ -143,6 +144,46 @@ namespace Flash.Tests
             if (!idxStr.TrimStart('0').Any()) return null;
 
             return ionType + idxStr;
+        }
+
+        // ---- ion-decode parity (drift guard) ------------------------------------------------
+
+        /// <summary>
+        /// SHARED ion-decode parity vectors — the SINGLE cross-language table that pins
+        /// DecodeIonFromScanDescription (C#) and decodeTrailingIonKey (C++, FLASHIda_TestHelpers.h:224)
+        /// to byte-for-byte equivalence. The C++ FLASHIda parity test feeds the EXACT same desc->expected
+        /// rows; if either decoder drifts, the two suites disagree on at least one row here. Edge cases
+        /// covered: '@' INSIDE the 3-char tracking id (rfind/LastIndexOf takes the LAST '@' as the charge
+        /// delimiter), multi-digit charge+index, the no-ion form, the MS1 survey descriptor (no '@'),
+        /// an invalid ion type, a zero ion index, and the empty string. expected==null means "no ion".
+        /// See docs/kb/test-harness/README.md (Ion-decode parity).
+        /// </summary>
+        private static readonly (string desc, string expected)[] IonDecodeParityVectors =
+        {
+            ("!#@R4.450k@5y38", "y38"),   // '@' INSIDE the 3-char id (!#@); LAST '@' is the charge delim
+            ("!!!R1.000k@2b10", "b10"),
+            ("AAAR12.351k@3y5", "y5"),
+            ("JJJR2.0k@12c144", "c144"),  // multi-digit charge + index
+            ("!!!R5.0k@4",      null),    // no-ion form (nothing after the charge digits)
+            ("!!\"S",           null),    // MS1 survey descriptor, no '@'
+            ("!!!R5.0k@2d10",   null),    // invalid ion type 'd'
+            ("!!!R5.0k@2y0",    null),    // index 0 (<1) invalid
+            ("",                null),    // empty
+        };
+
+        // [ION-DECODE C#<->C++ — see docs/kb/test-harness] byte-for-byte twin of C++ decodeTrailingIonKey
+        // Asserts the C# decoder reproduces the SHARED parity table exactly; the C++ FLASHIda parity test
+        // feeds the identical vectors so any divergence between the two decoders is caught on both sides.
+        [Test, Category("Tier2")]
+        public void IonDecode_Parity_MatchesSharedVectorTable()
+        {
+            foreach (var (desc, expected) in IonDecodeParityVectors)
+            {
+                string actual = DecodeIonFromScanDescription(desc);
+                Assert.AreEqual(expected, actual,
+                    $"ion-decode parity drift for descriptor \"{desc}\": expected " +
+                    $"{(expected == null ? "<none>" : expected)} but got {(actual == null ? "<none>" : actual)}");
+            }
         }
 
         /// <summary>
@@ -210,19 +251,21 @@ namespace Flash.Tests
             string commandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
             if (File.Exists(commandsPath)) File.Delete(commandsPath);
 
-            // Presence of a real MS3 fixture is determined from the ion manifest; when present, the
-            // harness is fed a real MS3 fragment spectrum (never the MS2-as-MS3 shortcut). The
-            // interleaved PushScanAndDrainFull loop takes a single MS3 source, so pass the first
-            // mapped fixture — sufficient for the lineage/emission assertions below.
+            // Presence of a real MS3 fixture is determined from the ion manifest; when present, each MS3
+            // command is fed its REAL per-ion fragment spectrum (decode ion -> manifest), never fabricated.
             var ms3Map = BuildMs3IonMap(SpectraDir);
-            string ms3FixtureName = ms3Map.Count > 0 ? ms3Map.Values.First() : null;
+            string ms3FixtureName = ms3Map.Count > 0 ? ms3Map.Values.First() : null;   // indicator: fixtures present
+            Func<ScanCommand, string> ms3Sel = ms3Map.Count > 0
+                ? c => { string ion = DecodeIonFromScanDescription(c.ScanDescription);
+                         return ion != null && ms3Map.TryGetValue(ion, out var p) ? p : null; }
+                : (Func<ScanCommand, string>)null;
 
             using (var harness = MakeHarness("method_ms3_cytc_real.json", caseDir))
             {
                 harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, "ms1_cytc.txt"),
                     Path.Combine(SpectraDir, "ms2_cytc_fresh_scan57.txt"),
-                    ms3FixtureName);   // null -> MS2-as-MS3 shortcut; MS3 then asserted only when present
+                    ms3Sel);   // per-ion MS3 fixture; null when no manifest (MS3 asserted only when present)
             }
 
             Assert.That(File.Exists(commandsPath), Is.True, "engine must have written scan_commands.tsv");
@@ -395,6 +438,38 @@ namespace Flash.Tests
             return int.TryParse(s, out int v) ? v : -1;
         }
 
+        /// <summary>
+        /// ADDITIONAL no-~~~ guard: assert that no MS1 (ms_level == 1) row in the case's RAW
+        /// scan_results.tsv carries tracking_id == "~~~" (the empty-survey-description sentinel). A
+        /// leaked "~~~" means the engine logged a placeholder instead of a real engine-emitted survey
+        /// id, which would silently break the MS1-anchored parent/child joins. Reads columns by header
+        /// name (tracking_id, ms_level) so it stays correct regardless of column-shift refactors, and
+        /// is a no-op (passes) when no scan_results.tsv was produced — the cmdRows fail-closed check
+        /// already covers the empty-run case.
+        /// </summary>
+        private static void AssertNoTildeTrackingIdInMs1Results(string caseName, string caseDir)
+        {
+            string resultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
+            if (!File.Exists(resultsPath)) return;
+
+            var rows = ParseTsv(resultsPath, out var header);
+            int trackingCol = Array.IndexOf(header, "tracking_id");
+            int msLevelCol = Array.IndexOf(header, "ms_level");
+            Assert.That(trackingCol, Is.GreaterThanOrEqualTo(0),
+                $"Case '{caseName}': scan_results.tsv must have a tracking_id column");
+            Assert.That(msLevelCol, Is.GreaterThanOrEqualTo(0),
+                $"Case '{caseName}': scan_results.tsv must have an ms_level column");
+
+            foreach (var r in rows)
+            {
+                if (msLevelCol >= r.Length || trackingCol >= r.Length) continue;
+                if (ParseIntSafe(r[msLevelCol]) != 1) continue;   // MS1 rows only
+                Assert.That(r[trackingCol], Is.Not.EqualTo("~~~"),
+                    $"Case '{caseName}': MS1 scan_results row carries the '~~~' placeholder tracking id " +
+                    "instead of a real engine-emitted survey id (would break MS1-anchored joins)");
+            }
+        }
+
         // ---- engine driver + golden compare -------------------------------------------------
 
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
@@ -418,11 +493,23 @@ namespace Flash.Tests
                     mp.Config.Runtime.IdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
                 }))
             {
-                DriveCycle(harness,
+                // Interleaved engine-id-echo drive (one drain, mirrors C++ runFullAcquisition). MS1 rows
+                // carry the engine's real survey ids; MS3 is fed per-command by the decoded ion (skip if
+                // no real fixture — never fabricate). Replaces the old staged DriveCycle.
+                Func<ScanCommand, string> ms3Sel = null;
+                if (feedMs3)
+                {
+                    var map = ms3Map ?? new Dictionary<string, string>();
+                    ms3Sel = c =>
+                    {
+                        string ion = DecodeIonFromScanDescription(c.ScanDescription);
+                        return ion != null && map.TryGetValue(ion, out var p) ? p : null;
+                    };
+                }
+                harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, ms1File),
                     Path.Combine(SpectraDir, ms2File),
-                    feedMs3,
-                    ms3Map);
+                    ms3Sel);
             } // Dispose() closes the C++ engine and flushes/closes the log streams
 
             // Fail-closed: a case that produced no scan commands is broken, never a valid golden.
@@ -430,6 +517,14 @@ namespace Flash.Tests
             int cmdRows = File.Exists(commandsPath) ? Math.Max(0, File.ReadAllLines(commandsPath).Length - 1) : 0;
             Assert.That(cmdRows, Is.GreaterThan(0),
                 $"Case '{caseName}' produced no scan commands — cannot golden an empty run.");
+
+            // ADDITIONAL fail-closed guard (does NOT alter the golden comparison below): no captured
+            // MS1 scan_results row may carry the "~~~" placeholder tracking id. "~~~" is the empty-MS1
+            // survey-description sentinel; if it ever leaks into a real MS1 scan_results row the engine
+            // logged a placeholder instead of a genuine engine-emitted survey id, breaking every
+            // parent/child join that anchors on the MS1 tracking id. Checks the RAW (un-normalized)
+            // scan_results.tsv so it is independent of the T<n> relabeling.
+            AssertNoTildeTrackingIdInMs1Results(caseName, caseDir);
 
             // C1: ALWAYS write every .normalized file BEFORE any compare/capture, so a missing
             // golden for one stream (e.g. ida.log) can never abort before the other three are
@@ -462,46 +557,6 @@ namespace Flash.Tests
                 Assert.Fail($"Log golden failures for '{caseName}':\n  " + string.Join("\n  ", failures));
         }
 
-        private void DriveCycle(ContinuityTestHarness harness, string ms1Path, string ms2Path,
-            bool feedMs3, Dictionary<string, string> ms3Map)
-        {
-            // MS1 -> MS2 commands
-            foreach (var s in MockMsScan.FromTsvAllScans(ms1Path)) { harness.PushScan(s); s.Dispose(); }
-
-            // Feed each MS2 command back with real fragment data -> MS2 results + (maybe) MS3 commands
-            var ms2Cmds = harness.Factory.CreatedScans
-                .Select(s => ScanCommandRecord.FromCustomScan(s))
-                .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
-                .ToList();
-            foreach (var cmd in ms2Cmds)
-            {
-                var ms2 = MockMsScan.FromTsvAsMSn(ms2Path, 2, cmd.ScanDescription, cmd.PrecursorMz, cmd.ChargeState);
-                harness.PushScan(ms2);
-                ms2.Dispose();
-            }
-
-            if (!feedMs3) return;
-
-            // Feed each MS3 command back -> MS3 results + identification rows. Pick the REAL MS3
-            // fragment spectrum PER COMMAND by the precursor ion decoded from the command's
-            // scan_description: decode the ion key (e.g. "b44"), look it up in the manifest, and feed
-            // that fixture. If the ion is absent from the map (or the descriptor decodes to no ion),
-            // SKIP feeding that MS3 command — never fabricate MS3 by reusing the MS2 peaks.
-            var map = ms3Map ?? new Dictionary<string, string>();
-            var ms3Cmds = harness.Factory.CreatedScans
-                .Select(s => ScanCommandRecord.FromCustomScan(s))
-                .Where(r => r.ScanType == "MSn" && r.MsnLevel == 3)
-                .ToList();
-            foreach (var cmd in ms3Cmds)
-            {
-                string ion = DecodeIonFromScanDescription(cmd.ScanDescription);
-                if (ion == null || !map.TryGetValue(ion, out var src))
-                    continue;   // no real fixture for this ion -> skip (do NOT fabricate)
-                var ms3 = MockMsScan.FromTsvAsMSn(src, 3, cmd.ScanDescription, cmd.PrecursorMz, cmd.ChargeState);
-                harness.PushScan(ms3);
-                ms3.Dispose();
-            }
-        }
 
         private void WriteNormalized(string caseName, string fileName, string normalized)
         {
