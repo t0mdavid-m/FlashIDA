@@ -1,7 +1,7 @@
 {
   "global": {
-    "method_name": "ExplorationMS3Method",
-    "method_description": "MS2 + MS3 CE exploration enabled",
+    "method_name": "ExplorationFollowupMethod",
+    "method_description": "MS2 CE exploration with a non-tolerance override so the winner re-acquires as a production MS2, which then cascades to MS3 (inclusion-pinned cytC)",
     "duration": 120
   },
   "deconvolution": {
@@ -125,19 +125,15 @@
         "ce_min": 20,
         "ce_max": 40,
         "ce_step": 5,
-        "activation": "HCD"
+        "activation": "HCD",
+        "overrides": {
+          "analyzer": "Orbitrap"
+        }
       }
     },
     "ms3": {
       "selection": "intensity",
-      "max_targets": 3,
-      "exploration": {
-        "metric": "fragment_count",
-        "ce_min": 15,
-        "ce_max": 35,
-        "ce_step": 5,
-        "activation": "CID"
-      }
+      "max_targets": 200
     }
   }
 }

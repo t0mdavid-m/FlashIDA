@@ -226,6 +226,42 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map);
         }
 
+        // I4: exploration FOLLOW-UP golden. An MS2 CE-sweep whose winner — via a non-tolerance override
+        // (analyzer) in method_exploration_followup.json — re-acquires as a PRODUCTION MS2, which then
+        // cascades to MS3 (mirrors C++ ms2_exploration_production_winner_then_ms3). Inclusion-pinned cytC;
+        // each MS3 command is fed its REAL per-ion fragment fixture. Skips cleanly when no ms3_cytc_*_scan*.txt
+        // fixtures exist (same no-fabrication contract as Golden_MS3_CytC), since the cascade reaches MS3.
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_FollowUp_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exploration follow-up golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("exploration_followup", "method_exploration_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map);
+        }
+
+        // I4: MS3-level EXPLORATION golden. A two-level MS2->MS3 CE-sweep cascade — the MS2-exploration
+        // winner triggers an MS3-exploration sweep over the selected fragment ions (mirrors C++
+        // ms2_then_ms3_exploration_acquires_ms3) — driven by the repurposed inclusion-pinned
+        // method_exploration_ms3.json. Each MS3 variant is fed its REAL per-ion fragment fixture; skips
+        // cleanly when no fixtures exist.
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_MS3_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — MS3 exploration golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("exploration_ms3", "method_exploration_ms3.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map);
+        }
+
         // ---- H-cs: engine-chained full-acquisition lineage (structural, non-golden) ----------
 
         /// <summary>
