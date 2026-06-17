@@ -634,93 +634,50 @@ namespace Flash.Tests.AcquisitionLoop
             }
         }
 
+        // CT24/25/26 (R1a — golden restored): the MS1->one-MS2-return->MS3 drive runs through the canonical
+        // interleaved driver PushScanAndDrainFull (engine-id echo + by-priority drain), with the bespoke
+        // "Take(1)" MS2 cap expressed as maxMs2Responses:1. The original CT24/25/26 fed a LOAD-BEARING synthetic
+        // 3-peak MS2 spectrum {(200,10000),(300,15000),(400,20000)} via MS2WithDescription; that exact spectrum
+        // is now committed as the TSV fixture ms2_synth_3peak.txt so the interleaved driver (which only feeds
+        // TSV spectra) reproduces the same data-dependent MS3 cascade, and the byte-exact AssertGolden behavioral
+        // reference is restored. One cheap non-empty guard precedes AssertGolden so an empty capture cannot pass
+        // vacuously.
+        private void RunMs3ModeGolden(string configFile, string goldenFileName)
+        {
+            using (var harness = CreateHarness(configFile))
+            {
+                // Interleaved drive: smoke MS1 survey + at most ONE synthetic-3-peak MS2 response
+                // (Take(1) -> maxMs2Responses:1), letting the engine's data-dependent MS3 cascade form off
+                // that single MS2 return.
+                harness.PushScanAndDrainFull(
+                    Path.Combine(SpectraDir, "ms1_smoke_test.txt"),
+                    Path.Combine(SpectraDir, "ms2_synth_3peak.txt"),
+                    maxMs2Responses: 1);
+
+                var results = CapturedMsn(harness);
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "MS3-mode run must emit at least one MSn command (non-empty guard before AssertGolden)");
+
+                AssertGolden(goldenFileName, results);
+            }
+        }
+
         [Test, Category("Tier2")]
         public void P0_AL_CT24_MS3Mode1_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_ms3_mode1.json"))
-            {
-                // Push MS1
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                harness.PushMs1(smokeScan);
-                smokeScan.Dispose();
-
-                // Get MS2 commands and simulate MS2 responses
-                var ms2Commands = harness.Factory.CreatedScans
-                    .Select(s => ScanCommandRecord.FromCustomScan(s))
-                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
-                    .ToList();
-
-                foreach (var cmd in ms2Commands.Take(1)) // Process at most 1 MS2
-                {
-                    var ms2Scan = MockMsScan.MS2WithDescription(
-                        1.1, "1001", cmd.ScanDescription,
-                        cmd.PrecursorMz, cmd.ChargeState,
-                        (200.0, 10000), (300.0, 15000), (400.0, 20000));
-                    harness.PushScan(ms2Scan);
-                    ms2Scan.Dispose();
-                }
-
-                var results = harness.CollectResults();
-                AssertGolden("continuity_ms3_mode1.json", results);
-            }
+            RunMs3ModeGolden("method_ms3_mode1.json", "continuity_ms3_mode1.json");
         }
 
         [Test, Category("Tier2")]
         public void P0_AL_CT25_MS3Mode2_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_ms3_mode2.json"))
-            {
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                harness.PushMs1(smokeScan);
-                smokeScan.Dispose();
-
-                var ms2Commands = harness.Factory.CreatedScans
-                    .Select(s => ScanCommandRecord.FromCustomScan(s))
-                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
-                    .ToList();
-
-                foreach (var cmd in ms2Commands.Take(1))
-                {
-                    var ms2Scan = MockMsScan.MS2WithDescription(
-                        1.1, "1001", cmd.ScanDescription,
-                        cmd.PrecursorMz, cmd.ChargeState,
-                        (200.0, 10000), (300.0, 15000), (400.0, 20000));
-                    harness.PushScan(ms2Scan);
-                    ms2Scan.Dispose();
-                }
-
-                var results = harness.CollectResults();
-                AssertGolden("continuity_ms3_mode2.json", results);
-            }
+            RunMs3ModeGolden("method_ms3_mode2.json", "continuity_ms3_mode2.json");
         }
 
         [Test, Category("Tier2")]
         public void P0_AL_CT26_MS3Mode3_BehavioralReference()
         {
-            using (var harness = CreateHarness("method_ms3_mode3.json"))
-            {
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                harness.PushMs1(smokeScan);
-                smokeScan.Dispose();
-
-                var ms2Commands = harness.Factory.CreatedScans
-                    .Select(s => ScanCommandRecord.FromCustomScan(s))
-                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
-                    .ToList();
-
-                foreach (var cmd in ms2Commands.Take(1))
-                {
-                    var ms2Scan = MockMsScan.MS2WithDescription(
-                        1.1, "1001", cmd.ScanDescription,
-                        cmd.PrecursorMz, cmd.ChargeState,
-                        (200.0, 10000), (300.0, 15000), (400.0, 20000));
-                    harness.PushScan(ms2Scan);
-                    ms2Scan.Dispose();
-                }
-
-                var results = harness.CollectResults();
-                AssertGolden("continuity_ms3_mode3.json", results);
-            }
+            RunMs3ModeGolden("method_ms3_mode3.json", "continuity_ms3_mode3.json");
         }
 
         #endregion
@@ -787,46 +744,21 @@ namespace Flash.Tests.AcquisitionLoop
 
         #region Phase 4 MS2 Return Path Tests (CT33–CT42)
 
+        // Phase 2 migration: the bespoke PushMS1ThenMS2Return helper (push all MS1, then feed MS2 returns,
+        // capped by maxMS2Returns) has been ABSORBED into the canonical interleaved driver
+        // ContinuityTestHarness.PushScanAndDrainFull(ms1Path, ms2Path, maxMs2Responses: N). The staged
+        // "push all MS1 then all MS2" feed is replaced by the by-priority engine-id-echo interleave; the
+        // maxMS2Returns cap maps to maxMs2Responses. Helper deleted (no longer duplicated here).
+
         /// <summary>
-        /// Push all MS1 scans from a TSV file through harness, then push MS2 responses back
-        /// using real TSV fragment data. Extracts ScanDescription, PrecursorMz, and ChargeState
-        /// from each MS2 command produced by MS1 processing, loads MS2 TSV data with those
-        /// parameters, and pushes the MS2 scans back through the processor.
+        /// Real MSn (level 2/3) command records captured by the interleaved driver, excluding idle/AGC and
+        /// MS1 survey commands. Re-expresses the old CollectResults() "MSn only" filter over the raw
+        /// CapturedRecords stream that PushScanAndDrainFull populates (which includes the full MS3 cascade).
         /// </summary>
-        private List<ScanCommandRecord> PushMS1ThenMS2Return(
-            ContinuityTestHarness harness, string ms1File, string ms2File, int maxMS2Returns = -1)
-        {
-            // Step 1: Push all MS1 scans to build up deconvolution state
-            var ms1Scans = MockMsScan.FromTsvAllScans(ms1File);
-            foreach (var scan in ms1Scans)
-            {
-                harness.PushMs1(scan);
-                scan.Dispose();
-            }
-
-            // Step 2: Extract MS2 commands from factory
-            var ms2Commands = harness.Factory.CreatedScans
-                .Select(s => ScanCommandRecord.FromCustomScan(s))
-                .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
+        private static List<ScanCommandRecord> CapturedMsn(ContinuityTestHarness harness) =>
+            harness.CapturedRecords
+                .Where(r => r.ScanType == "MSn" && r.MsnLevel >= 2 && !r.IsAGC)
                 .ToList();
-
-            // Step 3: For each MS2 command, create an MS2 scan from TSV and push it back
-            int count = maxMS2Returns >= 0 ? Math.Min(maxMS2Returns, ms2Commands.Count) : ms2Commands.Count;
-            for (int i = 0; i < count; i++)
-            {
-                var cmd = ms2Commands[i];
-                var ms2Scan = MockMsScan.FromTsvAsMS2(
-                    ms2File,
-                    cmd.ScanDescription,
-                    cmd.PrecursorMz,
-                    cmd.ChargeState);
-                harness.PushScan(ms2Scan);
-                ms2Scan.Dispose();
-            }
-
-            // Step 4: Collect all results (includes initial MS2 + follow-ups + MS3)
-            return harness.CollectResults();
-        }
 
         /// <summary>
         /// Load all MS1 scans from standard spectrum and push through harness. Returns scan commands.
@@ -849,13 +781,17 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_tag_targeting.json"))
             {
-                var results = PushMS1ThenMS2Return(
-                    harness,
+                // Interleaved engine-id-echo drive: standard MS1 surveys + HCD-fragment MS2 returns for every
+                // MS2 command (no cap). Replaces the staged PushMS1ThenMS2Return(all returns).
+                harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, "ms1_standard.txt"),
                     Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"));
 
+                // R1a — byte-exact golden restored over the SAME captured MSn stream the drive produced.
+                // One cheap non-empty guard ensures an empty capture cannot vacuously pass AssertGolden.
+                var results = CapturedMsn(harness);
                 Assert.That(results.Count, Is.GreaterThan(0),
-                    "MS1→MS2 return pipeline must produce results");
+                    "MS1->MS2 return pipeline must produce results (non-empty guard before AssertGolden)");
 
                 AssertGolden("continuity_tag_ms2return.json", results);
             }
@@ -871,35 +807,31 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_tag_targeting.json"))
             {
-                // Step 1: push MS1 only, before any MS2 return
-                var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
-                foreach (var s in ms1Scans) { harness.PushMs1(s); s.Dispose(); }
+                // The conditional-MS2 proof is a BEFORE/AFTER comparison across one point in the drive:
+                //   BEFORE the first MS2 return -> only the initial (ETD) MS2 commands the MS1 surveys emit;
+                //   AFTER  the MS2 returns      -> tag detection has triggered follow-up HCD commands.
+                // The interleaved driver interleaves surveys and returns, so we capture the "before" set via
+                // the onFirstMs2Response mid-drive snapshot (fired once, just before the first MS2 response):
+                // at that instant CapturedRecords holds only MS1-survey-emitted commands (no follow-ups yet).
+                List<ScanCommandRecord> initialResults = null;
 
-                // Initial MS2 commands from MS1 should be ETD only (no HCD yet)
-                var initialResults = harness.CollectResults();
+                harness.PushScanAndDrainFull(
+                    Path.Combine(SpectraDir, "ms1_standard.txt"),
+                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
+                    onFirstMs2Response: h => initialResults = CapturedMsn(h));
+
+                // Snapshot must have fired and captured the initial (pre-return) MS2 batch.
+                Assert.That(initialResults, Is.Not.Null,
+                    "Mid-drive snapshot must fire before the first MS2 return");
                 Assert.That(initialResults.Count, Is.GreaterThan(0),
-                    "MS1 processing must produce MS2 commands");
+                    "MS1 processing must produce initial MS2 commands");
                 Assert.IsTrue(initialResults.All(r => r.ActivationType == "ETD"),
                     "Initial MS2 commands should all be ETD (HCD is conditional on tag detection)");
                 Assert.IsTrue(initialResults.All(r => r.ScanDescription.Length >= 4 && "ARFCE".Contains(r.ScanDescription[3])),
                     "Initial MS2 commands should have compact tracking-ID scan descriptions (XXXR...)");
 
-                // Step 2: push MS2 back with real fragments to trigger tag detection
-                var ms2Commands = harness.Factory.CreatedScans
-                    .Select(s => ScanCommandRecord.FromCustomScan(s))
-                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
-                    .ToList();
-                string ms2File = Path.Combine(SpectraDir, "ms2_hcd_fragment.txt");
-                foreach (var cmd in ms2Commands)
-                {
-                    var ms2Scan = MockMsScan.FromTsvAsMS2(
-                        ms2File, cmd.ScanDescription, cmd.PrecursorMz, cmd.ChargeState);
-                    harness.PushScan(ms2Scan);
-                    ms2Scan.Dispose();
-                }
-
-                // Collect ALL results (initial ETD + any follow-up HCD)
-                var allResults = harness.CollectResults();
+                // AFTER the full interleaved drive: tag detection must have triggered follow-up HCD scans.
+                var allResults = CapturedMsn(harness);
                 var hcdFollowUps = allResults.Where(r =>
                     r.ActivationType == "HCD" && r.MsnLevel == 2).ToList();
 
@@ -927,15 +859,14 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_ms3_mode1_hcd.json"))
             {
-                var results = PushMS1ThenMS2Return(
-                    harness,
+                // Interleaved drive: cytC MS1 surveys + at most ONE real cytC MS2 return (maxMS2Returns:1 ->
+                // maxMs2Responses:1), bounding the data-dependent MS3 cascade. Re-expressed over CapturedRecords.
+                harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, "ms1_cytc.txt"),
                     Path.Combine(SpectraDir, "ms2_cytc_scan149.txt"),
-                    maxMS2Returns: 1);
+                    maxMs2Responses: 1);
 
-                Assert.That(results.Count, Is.GreaterThan(0),
-                    "MS1→MS2 return pipeline must produce results");
-                AssertGolden("continuity_ms3_mode1_real.json", results);
+                AssertMs3ReturnGolden(harness, "continuity_ms3_mode1_real.json");
             }
         }
 
@@ -946,15 +877,12 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_ms3_mode2_hcd.json"))
             {
-                var results = PushMS1ThenMS2Return(
-                    harness,
+                harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, "ms1_cytc.txt"),
                     Path.Combine(SpectraDir, "ms2_cytc_scan149.txt"),
-                    maxMS2Returns: 1);
+                    maxMs2Responses: 1);
 
-                Assert.That(results.Count, Is.GreaterThan(0),
-                    "MS1→MS2 return pipeline must produce results");
-                AssertGolden("continuity_ms3_mode2_real.json", results);
+                AssertMs3ReturnGolden(harness, "continuity_ms3_mode2_real.json");
             }
         }
 
@@ -965,16 +893,27 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_ms3_mode3_hcd.json"))
             {
-                var results = PushMS1ThenMS2Return(
-                    harness,
+                harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, "ms1_standard.txt"),
                     Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
-                    maxMS2Returns: 1);
+                    maxMs2Responses: 1);
 
-                Assert.That(results.Count, Is.GreaterThan(0),
-                    "MS1→MS2 return pipeline must produce results");
-                AssertGolden("continuity_ms3_mode3_real.json", results);
+                AssertMs3ReturnGolden(harness, "continuity_ms3_mode3_real.json");
             }
+        }
+
+        /// <summary>
+        /// Shared CT35/36/37 assertion (R1a — byte-exact golden restored): asserts the captured MSn stream
+        /// the interleaved maxMs2Responses:1 drive produced against the committed golden. One cheap non-empty
+        /// guard precedes AssertGolden so an empty capture cannot vacuously pass.
+        /// </summary>
+        private void AssertMs3ReturnGolden(ContinuityTestHarness harness, string goldenFileName)
+        {
+            var results = CapturedMsn(harness);
+            Assert.That(results.Count, Is.GreaterThan(0),
+                "MS1->MS2 return pipeline must produce results (non-empty guard before AssertGolden)");
+
+            AssertGolden(goldenFileName, results);
         }
 
         // --- CT38: Quant Mode MS2 Return ---
@@ -984,37 +923,18 @@ namespace Flash.Tests.AcquisitionLoop
         {
             using (var harness = CreateHarness("method_quant.json"))
             {
-                // Push all MS1 scans to get initial quant MS2 commands
-                var ms1Scans = MockMsScan.FromTsvAllScans(Path.Combine(SpectraDir, "ms1_standard.txt"));
-                foreach (var scan in ms1Scans)
-                {
-                    harness.PushMs1(scan);
-                    scan.Dispose();
-                }
+                // Interleaved drive: standard MS1 surveys + TMT-reporter MS2 returns for every quant MS2
+                // command (no cap). Replaces "push all MS1, then feed TMT back for every command".
+                harness.PushScanAndDrainFull(
+                    Path.Combine(SpectraDir, "ms1_standard.txt"),
+                    Path.Combine(SpectraDir, "ms2_quant_tmt.txt"));
 
-                // Extract the quant MS2 commands (first MS2 param set = ETD with "quant" description)
-                var ms2Commands = harness.Factory.CreatedScans
-                    .Select(s => ScanCommandRecord.FromCustomScan(s))
-                    .Where(r => r.ScanType == "MSn" && r.MsnLevel == 2)
-                    .ToList();
+                // R1a — byte-exact golden restored over the SAME captured MSn stream the drive produced.
+                // One cheap non-empty guard ensures an empty capture cannot vacuously pass AssertGolden.
+                var results = CapturedMsn(harness);
+                Assert.That(results.Count, Is.GreaterThan(0),
+                    "MS1 must produce MS2 commands for quant mode (non-empty guard before AssertGolden)");
 
-                Assert.That(ms2Commands.Count, Is.GreaterThan(0),
-                    "MS1 must produce MS2 commands for quant mode");
-
-                // Push TMT reporter MS2 data back for each quant command
-                string ms2File = Path.Combine(SpectraDir, "ms2_quant_tmt.txt");
-                foreach (var cmd in ms2Commands)
-                {
-                    var ms2Scan = MockMsScan.FromTsvAsMS2(
-                        ms2File,
-                        cmd.ScanDescription,
-                        cmd.PrecursorMz,
-                        cmd.ChargeState);
-                    harness.PushScan(ms2Scan);
-                    ms2Scan.Dispose();
-                }
-
-                var results = harness.CollectResults();
                 AssertGolden("continuity_quant_ms2return.json", results);
             }
         }
@@ -1125,8 +1045,26 @@ namespace Flash.Tests.AcquisitionLoop
 
         #endregion
 
-        #region AL-CT31 through CT32: Stress Tests (Phase 3)
+        #region AL-CT31 through CT32: Primitive / Concurrency Contract Tests (Phase 3)
 
+        // RECLASSIFIED (Phase 2): CT31 and CT32 are DELIBERATELY NOT migrated to the interleaved
+        // PushScanAndDrainFull harness. They are primitive/concurrency-CONTRACT tests that exercise the raw
+        // FLASHIdaWrapper ABI (ProcessScan / GetNextScanCommand / GetNextTrackingId) directly, by design:
+        //   * CT31 = tracking-id uniqueness + idle-MS1 cycle contract. It asserts the fixed-count ABI shape of
+        //     the queue under idle conditions: ProcessScan returns 0, every GetNextScanCommand returns exactly 1
+        //     with an MS-level-1 idle scan, and 1000 GetNextTrackingId calls are unique. This is precisely the
+        //     "primitive-contract test (fixed-count getNextScanCommand asserting the queue ABI)" that MUST NOT be
+        //     routed through the bounded harness — the harness exists to AVOID the raw `while(==1)` loop, whereas
+        //     CT31's whole point is to pin that the idle self-refill never returns 0.
+        //   * CT32 = 4-thread concurrency stress on the tracking-id counter mutex; the C# mirror of the C++
+        //     ScanCommandQueue_Concurrent_test. It verifies thread-safety (no exceptions, unique ids across
+        //     threads) of the raw wrapper, which the single-threaded interleaved harness cannot express.
+        // Their raw loops are intentionally left intact.
+
+        // CT31 (RECLASSIFIED — primitive ABI contract; raw loop intentionally NOT migrated to the harness):
+        // tracking-id uniqueness + idle-MS1 cycle. Pins that getNextScanCommand never returns 0 (idle self-refill)
+        // and yields an MS-level-1 idle scan each tick — the queue-ABI invariant the bounded harness deliberately
+        // bypasses, so this test keeps its raw FLASHIdaWrapper drive.
         [Test, Category("Tier4")]
         public void P3_AL_CT31_StressTest_1000ScansSequential()
         {
@@ -1173,6 +1111,10 @@ namespace Flash.Tests.AcquisitionLoop
             }
         }
 
+        // CT32 (RECLASSIFIED — concurrency contract; raw loop intentionally NOT migrated to the harness):
+        // 4-thread concurrency stress on the raw FLASHIdaWrapper. C# mirror of the C++ ScanCommandQueue_Concurrent_test;
+        // verifies the tracking-id counter mutex (no exceptions, unique ids across threads). The single-threaded
+        // interleaved harness cannot express multi-thread contention, so this test keeps its raw threaded drive.
         [Test, Category("Tier4")]
         public void P3_AL_CT32_StressTest_ConcurrentProcessing()
         {

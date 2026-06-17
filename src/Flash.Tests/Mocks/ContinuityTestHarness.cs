@@ -150,15 +150,31 @@ namespace Flash.Tests.Mocks
         // MS1 feed: each engine survey-MS1 command is answered with the NEXT TSV MS1 scan (one per command,
         //   in order — the same scan coverage the old DriveCycle had), stamped with that command's
         //   engine-emitted ScanDescription, so the scan_results MS1 tracking_id == the id the engine issued.
+        //
+        // maxMs2Responses (Phase 2): optional cap on the number of MS2 commands the harness RESPONDS to
+        //   (feeds an MS2 spectrum back for). Once the cap is reached, further MS2 commands are still drained
+        //   and recorded into CapturedRecords (so the ABI/queue is exhausted normally) but no response scan is
+        //   pushed back -- exactly the bespoke `maxMS2Returns: 1` behaviour CT35/36/37 used (process at most one
+        //   MS2 return so the data-dependent MS3 cascade is bounded). -1 (default) feeds every MS2 command back.
+        //   C# twin of the C++ runInterleaved single_group_only bookkeeping: a knob to bound how far the
+        //   MS2-return cascade runs without changing the core pull->classify->feed->idle<3 contract.
+        //
+        // onFirstMs2Response (Phase 2): optional mid-drive snapshot/callback fired EXACTLY ONCE, immediately
+        //   BEFORE the first MS2 response is fed back to the engine. At that instant CapturedRecords holds only
+        //   the commands the engine emitted from MS1 surveys (no tag-/return-triggered follow-ups yet), so a
+        //   caller can snapshot the pre-return state (CT34: prove the initial batch is ETD-only, before any HCD
+        //   follow-up the MS2 return triggers). The callback observes the harness; it must not drive the engine.
         public void PushScanAndDrainFull(string ms1Path, string ms2Path,
-            Func<ScanCommand, string> ms3FixtureFor = null, int maxIters = 600)
+            Func<ScanCommand, string> ms3FixtureFor = null, int maxIters = 600,
+            int maxMs2Responses = -1, Action<ContinuityTestHarness> onFirstMs2Response = null)
         {
             // Feed each TSV MS1 scan exactly once (nMs1 = scan count); any further MS1 survey is an idle tick.
             int nMs1;
             { var probe = MockMsScan.FromTsvAllScans(ms1Path); nMs1 = probe.Count; foreach (var s in probe) s.Dispose(); }
             if (nMs1 == 0) return;
 
-            int idle = 0, ms1Fed = 0;
+            int idle = 0, ms1Fed = 0, ms2Responded = 0;
+            bool firstMs2HookFired = false;
             var cmd = new ScanCommand();
             for (int it = 0; it < maxIters && idle < 3; it++)
             {
@@ -209,9 +225,25 @@ namespace Flash.Tests.Mocks
                 }
                 else
                 {
+                    // MS2 command. Honour the response cap: once we have responded to maxMs2Responses MS2
+                    // commands, keep draining/recording further MS2 commands but stop feeding spectra back
+                    // (bounds the data-dependent MS2-return -> MS3 cascade exactly as maxMS2Returns:1 did).
+                    if (maxMs2Responses >= 0 && ms2Responded >= maxMs2Responses)
+                    {
+                        cmd = new ScanCommand();
+                        continue;
+                    }
+                    // Mid-drive snapshot: fire once, just before the FIRST MS2 response, so the caller sees the
+                    // pre-return command set (no follow-ups triggered yet).
+                    if (!firstMs2HookFired)
+                    {
+                        firstMs2HookFired = true;
+                        onFirstMs2Response?.Invoke(this);
+                    }
                     double precMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].PrecursorMz : 0.0;
                     int z = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].ChargeState : 1;
                     response = MockMsScan.FromTsvAsMSn(ms2Path, level, cmd.ScanDescription, precMz, z);
+                    ms2Responded++;
                 }
 
                 Processor.ProcessMS(response);
