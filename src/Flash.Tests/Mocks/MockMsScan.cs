@@ -142,6 +142,17 @@ namespace Flash.Tests.Mocks
             _trailerAccess.Set("Scan Description", scanDescription);
         }
 
+        /// <summary>
+        /// F7: stamp the FAIMS CV trailer on a re-fed scan so FLASHIdaWrapper.ProcessScan reads it and
+        /// passes it to the native processScan faims_cv argument (the C# channel for the CV; the C++ twin
+        /// passes cmd.faims_cv directly in runInterleaved). Mirrors WithFaimsPeaks' trailer keys.
+        /// </summary>
+        public void SetFaimsCv(double faimsCV)
+        {
+            _trailerAccess.Set("FAIMS CV", faimsCV.ToString());
+            _trailerAccess.Set("FAIMS Voltage On", "True");
+        }
+
         /// <summary>Create a MS1 scan for FAIMS mode with the given CV value</summary>
         public static MockMsScan WithFaimsPeaks(double rt, string scanNumber, double faimsCV,
             params (double mz, double intensity)[] peaks)

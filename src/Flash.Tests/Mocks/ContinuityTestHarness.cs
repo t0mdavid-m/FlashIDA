@@ -185,6 +185,11 @@ namespace Flash.Tests.Mocks
                     if (pick >= ms1.Count) { foreach (var s in ms1) s.Dispose(); cmd = new ScanCommand(); continue; }
                     response = ms1[pick];
                     response.SetScanDescription(cmd.ScanDescription);   // echo the engine-emitted survey id
+                    // F7: echo the command's FAIMS CV so FAIMS cycling re-binds (C++ runInterleaved passes
+                    // cmd.faims_cv to processScan; here the wrapper reads it from this trailer). Only stamp a
+                    // real (non-zero) CV — for non-FAIMS runs cmd.FaimsCv is 0, matching the C++ no-op and
+                    // leaving the existing non-FAIMS goldens byte-identical.
+                    if (cmd.FaimsCv != 0.0) response.SetFaimsCv(cmd.FaimsCv);
                     for (int i = 0; i < ms1.Count; i++) if (i != pick) ms1[i].Dispose();
                     ms1Fed++;
                 }

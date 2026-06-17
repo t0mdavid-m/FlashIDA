@@ -79,17 +79,31 @@ namespace Flash.Tests
             RunCase("exploration_etd", "method_exploration_etd.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
         }
 
+        // F8-quant: feed the REAL TMT-reporter MS2 (ms2_quant_tmt.txt) instead of the inert ms2_hcd_fragment.txt,
+        // so isDifferentiallyAbundant fires and a quant follow-up ('F') is actually generated. minFollowUps:1
+        // fail-closes: the old reporter-less fixture produced 0 'F' commands -> the golden proved nothing.
         [Test, Category("Tier2")]
         public void Golden_Quant() =>
-            RunCase("quant", "method_quant.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
+            RunCase("quant", "method_quant.json", "ms1_standard.txt", "ms2_quant_tmt.txt", minFollowUps: 1);
 
         [Test, Category("Tier2")]
         public void Golden_TagTargeting() =>
             RunCase("tag", "method_tag_targeting.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
 
+        // F8: inclusion goldens use the DEDICATED cytC configs (method_inclusion_cytc[_strict].json ->
+        // inclusion_cytc.txt @ the engine's real monoisotopic cytC mass 12351.3). The shared
+        // method_inclusion.json/_strict (-> test_inclusion_list.txt, the 12358.31 AVERAGE-mass decoy) is left
+        // UNTOUCHED for the ContinuityTests (CT13 smoke-no-match / CT39-40 E.coli-match). minMs2Commands:1
+        // fail-closes: on the old wrong target, strict inclusion matched nothing -> 0 MS2 -> no DDA-masked golden.
         [Test, Category("Tier2")]
         public void Golden_Inclusion() =>
-            RunCase("inclusion", "method_inclusion.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt");
+            RunCase("inclusion", "method_inclusion_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1);
+
+        [Test, Category("Tier2")]
+        public void Golden_Inclusion_Strict() =>
+            RunCase("inclusion_strict", "method_inclusion_cytc_strict.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1);
 
         [Test, Category("Tier2")]
         public void Golden_Exclusion() =>
@@ -509,7 +523,8 @@ namespace Flash.Tests
         // ---- engine driver + golden compare -------------------------------------------------
 
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
-            bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null)
+            bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
+            int minMs2Commands = 0, int minFollowUps = 0)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -553,6 +568,37 @@ namespace Flash.Tests
             int cmdRows = File.Exists(commandsPath) ? Math.Max(0, File.ReadAllLines(commandsPath).Length - 1) : 0;
             Assert.That(cmdRows, Is.GreaterThan(0),
                 $"Case '{caseName}' produced no scan commands — cannot golden an empty run.");
+
+            // F8-inclusion fail-closed gate: a case that REQUIRES precursor selection (e.g. strict inclusion
+            // on the corrected cytC target) must emit >= minMs2Commands MS2-level scan_commands. On the
+            // pre-fix wrong target (12358.31 average mass), strict inclusion matched nothing and produced 0
+            // MS2 -> this guard refuses to capture/compare a meaningless DDA-masked or empty golden.
+            if (minMs2Commands > 0)
+            {
+                var cmdRowsParsed = ParseTsv(commandsPath, out var cmdHeader);
+                int msLevelCol = Array.IndexOf(cmdHeader, "ms_level");
+                Assert.That(msLevelCol, Is.GreaterThanOrEqualTo(0), "ms_level column present in scan_commands");
+                int ms2Count = cmdRowsParsed.Count(r => msLevelCol < r.Length && ParseIntSafe(r[msLevelCol]) == 2);
+                Assert.That(ms2Count, Is.GreaterThanOrEqualTo(minMs2Commands),
+                    $"Case '{caseName}' produced {ms2Count} MS2 command(s) (< {minMs2Commands}) — the inclusion " +
+                    "target did not drive selection (wrong mass -> silent DDA fall-through / strict 0-match).");
+            }
+
+            // F8-quant fail-closed gate: a quant case must emit >= minFollowUps quant follow-up ('F') commands.
+            // On the pre-fix inert fixture (an MS2 with no TMT reporter ions), isDifferentiallyAbundant was
+            // never true and 0 'F' follow-ups fired -> this guard refuses to capture/compare a golden that
+            // proves nothing about the quant follow-up path. 'F' is the scan_description suffix (index 3).
+            if (minFollowUps > 0)
+            {
+                var cmdRowsParsed = ParseTsv(commandsPath, out var cmdHeader);
+                int descCol = Array.IndexOf(cmdHeader, "scan_description");
+                Assert.That(descCol, Is.GreaterThanOrEqualTo(0), "scan_description column present in scan_commands");
+                int followUps = cmdRowsParsed.Count(r => descCol < r.Length &&
+                                                         r[descCol].Length >= 4 && r[descCol][3] == 'F');
+                Assert.That(followUps, Is.GreaterThanOrEqualTo(minFollowUps),
+                    $"Case '{caseName}' produced {followUps} quant follow-up ('F') command(s) (< {minFollowUps}) — " +
+                    "the quant fixture has no TMT reporter ions, so no differential-abundance follow-up fired.");
+            }
 
             // ADDITIONAL fail-closed guard (does NOT alter the golden comparison below): no captured
             // MS1 scan_results row may carry the "~~~" placeholder tracking id. "~~~" is the empty-MS1
