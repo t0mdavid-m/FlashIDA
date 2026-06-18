@@ -35,6 +35,13 @@ namespace Flash.Tests.Mocks
         /// <summary>Scan description metadata string</summary>
         public string ScanDescription { get; set; }
 
+        /// <summary>
+        /// Encoded tracking id (3-char) of this command's logical parent. For a conditional follow-up the engine
+        /// sets this to the triggering MS2's own scan_id (ScanCommandQueue.cpp:396-398). Captured for provenance
+        /// assertions (e.g. CT34); intentionally NOT serialized to golden JSON (see ToJsonObject).
+        /// </summary>
+        public string ParentScanId { get; set; }
+
         /// <summary>Whether this is a PAGC scan</summary>
         public bool IsAGC { get; set; }
 
@@ -75,6 +82,7 @@ namespace Flash.Tests.Mocks
             record.ScanType = cmd.MsnLevel > 1 ? "MSn" : "Full";
             record.Analyzer = cmd.Analyzer ?? "";
             record.ScanDescription = cmd.ScanDescription ?? "";
+            record.ParentScanId = cmd.ParentScanId ?? "";
             record.IsAGC = cmd.IsAgc != 0;
 
             if (cmd.NumStages > 0 && cmd.Stages != null)

@@ -835,16 +835,32 @@ namespace Flash.Tests.AcquisitionLoop
                 var hcdFollowUps = allResults.Where(r =>
                     r.ActivationType == "HCD" && r.MsnLevel == 2).ToList();
 
+                // The HCD follow-ups must exist (tag detection fired). This also guards the linkage loop below:
+                // a foreach over an empty list passes vacuously, so assert non-empty adjacent to the loop it guards.
                 Assert.That(hcdFollowUps.Count, Is.GreaterThan(0),
-                    "Tag detection should trigger follow-up HCD scans");
+                    "Tag detection must trigger at least one HCD follow-up");
 
-                // Each HCD follow-up should match a precursor from an initial ETD scan
+                // Each HCD follow-up must descend from a REAL triggering ETD MS2 via the engine's parent edge:
+                // buildFollowUp sets parent_scan_id = encode(trigger ETD scan_id) (ScanCommandQueue.cpp:396-398);
+                // the ETD's own id is its description prefix (<id>R<mass>@<z>) and the follow-up carries the
+                // conditional 'C' suffix at char[3] (FLASHIda.cpp:1031). Join on the unique scan_id edge — NOT on
+                // precursor m/z, which the engine struct-copies verbatim (matching it would be vacuously true).
+                var etdMs2 = allResults.Where(r => r.ActivationType == "ETD" && r.MsnLevel == 2).ToList();
                 foreach (var hcd in hcdFollowUps)
                 {
-                    Assert.IsTrue(
-                        initialResults.Any(etd => Math.Abs(etd.PrecursorMz - hcd.PrecursorMz) < 0.01),
-                        string.Format("HCD follow-up at m/z {0:F4} should match an initial ETD precursor",
-                            hcd.PrecursorMz));
+                    Assert.IsTrue(hcd.ScanDescription.Length >= 4 && hcd.ScanDescription[3] == 'C',
+                        string.Format("HCD follow-up '{0}' must carry the conditional 'C' description suffix",
+                            hcd.ScanDescription));
+
+                    var trigger = etdMs2.FirstOrDefault(e =>
+                        e.ScanDescription.Length >= 3 && e.ScanDescription.Substring(0, 3) == hcd.ParentScanId);
+
+                    Assert.IsNotNull(trigger,
+                        string.Format("HCD follow-up '{0}' parent '{1}' must reference a real ETD MS2 command in the drive",
+                            hcd.ScanDescription, hcd.ParentScanId));
+                    Assert.That(hcd.PrecursorMz, Is.EqualTo(trigger.PrecursorMz).Within(1e-9),
+                        string.Format("HCD follow-up '{0}' precursor must equal its named trigger ETD '{1}' (engine struct-copies ctx)",
+                            hcd.ScanDescription, hcd.ParentScanId));
                 }
             }
         }
