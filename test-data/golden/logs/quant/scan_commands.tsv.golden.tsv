@@ -1,0 +1,116 @@
+tracking_id	ms_level	scan_type	enqueue_ts	priority	faims_cv	mono_mass	charge	precursor_mz	isolation_width	collision_energy	activation	qscore	charge_cos	charge_snr	iso_cos	snr	charge_score	ppm_error	precursor_intensity	peakgroup_intensity	hcd_energy	parent_tracking_id	ion_type	ion_index	reaction_time	reagent_max_it	reagent_agc_target	scan_description
+T0	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T0A
+T1	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T1S
+T2	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T2A
+T3	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T3S
+T4	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T4A
+T5	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T5S
+T6	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T6A
+T7	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T7S
+T8	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T8A
+T9	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T9S
+T10	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T10A
+T11	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T11S
+T12	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T12A
+T13	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T13S
+T14	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T14A
+T15	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T15S
+T16	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T16A
+T17	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T17S
+T18	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T18A
+T19	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T19S
+T20	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T20A
+T21	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T21S
+T22	2	recording	<TS>	2	0	2063.61	4	517.034	1.05037	0	ETD	0.476161	0.860556	1.43069	0.860556	1.18869	1	0.23633	5459.27	5459.27	0	T21		0	7	200	700000	T22R2.063606k@4
+T23	2	followup	<TS>	0	0	2063.61	4	517.034	1.05037	30	HCD	0.476161	0.860556	1.43069	0.860556	1.18869	1	0.23633	5459.27	5459.27	0	T22		0	7	200	700000	T23F2.063606k@4
+T24	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T24A
+T25	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T25S
+T26	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T26A
+T27	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T27S
+T28	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T28A
+T29	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T29S
+T30	2	recording	<TS>	2	0	2277.25	4	570.572	1.29744	0	ETD	0.771507	0.93761	4.96672	0.93761	4.96672	1	2.99553	5213.45	5213.45	0	T29		0	7	200	700000	T30R2.277254k@4
+T31	2	followup	<TS>	0	0	2277.25	4	570.572	1.29744	30	HCD	0.771507	0.93761	4.96672	0.93761	4.96672	1	2.99553	5213.45	5213.45	0	T30		0	7	200	700000	T31F2.277254k@4
+T32	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T32A
+T33	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T33S
+T34	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T34A
+T35	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T35S
+T36	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T36A
+T37	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T37S
+T38	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T38A
+T39	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T39S
+T40	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T40A
+T41	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T41S
+T42	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T42A
+T43	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T43S
+T44	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T44A
+T45	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T45S
+T46	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T46A
+T47	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T47S
+T48	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T48A
+T49	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T49S
+T50	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T50A
+T51	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T51S
+T52	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T52A
+T53	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T53S
+T54	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T54A
+T55	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T55S
+T56	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T56A
+T57	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T57S
+T58	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T58A
+T59	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T59S
+T60	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T60A
+T61	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T61S
+T62	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T62A
+T63	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T63S
+T64	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T64A
+T65	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T65S
+T66	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T66A
+T67	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T67S
+T68	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T68A
+T69	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T69S
+T70	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T70A
+T71	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T71S
+T72	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T72A
+T73	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T73S
+T74	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T74A
+T75	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T75S
+T76	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T76A
+T77	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T77S
+T78	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T78A
+T79	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T79S
+T80	2	recording	<TS>	2	0	5315.13	9	591.911	1.02839	0	ETD	0.350165	0.858807	3.53716	0.858807	3.53716	1	3.67734	5876.7	5876.7	0	T79		0	7	200	700000	T80R5.315129k@9
+T81	2	followup	<TS>	0	0	5315.13	9	591.911	1.02839	30	HCD	0.350165	0.858807	3.53716	0.858807	3.53716	1	3.67734	5876.7	5876.7	0	T80		0	7	200	700000	T81F5.315129k@9
+T82	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T82A
+T83	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T83S
+T84	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T84A
+T85	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T85S
+T86	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T86A
+T87	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T87S
+T88	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T88A
+T89	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T89S
+T90	2	recording	<TS>	2	0	2256.18	4	565.177	1.05073	0	ETD	0.419769	0.853377	1.30749	0.853377	0.528163	1	0.161604	3336.41	3336.41	0	T89		0	7	200	700000	T90R2.256179k@4
+T91	2	followup	<TS>	0	0	2256.18	4	565.177	1.05073	30	HCD	0.419769	0.853377	1.30749	0.853377	0.528163	1	0.161604	3336.41	3336.41	0	T90		0	7	200	700000	T91F2.256179k@4
+T92	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T92A
+T93	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T93S
+T94	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T94A
+T95	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T95S
+T96	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T96A
+T97	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T97S
+T98	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T98A
+T99	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T99S
+T100	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T100A
+T101	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T101S
+T102	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T102A
+T103	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T103S
+T104	2	recording	<TS>	2	0	4297.18	7	615.249	0.941357	0	ETD	0.393986	0.57079	2.8727	0.881239	4.42826	1	3.00522	3821.83	5851.61	0	T103		0	7	200	700000	T104R4.297177k@7
+T105	2	followup	<TS>	0	0	4297.18	7	615.249	0.941357	30	HCD	0.393986	0.57079	2.8727	0.881239	4.42826	1	3.00522	3821.83	5851.61	0	T104		0	7	200	700000	T105F4.297177k@7
+T106	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T106A
+T107	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T107S
+T108	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T108A
+T109	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T109S
+T110	2	recording	<TS>	2	0	2135.71	4	535.061	1.0536	0	ETD	0.3612	0.872528	12.5045	0.872528	0.352326	1	2.79475	3519.72	3519.72	0	T109		0	7	200	700000	T110R2.135714k@4
+T111	2	followup	<TS>	0	0	2135.71	4	535.061	1.0536	30	HCD	0.3612	0.872528	12.5045	0.872528	0.352326	1	2.79475	3519.72	3519.72	0	T110		0	7	200	700000	T111F2.135714k@4
+T112	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T112A
+T113	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T113S
+T114	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T114A
