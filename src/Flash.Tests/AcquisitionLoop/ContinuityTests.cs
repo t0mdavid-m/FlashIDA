@@ -82,9 +82,13 @@ namespace Flash.Tests.AcquisitionLoop
             if (File.Exists(goldenPath))
             {
                 string expected = File.ReadAllText(goldenPath);
-                Assert.AreEqual(expected, actualJson,
-                    "Behavioral reference mismatch for " + goldenFileName +
-                    ". If this change is intentional, update the golden file.");
+                // Numeric-aware compare: each CI run rebuilds OpenMS into a different binary, so the engine's
+                // floating-point score fields (Qscore/ChargeCos/ChargeSnr/Snr) jitter ~1e-8..3e-5 run to run and
+                // exact string match can never converge. Float tokens tolerance; ids/levels/counts/strings stay exact.
+                if (!GoldenNumericComparer.Equivalent(expected, actualJson, out string diff))
+                    Assert.Fail("Behavioral reference mismatch for " + goldenFileName + " (" + diff +
+                        "). Numbers compare with tolerance; ids/levels/counts/strings are exact. " +
+                        "If this change is intentional, update the golden file.");
             }
             else
             {

@@ -668,11 +668,11 @@ namespace Flash.Tests
                        $"log-golden-output/{caseName}/. Re-run with LOG_GOLDEN_CAPTURE=1 to capture, review, and commit.";
             }
 
-            // Normalize line endings on both sides so CRLF/LF differences never cause spurious diffs.
-            string expected = File.ReadAllText(goldenPath).Replace("\r\n", "\n");
-            string actual = normalized.Replace("\r\n", "\n");
-            if (expected != actual)
-                return $"{fileName}: mismatch vs golden. If intentional, recapture with LOG_GOLDEN_CAPTURE=1.";
+            // Numeric-aware compare (CRLF-agnostic): cross-build OpenMS rebuilds jitter the logged FP scores
+            // (ida.log) and score columns (scan_commands/scan_results .tsv) ~1e-8..3e-5 run to run, so exact match
+            // can never converge. Float tokens tolerance; ids/counts/levels/sentinels/strings stay exact.
+            if (!GoldenNumericComparer.Equivalent(File.ReadAllText(goldenPath), normalized, out string diff))
+                return $"{fileName}: mismatch vs golden ({diff}). If intentional, recapture with LOG_GOLDEN_CAPTURE=1.";
             return null;
         }
     }

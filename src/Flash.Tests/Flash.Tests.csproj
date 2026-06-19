@@ -99,7 +99,9 @@
     <Compile Include="Mocks\MockCustomScan.cs" />
     <Compile Include="Mocks\MockScanFactory.cs" />
     <Compile Include="Mocks\ScanCommandRecord.cs" />
+    <Compile Include="Mocks\GoldenNumericComparer.cs" />
     <Compile Include="Mocks\ContinuityTestHarness.cs" />
+    <Compile Include="GoldenNumericComparerTests.cs" />
     <Compile Include="InterfaceShapeTests.cs" />
     <Compile Include="DataPipeTests.cs" />
     <Compile Include="AcquisitionLoop\ContinuityTests.cs" />
