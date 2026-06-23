@@ -87,7 +87,8 @@ namespace Flash.Tests
             Assert.AreEqual(1416, (int)Marshal.OffsetOf<ScanCommand>("PpmErrorS1"), "PpmErrorS1 offset");
             Assert.AreEqual(1424, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensityS1"), "PrecursorIntensityS1 offset");
             Assert.AreEqual(1432, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensityS1"), "PeakgroupIntensityS1 offset");
-            Assert.AreEqual(1440, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            Assert.AreEqual(1440, (int)Marshal.OffsetOf<ScanCommand>("WindowSnr"), "WindowSnr offset");
+            Assert.AreEqual(1448, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
@@ -140,11 +141,11 @@ namespace Flash.Tests
             Assert.IsNotNull(parentScanIdAttr, "ParentScanId should have MarshalAs attribute");
             Assert.AreEqual(4, parentScanIdAttr.SizeConst, "ParentScanId SizeConst");
 
-            // ScanCommand.Reserved should be SizeConst=608 (after carving 84 B of stage-1 scoring)
+            // ScanCommand.Reserved should be SizeConst=600 (after carving 84 B stage-1 scoring + 8 B window_snr)
             var reservedAttr = typeof(ScanCommand).GetField("Reserved")
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
-            Assert.AreEqual(608, reservedAttr.SizeConst, "Reserved SizeConst");
+            Assert.AreEqual(600, reservedAttr.SizeConst, "Reserved SizeConst");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)

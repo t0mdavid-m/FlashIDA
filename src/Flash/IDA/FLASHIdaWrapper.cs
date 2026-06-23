@@ -32,7 +32,7 @@ namespace Flash.IDA
     /// Blittable struct matching C++ ScanCommand (2048 bytes).
     /// Layout: 1248 (existing) + 8 (dequeue_timestamp_ms) + 8 (microscans+pad3)
     ///       + 24 (rf_lens+source_cid+source_cid_scaling) + 64 (data_type+scan_rate)
-    ///       + 4 (parent_scan_id) + 84 (stage-1 scoring) + 608 (reserved) = 2048.
+    ///       + 4 (parent_scan_id) + 84 (stage-1 scoring) + 8 (window_snr) + 600 (reserved) = 2048.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
@@ -96,7 +96,8 @@ namespace Flash.IDA
         public double PpmErrorS1;
         public double PrecursorIntensityS1;
         public double PeakgroupIntensityS1;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 608)]
+        public double WindowSnr;   // @1440 mirrors C++ ScanCommand.window_snr (isolation-window SNR; -1.0 = unset). C# does not consume it.
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 600)]
         public byte[] Reserved;
     }
 
