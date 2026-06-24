@@ -9,48 +9,46 @@ FLASHIda is a real-time intelligent data acquisition (IDA) system for top-down p
 - **Language**: C# (.NET Framework 4.8, C# 7.3)
 - **IDE**: Visual Studio 2019
 - **Platform**: Windows x64 only (requires physical Thermo instrument or test mode)
-- **Solution file**: `src/Flash/Flash.sln`
+- **Solution file**: `src/Flash.sln`
 
 ## Build
 
-Open `src/Flash/Flash.sln` in Visual Studio 2019 and build, or use MSBuild:
+Open `src/Flash.sln` in Visual Studio 2019 and build, or use MSBuild (run `nuget restore src/Flash.sln` first):
 
 ```
-msbuild src/Flash/Flash.sln /p:Configuration=Debug /p:Platform="Any CPU"
+msbuild src/Flash.sln /p:Configuration=Debug /p:Platform="Any CPU" /m
 ```
 
-Debug output goes to `bin/`. The Thermo iAPI DLLs must be placed in `dependencies/` before building (not checked in; see Installation.md).
+Debug output goes to `bin/` (both `Flash.exe` and `Flash.Tests.dll`). The Thermo iAPI DLLs must be placed in `dependencies/` before building (not checked in; see Installation.md). OpenMS runtime DLLs are committed in `dll/` and copied to `bin/` by MSBuild.
 
-There are no automated tests. The `-t` (test mode) flag runs `FLASHIdaWrapper.Main()` for offline deconvolution against text file input without an instrument connection.
+Automated tests exist: a C# NUnit suite in `src/Flash.Tests/` (run in CI via `nunit3-console.exe` against `bin/Flash.Tests.dll`), plus a PowerShell regression/golden harness (`test-scripts/regression-runner.ps1`) and the C++ ctest suite in the OpenMS submodule. The `-t/--test` flag runs `FLASHIdaWrapper.Main()` for offline deconvolution against text-file input without an instrument: `Flash.exe <input> <output> <method.json> [ms2_file]`.
 
 ## Architecture
 
 ### Data Flow
 
 ```
-Instrument → IMsScan → DataPipe (BufferBlock → TransformManyBlock → ActionBlock)
-  → IScanProcessor.ProcessMS() → FLASHIdaWrapper (P/Invoke to OpenMS.dll)
-  → Precursor targets → ScanFactory.CreateCustomScan()
-  → ScanScheduler.enqueue() → Instrument
+Instrument → IMsScan → DataPipe (BufferBlock → ActionBlock)
+  → IScanProcessor.ProcessMS() → FLASHIdaWrapper.ProcessScan() (P/Invoke to OpenMS.dll; enqueues)
+  ── then, separately, the acquisition loop in Flash.cs drains queued commands ──
+  → FLASHIdaWrapper.GetNextScanCommand() → ScanFactory.BuildFromCommand() → Instrument
 ```
 
 ### Key Components
 
 - **Flash.cs** — Entry point. Connects to instrument via Thermo Fusion API, manages instrument state, loads JSON method config (`method.json`), creates the scan processor, and runs the main acquisition loop.
 
-- **IScanProcessor.cs** — Interface for scan processors. `ProcessMS(IMsScan)` returns custom scans to submit; `OutputMS(IFusionCustomScan)` sends them to the instrument.
+- **IScanProcessor.cs** — Interface for scan processors: a single `void ProcessMS(IMsScan)`. In the unified model the processor enqueues work into the C++ engine; instrument commands are drained separately via `FLASHIdaWrapper.GetNextScanCommand()` in `Flash.cs` (they are *not* returned from `ProcessMS`).
 
-- **IDA/UnifiedScanProcessor.cs** — The sole scan processor. Routes all MS levels through `FLASHIdaWrapper.ProcessScan()` → C++ `processScan()`, then drains commands via `GetNextScanCommand()`.
+- **IDA/UnifiedScanProcessor.cs** — The sole scan processor. Routes all MS levels through `FLASHIdaWrapper.ProcessScan()` → C++ `processScan()`, then commands are drained via `GetNextScanCommand()`.
 
-- **IDA/QuantScanProcessor.cs** — Isobaric labeling quantification mode with reporter ion detection and fold-change thresholds.
+- **IDA/FLASHIdaWrapper.cs** — P/Invoke bridge to the C++ OpenMS.dll deconvolution engine. Declares the 5 `[DllImport("OpenMS.dll")]` bridge functions and the mirrored `ScanCommand` struct. Also contains `Main()` for standalone testing. Isobaric quantification is *not* a separate processor — it is a config-driven mode (`quantification.active` in `method.json`) handled through `UnifiedScanProcessor` → the C++ engine (`TOPDOWN/FLASHIda/Quantification.cpp`).
 
-- **IDA/FLASHIdaWrapper.cs** — P/Invoke bridge to the C++ OpenMS.dll deconvolution engine. Exports the C bridge functions for MS1/MS2 deconvolution, MS3 targeting, and exclusion lists. Also contains `Main()` for standalone testing.
-
-- **DataPipe.cs** — Three-stage TPL Dataflow async pipeline (buffer → process → output) for concurrent scan processing.
+- **DataPipe.cs** — Two-stage TPL Dataflow pipeline (`BufferBlock` → `ActionBlock`): buffers incoming scans, then invokes `IScanProcessor.ProcessMS` on each.
 
 - **ScanFactory.cs** — Creates Thermo API custom scan requests. Uses reflection to map string parameter dictionaries to API properties.
 
-- **MethodParameters.cs** / **MethodConfig.cs** / **IDA/MethodConfigSerializer.cs** — Load and structure the JSON method file (`method.json`). Reflection-driven via `[JsonKey]` + `[Developer]` attributes. Sections: `global`, `deconvolution`, `precursor_selection`, `tagging`, `quantification`, `faims`, `ms_settings`, `scheduling`, `selection_strategy`, `ms3`, `files`, `runtime`. See `docs/kb/config-flow/` for the end-to-end flow.
+- **MethodParameters.cs** / **MethodConfig.cs** / **IDA/MethodConfigSerializer.cs** — Load and structure the JSON method file (`method.json`). Reflection-driven via `[JsonKey]` + `[Developer]` attributes. Sections: `global`, `deconvolution`, `precursor_selection`, `tagging`, `quantification`, `faims`, `ms_settings`, `scheduling`, `selection_strategy`, `ms3`, `files`, `runtime`, plus a synthetic `developer` section into which `[Developer]`-marked fields are routed. `MethodParameters.ToCppJson()` re-serializes into a *different* C++-facing schema before crossing the bridge. See `docs/kb/config-flow/` for the end-to-end flow.
 
 **No-longer-present:** `ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs` were removed when scan processing was unified through `UnifiedScanProcessor` → C++ engine.
 
