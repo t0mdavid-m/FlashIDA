@@ -398,6 +398,9 @@ namespace Flash
 
         [JsonKey("identification_log_path")]
         public string IdentificationLogPath { get; set; } = "";
+
+        [JsonKey("pooled_identification_log_path")]
+        public string PooledIdentificationLogPath { get; set; } = "";
     }
 
     // --- Phase 1: JSON serialization classes for C++ bridge ---
@@ -569,6 +572,7 @@ namespace Flash
         public string scan_commands_path { get; set; }
         public string scan_results_path { get; set; }
         public string identification_log_path { get; set; }
+        public string pooled_identification_log_path { get; set; }
     }
 
     public class JsonMethodConfig
