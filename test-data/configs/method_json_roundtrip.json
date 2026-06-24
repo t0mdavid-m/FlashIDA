@@ -1,4 +1,4 @@
-{
+﻿{
   "global": {
     "method_name": "JsonRoundTrip",
     "method_description": "Phase 1 JSON round-trip test: non-default values, multiple MS2, FAIMS CVs",
@@ -119,7 +119,7 @@
     "timeout_enabled": false,
     "timeout_ms": 30000
   },
-  "ms3": {
+  "characterization": {
     "protein_sequence": "TESTSEQUENCE"
   },
   "files": {

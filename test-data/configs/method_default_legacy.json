@@ -1,4 +1,4 @@
-{
+﻿{
   "global": {
     "method_name": "MethodName",
     "method_description": "Description",
@@ -105,7 +105,7 @@
     "timeout_enabled": false,
     "timeout_ms": 30000
   },
-  "ms3": {
+  "characterization": {
     "protein_sequence": "SEQUENCE"
   },
   "files": {

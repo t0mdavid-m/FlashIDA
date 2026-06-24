@@ -199,9 +199,13 @@ namespace Flash
         public double TimeoutMs { get; set; } = 30000;
     }
 
-    [JsonKey("ms3")]
-    public class Ms3Config
+    [JsonKey("characterization")]
+    public class CharacterizationConfig
     {
+        [JsonKey("objective")]
+        [Description("Characterization objective: ambiguity (resolve PTM site ambiguity) or coverage (extend sequence coverage)")]
+        public string Objective { get; set; } = "ambiguity";
+
         [JsonKey("protein_sequence")]
         [Description("Protein sequence for targeted MS3 characterization")]
         public string ProteinSequence { get; set; } = "";
@@ -370,8 +374,8 @@ namespace Flash
         [JsonKey("selection_strategy")]
         public SelectionStrategyConfig SelectionStrategy { get; set; } = new SelectionStrategyConfig();
 
-        [JsonKey("ms3")]
-        public Ms3Config Ms3 { get; set; } = new Ms3Config();
+        [JsonKey("characterization")]
+        public CharacterizationConfig Characterization { get; set; } = new CharacterizationConfig();
 
         [JsonKey("files")]
         public FilesConfig Files { get; set; } = new FilesConfig();
@@ -553,8 +557,9 @@ namespace Flash
         public string ptm_list { get; set; }
     }
 
-    public class JsonMs3Config
+    public class JsonCharacterizationConfig
     {
+        public string objective { get; set; }
         public string protein_sequence { get; set; }
     }
 
@@ -577,7 +582,7 @@ namespace Flash
         public JsonSchedulingConfig scheduling { get; set; }
         public JsonExplorationConfig exploration { get; set; }
         public JsonFilesConfig files { get; set; }
-        public JsonMs3Config ms3 { get; set; }
+        public JsonCharacterizationConfig characterization { get; set; }
         public bool conditional_ms2 { get; set; }
         public JsonSelectionStrategyConfig selection_strategy { get; set; }
         public JsonRuntimeConfig runtime { get; set; }

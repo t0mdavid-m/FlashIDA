@@ -1,4 +1,4 @@
-{
+﻿{
   "global": {
     "method_name": "ExplorationMS3Method",
     "method_description": "MS2 + MS3 CE exploration enabled",
@@ -103,7 +103,7 @@
     "timeout_enabled": false,
     "timeout_ms": 30000
   },
-  "ms3": {
+  "characterization": {
     "protein_sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
   },
   "files": {

@@ -1,4 +1,4 @@
-{
+﻿{
   "global": {
     "method_name": "ExplorationFollowupMethod",
     "method_description": "MS2 CE exploration with a non-tolerance override so the winner re-acquires as a production MS2, which then cascades to MS3 (inclusion-pinned cytC)",
@@ -103,7 +103,7 @@
     "timeout_enabled": false,
     "timeout_ms": 30000
   },
-  "ms3": {
+  "characterization": {
     "protein_sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
   },
   "files": {

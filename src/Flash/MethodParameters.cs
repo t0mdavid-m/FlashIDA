@@ -239,9 +239,10 @@ namespace Flash
                     max_variants = 5
                 },
                 selection_strategy = BuildSelectionStrategy(),
-                ms3 = new JsonMs3Config
+                characterization = new JsonCharacterizationConfig
                 {
-                    protein_sequence = c.Ms3.ProteinSequence ?? ""
+                    objective = (c.Characterization.Objective ?? "ambiguity").ToLower(),
+                    protein_sequence = c.Characterization.ProteinSequence ?? ""
                 },
                 conditional_ms2 = c.Tagging.ConditionalMS2,
                 files = new JsonFilesConfig
@@ -368,9 +369,9 @@ namespace Flash
                     c.Quantification.ReporterMZTol, c.Quantification.FoldChangeThreshold);
             else
                 sb.AppendLine("Quant: Off");
-            if (!string.IsNullOrEmpty(c.Ms3.ProteinSequence))
+            if (!string.IsNullOrEmpty(c.Characterization.ProteinSequence))
                 sb.AppendFormat("MS3: ProteinSequence={0}\n",
-                    c.Ms3.ProteinSequence.Substring(0, Math.Min(20, c.Ms3.ProteinSequence.Length)) + "...");
+                    c.Characterization.ProteinSequence.Substring(0, Math.Min(20, c.Characterization.ProteinSequence.Length)) + "...");
             else
                 sb.AppendLine("MS3: No protein sequence");
             sb.AppendFormat("Developer: AllCharges={0}, HCDEnergy={1}, MaxCVSkip={2}\n",
