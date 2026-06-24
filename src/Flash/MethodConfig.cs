@@ -209,6 +209,10 @@ namespace Flash
         [JsonKey("protein_sequence")]
         [Description("Protein sequence for targeted MS3 characterization")]
         public string ProteinSequence { get; set; } = "";
+
+        [JsonKey("ms3_all_charges")]
+        [Description("MS3AllCharges: dispatch one MS3 per observed charge state of a target fragment (default: single best charge)")]
+        public bool MS3AllCharges { get; set; } = false;
     }
 
     [JsonKey("files")]
@@ -564,6 +568,7 @@ namespace Flash
     {
         public string objective { get; set; }
         public string protein_sequence { get; set; }
+        public bool ms3_all_charges { get; set; }
     }
 
     public class JsonRuntimeConfig

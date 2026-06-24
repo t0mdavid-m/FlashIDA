@@ -242,7 +242,8 @@ namespace Flash
                 characterization = new JsonCharacterizationConfig
                 {
                     objective = (c.Characterization.Objective ?? "ambiguity").ToLower(),
-                    protein_sequence = c.Characterization.ProteinSequence ?? ""
+                    protein_sequence = c.Characterization.ProteinSequence ?? "",
+                    ms3_all_charges = c.Characterization.MS3AllCharges
                 },
                 conditional_ms2 = c.Tagging.ConditionalMS2,
                 files = new JsonFilesConfig
