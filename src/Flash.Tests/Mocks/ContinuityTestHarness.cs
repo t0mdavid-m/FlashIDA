@@ -164,9 +164,19 @@ namespace Flash.Tests.Mocks
         //   the commands the engine emitted from MS1 surveys (no tag-/return-triggered follow-ups yet), so a
         //   caller can snapshot the pre-return state (CT34: prove the initial batch is ETD-only, before any HCD
         //   follow-up the MS2 return triggers). The callback observes the harness; it must not drive the engine.
+        //
+        // ms2CeMap (Task E.2-4): optional CE-keyed MS2-spectrum source map for the MS2 exploration CE sweep. When
+        //   non-null, an MS2 command's response spectrum is selected by the command's stage-0 collision energy
+        //   (cmd.Stages[0].CollisionEnergy, rounded to int) — so each CE variant of the sweep gets its OWN
+        //   energy-resolved fixture (large fragments strongest at low CE, small at high CE), exercising the
+        //   per-fragment best-MS2 selection end-to-end. NO FALLBACK: an MS2 command whose rounded CE is not a key
+        //   throws InvalidOperationException naming the CE + available keys (a silent single-spectrum fall-through
+        //   would collapse the sweep and defeat the test). When null, the single ms2Path is fed for every MS2
+        //   command (existing behaviour, all other modes unaffected). C# twin of the C++ runInterleaved ms2_ce_map.
         public void PushScanAndDrainFull(string ms1Path, string ms2Path,
             Func<ScanCommand, string> ms3FixtureFor = null, int maxIters = 600,
-            int maxMs2Responses = -1, Action<ContinuityTestHarness> onFirstMs2Response = null)
+            int maxMs2Responses = -1, Action<ContinuityTestHarness> onFirstMs2Response = null,
+            Dictionary<int, string> ms2CeMap = null)
         {
             // Feed each TSV MS1 scan exactly once (nMs1 = scan count); any further MS1 survey is an idle tick.
             int nMs1;
@@ -242,7 +252,19 @@ namespace Flash.Tests.Mocks
                     }
                     double precMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].PrecursorMz : 0.0;
                     int z = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].ChargeState : 1;
-                    response = MockMsScan.FromTsvAsMSn(ms2Path, level, cmd.ScanDescription, precMz, z);
+                    // CE-keyed MS2 spectrum (Task E.2-4): select the energy-resolved fixture for THIS variant's
+                    // stage-0 collision energy. NO FALLBACK — an unmapped CE throws (mirrors C++ runInterleaved).
+                    string ms2Src = ms2Path;
+                    if (ms2CeMap != null)
+                    {
+                        int ce = (int)Math.Round(cmd.NumStages > 0 && cmd.Stages != null
+                                                 ? cmd.Stages[0].CollisionEnergy : 0.0);
+                        if (!ms2CeMap.TryGetValue(ce, out ms2Src))
+                            throw new InvalidOperationException(
+                                $"PushScanAndDrainFull: MS2 command collision energy {ce} has no CE-map fixture " +
+                                $"(available keys: {string.Join(",", ms2CeMap.Keys.OrderBy(k => k))}).");
+                    }
+                    response = MockMsScan.FromTsvAsMSn(ms2Src, level, cmd.ScanDescription, precMz, z);
                     ms2Responded++;
                 }
 

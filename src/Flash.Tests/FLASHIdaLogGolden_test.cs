@@ -263,6 +263,13 @@ namespace Flash.Tests
         // ms2_then_ms3_exploration_acquires_ms3) — driven by the repurposed inclusion-pinned
         // method_exploration_ms3.json. Each MS3 variant is fed its REAL per-ion fragment fixture; skips
         // cleanly when no fixtures exist.
+        //
+        // Task E.2-4: the MS2-exploration CE sweep ({20,25,30,35,40} HCD, from Exploration.cpp ce_min/max/step)
+        // is now fed the 5 ENERGY-RESOLVED cytC MS2 fixtures (ms2_cytc_ce{20..40}.txt) via a CE-keyed map, so
+        // per-fragment best-MS2 selection lands at DIFFERENT CE per fragment and the resulting MS3 stage-0 CE
+        // varies by fragment — exercising the per-fragment CE optimization end-to-end (vs. the prior single
+        // fixture that made every fragment's best-MS2 identical). An explicit anti-collapse assertion below the
+        // golden compare pins the variation.
         [Test, Category("Tier2")]
         public void Golden_Exploration_MS3_CytC()
         {
@@ -272,8 +279,105 @@ namespace Flash.Tests
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — MS3 exploration golden skipped cleanly (no MS2-as-MS3 fabrication).");
                 return;
             }
+
+            // CE-keyed MS2 fixtures for the MS2-exploration sweep. NO FALLBACK: every CE the engine sweeps must
+            // have a fixture (the harness throws otherwise). Built from the committed Exploration sweep grid.
+            var ms2CeMap = BuildMs2CeMap(SpectraDir);
+            Assert.That(ms2CeMap.Count, Is.EqualTo(5),
+                "Task E.2-4 requires all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
+
             RunCase("exploration_ms3", "method_exploration_ms3.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
-                    feedMs3: true, ms3Map: ms3Map);
+                    feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
+                    postDriveAssert: AssertMs3Stage0CeNotCollapsed);
+        }
+
+        /// <summary>
+        /// Build the CE -> energy-resolved cytC MS2 fixture map for the MS2-exploration sweep. Keys are the
+        /// integer collision energies the engine sweeps (Exploration.cpp: ce_min 20, ce_max 40, ce_step 5 =>
+        /// {20,25,30,35,40}); each maps to ms2_cytc_ce&lt;CE&gt;.txt. Only fixtures present on disk are added,
+        /// so a missing one surfaces as a count mismatch in the caller (loud), never a silent skip.
+        /// </summary>
+        private static Dictionary<int, string> BuildMs2CeMap(string spectraDir)
+        {
+            var map = new Dictionary<int, string>();
+            foreach (int ce in new[] { 20, 25, 30, 35, 40 })
+            {
+                string path = Path.Combine(spectraDir, $"ms2_cytc_ce{ce}.txt");
+                if (File.Exists(path)) map[ce] = path;
+            }
+            return map;
+        }
+
+        /// <summary>
+        /// Task E.2-4 anti-collapse assertion. After the exploration_ms3 drive, read the produced (raw,
+        /// un-normalized) scan_commands.tsv and pull every MS3 (ms_level==3) command row's STAGE-0 (MS2)
+        /// collision energy — the FIRST ';'-token of the per-stage 'collision_energy' column (IdaLogger writes
+        /// it as 'stage0_CE;stage1_CE' for MS3) — alongside the MS3 FRAGMENT mass (the SECOND ';'-token of the
+        /// per-stage 'mono_mass' column, i.e. mono_mass_s1, the fragment PeakGroup mono mass). Then assert:
+        ///   (a) the set of distinct stage-0 CE values has size &gt; 1 — the per-fragment CE optimization did
+        ///       NOT collapse to a single value (a regression deleting the ScanCommandQueue per-fragment
+        ///       stage-0 CE override, or feeding one MS2 spectrum for all CE variants, fails here); AND
+        ///   (b) energy-resolved trend: the LARGEST-mass MS3 fragment's stage-0 CE &lt;= the SMALLEST-mass
+        ///       fragment's, with at least one STRICT difference across the fragments — large fragments are
+        ///       strongest at low CE, small fragments at high CE. Tolerant/directional (robust to ties), not
+        ///       over-precise.
+        /// Reads scan_commands.tsv (not scan_results.tsv): the per-stage CE/mono_mass tokens for the COMMANDED
+        /// MS3 are written there (IdaLogger::writeScanCommandRow), and that column is compared verbatim by the
+        /// golden comparer (neither masked nor relabeled), so the raw cell value is the engine's decision value.
+        /// </summary>
+        private static void AssertMs3Stage0CeNotCollapsed(string commandsPath)
+        {
+            Assert.That(File.Exists(commandsPath), Is.True,
+                "exploration_ms3: engine must have written scan_commands.tsv for the anti-collapse check");
+            var rows = ParseTsv(commandsPath, out var header);
+            int msLevelCol = Array.IndexOf(header, "ms_level");
+            int ceCol = Array.IndexOf(header, "collision_energy");
+            int monoCol = Array.IndexOf(header, "mono_mass");
+            Assert.That(msLevelCol, Is.GreaterThanOrEqualTo(0), "ms_level column present");
+            Assert.That(ceCol, Is.GreaterThanOrEqualTo(0), "collision_energy column present");
+            Assert.That(monoCol, Is.GreaterThanOrEqualTo(0), "mono_mass column present");
+
+            var fragments = new List<(double stage0Ce, double fragMass)>();
+            foreach (var r in rows)
+            {
+                if (msLevelCol >= r.Length || ceCol >= r.Length || monoCol >= r.Length) continue;
+                if (ParseIntSafe(r[msLevelCol]) != 3) continue;          // MS3 commands only
+
+                // collision_energy = 'stage0;stage1' for MS3 — stage-0 (MS2) CE is the first ';'-token.
+                string[] ceTok = r[ceCol].Split(';');
+                // mono_mass = 'ms2_mono;fragment_mono' for MS3 — fragment mass is the second ';'-token.
+                string[] monoTok = r[monoCol].Split(';');
+                if (ceTok.Length < 1 || monoTok.Length < 2) continue;    // not a 2-stage MS3 row -> skip
+                if (!double.TryParse(ceTok[0], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double stage0Ce)) continue;
+                if (!double.TryParse(monoTok[1], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double fragMass)) continue;
+                fragments.Add((stage0Ce, fragMass));
+            }
+
+            Assert.That(fragments.Count, Is.GreaterThanOrEqualTo(2),
+                "exploration_ms3 must emit >= 2 MS3 commands to exercise per-fragment CE optimization " +
+                $"(got {fragments.Count}).");
+
+            // (a) NOT collapsed to a single stage-0 CE across fragments.
+            var distinctCe = new HashSet<double>(fragments.Select(f => f.stage0Ce));
+            Assert.That(distinctCe.Count, Is.GreaterThan(1),
+                "exploration_ms3 anti-collapse: MS3 stage-0 (MS2) collision energy collapsed to a single value " +
+                $"({string.Join(",", distinctCe)}) across {fragments.Count} fragments — per-fragment CE " +
+                "optimization is not being exercised (a regression collapsing the per-fragment stage-0 CE " +
+                "override, or feeding one MS2 spectrum for all CE variants, would do this).");
+
+            // (b) Energy-resolved trend: largest-mass fragment's stage-0 CE <= smallest-mass fragment's, with
+            //     >= 1 strict difference. Tolerant/directional (robust to ties), not over-precise.
+            var largest = fragments.OrderByDescending(f => f.fragMass).First();
+            var smallest = fragments.OrderBy(f => f.fragMass).First();
+            Assert.That(largest.stage0Ce, Is.LessThanOrEqualTo(smallest.stage0Ce),
+                $"exploration_ms3 energy-resolved trend: largest MS3 fragment (mass {largest.fragMass}, " +
+                $"stage-0 CE {largest.stage0Ce}) must have stage-0 CE <= smallest fragment (mass " +
+                $"{smallest.fragMass}, stage-0 CE {smallest.stage0Ce}).");
+            Assert.That(distinctCe.Count, Is.GreaterThan(1),
+                "exploration_ms3 energy-resolved trend: expected at least one strict stage-0 CE difference " +
+                "between fragments (already guaranteed by (a), restated for the trend contract).");
         }
 
         // ---- H-cs: engine-chained full-acquisition lineage (structural, non-golden) ----------
@@ -525,7 +629,8 @@ namespace Flash.Tests
 
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
             bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
-            int minMs2Commands = 0, int minFollowUps = 0)
+            int minMs2Commands = 0, int minFollowUps = 0,
+            Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -562,14 +667,23 @@ namespace Flash.Tests
                 harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, ms1File),
                     Path.Combine(SpectraDir, ms2File),
-                    ms3Sel);
+                    ms3Sel,
+                    ms2CeMap: ms2CeMap);
             } // Dispose() closes the C++ engine and flushes/closes the log streams
 
             // Fail-closed: a case that produced no scan commands is broken, never a valid golden.
             string commandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
+
+            // Task E.2-4 post-drive structural assertion (e.g. the exploration_ms3 anti-collapse check on
+            // per-fragment stage-0 CE). Runs AFTER the engine has flushed/closed its streams (Dispose above)
+            // and AFTER the fail-closed cmdRows guard below would catch an empty run — but BEFORE the golden
+            // compare, so a regression that collapses the CE-resolved behaviour fails here on its own merits
+            // (independent of, and in addition to, the byte-exact golden TSV comparison).
             int cmdRows = File.Exists(commandsPath) ? Math.Max(0, File.ReadAllLines(commandsPath).Length - 1) : 0;
             Assert.That(cmdRows, Is.GreaterThan(0),
                 $"Case '{caseName}' produced no scan commands — cannot golden an empty run.");
+
+            postDriveAssert?.Invoke(commandsPath);
 
             // F8-inclusion fail-closed gate: a case that REQUIRES precursor selection (e.g. strict inclusion
             // on the corrected cytC target) must emit >= minMs2Commands MS2-level scan_commands. On the
