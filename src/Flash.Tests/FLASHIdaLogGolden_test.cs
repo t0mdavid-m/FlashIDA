@@ -471,6 +471,7 @@ namespace Flash.Tests
                     mp.Config.Runtime.ScanCommandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
                     mp.Config.Runtime.ScanResultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
                     mp.Config.Runtime.IdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
+                    mp.Config.Runtime.PooledIdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
                 });
         }
 
@@ -542,6 +543,7 @@ namespace Flash.Tests
                     mp.Config.Runtime.ScanCommandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
                     mp.Config.Runtime.ScanResultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
                     mp.Config.Runtime.IdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
+                    mp.Config.Runtime.PooledIdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
                 }))
             {
                 // Interleaved engine-id-echo drive (one drain, mirrors C++ runFullAcquisition). MS1 rows

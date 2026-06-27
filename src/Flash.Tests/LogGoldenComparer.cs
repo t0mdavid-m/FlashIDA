@@ -8,8 +8,8 @@ using System.Text.RegularExpressions;
 namespace Flash.Tests
 {
     /// <summary>
-    /// Normalizes FLASHIda's four log streams (ida_log, scan_commands.tsv, scan_results.tsv,
-    /// identification.tsv) for exact golden comparison.
+    /// Normalizes FLASHIda's five log streams (ida_log, scan_commands.tsv, scan_results.tsv,
+    /// identification.tsv, pooled_identification.tsv) for exact golden comparison.
     ///
     /// Two transforms remove the only non-deterministic content while leaving every chemistry /
     /// score / structural column to be compared EXACTLY:
@@ -38,9 +38,13 @@ namespace Flash.Tests
         public const string CommandsName = "scan_commands.tsv";
         public const string ResultsName = "scan_results.tsv";
         public const string IdentificationName = "identification.tsv";
+        // 5th runtime stream: the pooled per-precursor proteoform model (IdaLogger pooled_stream_),
+        // written only when runtime.pooled_identification_log_path is non-empty (the harness sets it
+        // to caseDir/PooledName, so this basename is what the engine writes).
+        public const string PooledName = "pooled_identification.tsv";
 
         public static readonly string[] FileNames =
-            { IdaLogName, CommandsName, ResultsName, IdentificationName };
+            { IdaLogName, CommandsName, ResultsName, IdentificationName, PooledName };
 
         // ID-bearing columns per TSV. results child_ids (col 9) is space-split and handled separately.
         private static readonly int[] CmdIdCols = { 0, 22 };  // tracking_id, parent_tracking_id (unchanged by E6)
@@ -50,6 +54,22 @@ namespace Flash.Tests
         // scan_commands raw descriptor (E6), appended LAST. Its first 3 chars are the encoded
         // tracking id (== col 0); relabel just that prefix, keep the marker + mass remainder intact.
         private const int CmdDescriptionCol = 28;
+
+        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 12 cols):
+        // nominal_mass[0] mono_mass[1] proteoform[2] flash_extender_score[3] coverage_pct[4]
+        // n_fragments[5] localized_mods[6] ambiguous_mods[7] contributing_scan_ids[8]
+        // combined_ms2_frame_masses[9] update_index[10] precursor_id[11]. Only col 8 is volatile (ids).
+        // UNLIKE scan_results child_ids (encoded 3-char base-94 strings), the engine writes this column
+        // as the DECODED integer scan ids (ProteoformTracker source_scan_id/winner_scan_id == the int
+        // queue_.decode() of the tracking id; written via std::to_string). So each token is RE-ENCODED to
+        // its 3-char base-94 string (mirroring ScanCommandQueue::encode) before the shared id-map relabel,
+        // so pooled ids carry the SAME T<n> labels as scan_results child_ids and join run-to-run.
+        private const int PooledScanIdsCol = 8;
+
+        // The base-94 tracking-id alphabet (all printable ASCII 0x21-0x7E), byte-for-byte the C++
+        // ScanCommandQueue::tracking_alphabet_. encode() is the inverse of the engine's decode().
+        private const string TrackingAlphabet =
+            "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
 
         // Volatile wall-clock columns -> placeholder.
         private static readonly Dictionary<int, string> CmdMask =
@@ -94,6 +114,13 @@ namespace Flash.Tests
             foreach (var row in DataRows(Path.Combine(caseDir, IdentificationName)))
                 foreach (var c in IdfIdCols) if (c < row.Length) Add(row[c]);
 
+            // pooled contributing_scan_ids: space-separated DECODED int ids — re-encode each to its
+            // 3-char base-94 string (== the encoded form the other three streams use) before Add, so it
+            // maps to the SAME T<n> label. Mirrors the scan_results child_ids split-on-space path above.
+            foreach (var row in DataRows(Path.Combine(caseDir, PooledName)))
+                if (PooledScanIdsCol < row.Length && row[PooledScanIdsCol].Length > 0)
+                    foreach (var k in row[PooledScanIdsCol].Split(' ')) Add(EncodeTrackingId(k));
+
             return map;
         }
 
@@ -104,6 +131,7 @@ namespace Flash.Tests
             if (fileName == CommandsName) return NormalizeTsv(path, ids, CmdIdCols, -1, CmdMask, CmdDescriptionCol);
             if (fileName == ResultsName) return NormalizeTsv(path, ids, ResIdCols, ResChildCol, ResMask, -1);
             if (fileName == IdentificationName) return NormalizeTsv(path, ids, IdfIdCols, -1, NoMask, -1);
+            if (fileName == PooledName) return NormalizePooled(path, ids);
             if (fileName == IdaLogName) return NormalizeIdaLog(path);
             throw new ArgumentException("unknown log file: " + fileName);
         }
@@ -129,6 +157,40 @@ namespace Flash.Tests
                 sb.Append(string.Join("\t", cols)).Append('\n');
             }
             return sb.ToString();
+        }
+
+        // pooled_identification.tsv: only contributing_scan_ids (col 8) is volatile. It holds the
+        // engine's DECODED int scan ids (space-separated), so each token is re-encoded to its 3-char
+        // base-94 form and relabeled via the SHARED id map to its T<n> label — the same labels the other
+        // streams use, so pooled rows join run-to-run. All other pooled columns are deterministic and
+        // compared verbatim; the pooled stream has NO timestamp/duration columns, so NO masking applies.
+        private static string NormalizePooled(string path, Dictionary<string, string> ids)
+        {
+            if (!File.Exists(path)) return "";
+            var lines = File.ReadAllLines(path);
+            var sb = new StringBuilder();
+            for (int li = 0; li < lines.Length; li++)
+            {
+                if (li == 0) { sb.Append(lines[li]).Append('\n'); continue; } // header verbatim
+                var cols = lines[li].Split('\t');
+                if (PooledScanIdsCol < cols.Length && cols[PooledScanIdsCol].Length > 0)
+                    cols[PooledScanIdsCol] = string.Join(" ",
+                        cols[PooledScanIdsCol].Split(' ').Select(k => Relabel(EncodeTrackingId(k), ids)));
+                sb.Append(string.Join("\t", cols)).Append('\n');
+            }
+            return sb.ToString();
+        }
+
+        // Encode a decoded int tracking id back to its 3-char base-94 string, the inverse of the engine's
+        // ScanCommandQueue::decode (== how the other three streams store the id). Non-integer tokens (none
+        // expected) pass through unchanged so they can still be looked up / surfaced verbatim.
+        private static string EncodeTrackingId(string token)
+        {
+            if (!int.TryParse(token, out int value) || value < 0) return token;
+            int b = TrackingAlphabet.Length;
+            var buf = new char[3];
+            for (int i = 2; i >= 0; --i) { buf[i] = TrackingAlphabet[value % b]; value /= b; }
+            return new string(buf);
         }
 
         // ida_log is free text, not TSV: the masses / scores / features are deterministic and kept;
