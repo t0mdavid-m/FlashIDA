@@ -55,16 +55,20 @@ namespace Flash.Tests
         // tracking id (== col 0); relabel just that prefix, keep the marker + mass remainder intact.
         private const int CmdDescriptionCol = 28;
 
-        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 12 cols):
+        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 14 cols):
         // nominal_mass[0] mono_mass[1] proteoform[2] flash_extender_score[3] coverage_pct[4]
         // n_fragments[5] localized_mods[6] ambiguous_mods[7] contributing_scan_ids[8]
-        // combined_ms2_frame_masses[9] update_index[10] precursor_id[11]. Only col 8 is volatile (ids).
-        // UNLIKE scan_results child_ids (encoded 3-char base-94 strings), the engine writes this column
+        // combined_ms2_frame_masses[9] update_index[10] precursor_id[11] trigger[12]
+        // trigger_scan_id[13]. Volatile id columns: col 8 (decoded ints) + col 13 (encoded 3-char).
+        // UNLIKE scan_results child_ids (encoded 3-char base-94 strings), the engine writes col 8
         // as the DECODED integer scan ids (ProteoformTracker source_scan_id/winner_scan_id == the int
         // queue_.decode() of the tracking id; written via std::to_string). So each token is RE-ENCODED to
         // its 3-char base-94 string (mirroring ScanCommandQueue::encode) before the shared id-map relabel,
         // so pooled ids carry the SAME T<n> labels as scan_results child_ids and join run-to-run.
+        // trigger_scan_id[13] is already an encoded 3-char base-94 tracking id (like col 0 on other
+        // streams) and is relabeled directly via the shared id map (no re-encoding step needed).
         private const int PooledScanIdsCol = 8;
+        private const int PooledTriggerScanIdCol = 13;
 
         // The base-94 tracking-id alphabet (all printable ASCII 0x21-0x7E), byte-for-byte the C++
         // ScanCommandQueue::tracking_alphabet_. encode() is the inverse of the engine's decode().
@@ -117,9 +121,14 @@ namespace Flash.Tests
             // pooled contributing_scan_ids: space-separated DECODED int ids — re-encode each to its
             // 3-char base-94 string (== the encoded form the other three streams use) before Add, so it
             // maps to the SAME T<n> label. Mirrors the scan_results child_ids split-on-space path above.
+            // trigger_scan_id (col 13) is already an encoded 3-char base-94 string; Add directly.
             foreach (var row in DataRows(Path.Combine(caseDir, PooledName)))
+            {
                 if (PooledScanIdsCol < row.Length && row[PooledScanIdsCol].Length > 0)
                     foreach (var k in row[PooledScanIdsCol].Split(' ')) Add(EncodeTrackingId(k));
+                if (PooledTriggerScanIdCol < row.Length && row[PooledTriggerScanIdCol].Length > 0)
+                    Add(row[PooledTriggerScanIdCol]);
+            }
 
             return map;
         }
@@ -159,11 +168,13 @@ namespace Flash.Tests
             return sb.ToString();
         }
 
-        // pooled_identification.tsv: only contributing_scan_ids (col 8) is volatile. It holds the
-        // engine's DECODED int scan ids (space-separated), so each token is re-encoded to its 3-char
-        // base-94 form and relabeled via the SHARED id map to its T<n> label — the same labels the other
-        // streams use, so pooled rows join run-to-run. All other pooled columns are deterministic and
-        // compared verbatim; the pooled stream has NO timestamp/duration columns, so NO masking applies.
+        // pooled_identification.tsv: two volatile id columns — contributing_scan_ids (col 8) and
+        // trigger_scan_id (col 13).  Col 8 holds DECODED int scan ids (space-separated), re-encoded to
+        // 3-char base-94 form and relabeled via the SHARED id map to T<n> labels — the same labels the
+        // other streams use, so pooled rows join run-to-run.  Col 13 is already an encoded 3-char
+        // base-94 tracking id and is relabeled directly (no re-encoding step).  All other pooled columns
+        // are deterministic and compared verbatim; the pooled stream has NO timestamp/duration columns,
+        // so NO masking applies.
         private static string NormalizePooled(string path, Dictionary<string, string> ids)
         {
             if (!File.Exists(path)) return "";
@@ -176,6 +187,8 @@ namespace Flash.Tests
                 if (PooledScanIdsCol < cols.Length && cols[PooledScanIdsCol].Length > 0)
                     cols[PooledScanIdsCol] = string.Join(" ",
                         cols[PooledScanIdsCol].Split(' ').Select(k => Relabel(EncodeTrackingId(k), ids)));
+                if (PooledTriggerScanIdCol < cols.Length && cols[PooledTriggerScanIdCol].Length > 0)
+                    cols[PooledTriggerScanIdCol] = Relabel(cols[PooledTriggerScanIdCol], ids);
                 sb.Append(string.Join("\t", cols)).Append('\n');
             }
             return sb.ToString();
