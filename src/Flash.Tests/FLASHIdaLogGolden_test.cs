@@ -292,6 +292,45 @@ namespace Flash.Tests
         }
 
         /// <summary>
+        /// Part G: MS3-level EXPLORATION-WITH-OVERRIDES golden — the production-MS3 trajectory fold. Identical
+        /// to Golden_Exploration_MS3_CytC except the MS3 exploration block carries a NON-TOLERANCE override
+        /// (<c>"overrides": { "analyzer": "Orbitrap" }</c>, mirroring how method_exploration_followup.json's MS2
+        /// block does it). That override makes the WINNING fragment of the MS3 CE sweep re-acquire as a real
+        /// PRODUCTION MS3 that returns on the regular (non-exploration) acquisition path, rather than the result
+        /// being consumed inside the exploration variant loop.
+        ///
+        /// The Part G engine fix (FLASHIda.cpp: the production-MS3 context-cache lookup) lets that returning
+        /// production MS3 hit its cached parent-MS2 context, re-feed into the ProteoformTracker, and FOLD a
+        /// trajectory row into the pooled identification log (previously it cache-missed and dropped the
+        /// fragments). The post-drive assertion (AssertProductionMs3Folded) pins exactly that: an MS2 baseline
+        /// row plus >= 1 ion-tagged fold row in pooled_identification.tsv. Non-winning CE-sweep variants are
+        /// transient and do NOT fold — only the production re-acquisition of the winner produces a fold row.
+        ///
+        /// The MS2-exploration CE sweep still runs, so the 5-fixture CE map (and its Is.EqualTo(5) guard) is
+        /// still required; the BuildMs3IonMap/Assert.Pass clean-skip guard keeps the no-fabrication contract.
+        /// </summary>
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_MS3_FollowUp_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — MS3 exploration-followup golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+
+            // CE-keyed MS2 fixtures for the MS2-exploration sweep. NO FALLBACK: every CE the engine sweeps must
+            // have a fixture (the harness throws otherwise). Built from the committed Exploration sweep grid.
+            var ms2CeMap = BuildMs2CeMap(SpectraDir);
+            Assert.That(ms2CeMap.Count, Is.EqualTo(5),
+                "Task E.2-4 requires all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
+
+            RunCase("exploration_ms3_followup", "method_exploration_ms3_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
+                    postDriveAssert: AssertProductionMs3Folded);
+        }
+
+        /// <summary>
         /// Build the CE -> energy-resolved cytC MS2 fixture map for the MS2-exploration sweep. Keys are the
         /// integer collision energies the engine sweeps (Exploration.cpp: ce_min 20, ce_max 40, ce_step 5 =>
         /// {20,25,30,35,40}); each maps to ms2_cytc_ce&lt;CE&gt;.txt. Only fixtures present on disk are added,
@@ -378,6 +417,70 @@ namespace Flash.Tests
             Assert.That(distinctCe.Count, Is.GreaterThan(1),
                 "exploration_ms3 energy-resolved trend: expected at least one strict stage-0 CE difference " +
                 "between fragments (already guaranteed by (a), restated for the trend contract).");
+        }
+
+        /// <summary>
+        /// Part G production-MS3 trajectory-fold assertion for the exploration_ms3_followup mode. After the
+        /// drive, read the produced pooled_identification.tsv (a per-precursor trajectory: one MS2 baseline row
+        /// + one fold row per MS3-analyzed fragment) and assert the production-MS3 re-acquisition actually
+        /// folded a row. The MS3 exploration's NON-TOLERANCE override re-acquires the winning fragment as a
+        /// PRODUCTION MS3 that returns on the regular path; the Part G context-cache fix lets that MS3 identify
+        /// and fold a trajectory row (a pre-fix cache miss dropped the fragments and emitted no fold row).
+        ///
+        /// Asserts:
+        ///   * the pooled file exists and has &gt;= 2 data rows (an MS2 baseline + &gt;= 1 fold);
+        ///   * &gt;= 1 row's trigger (col 12) == "MS2" — the MS2 baseline;
+        ///   * &gt;= 1 row's trigger matches the fragment-ion pattern ^[abcxyz]\d+$ (e.g. "y6") — an MS3 fold,
+        ///     which only the production-MS3 re-acquisition produces (non-winning CE-sweep variants never fold);
+        ///   * each fold row's trigger_scan_id (col 13) is a non-empty 3-char tracking id (the driving scan).
+        /// Column indices mirror IdaLogger's pooled header (trigger=12, trigger_scan_id=13) and
+        /// LogGoldenComparer.PooledScanIdsCol=8 / PooledTriggerScanIdCol=13. The delegate receives the
+        /// scan_commands.tsv path (RunCase passes commandsPath); the pooled file is its sibling in the same
+        /// case dir.
+        /// </summary>
+        private static void AssertProductionMs3Folded(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            string pooledPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
+            Assert.That(File.Exists(pooledPath), Is.True,
+                "exploration_ms3_followup: engine must have written pooled_identification.tsv for the " +
+                "production-MS3 fold check");
+
+            var rows = ParseTsv(pooledPath, out var _);   // skips the header; splits rows on '\t'
+            Assert.That(rows.Count, Is.GreaterThanOrEqualTo(2),
+                $"exploration_ms3_followup: pooled trajectory has {rows.Count} data row(s) (< 2) — expected an " +
+                "MS2 baseline plus >= 1 production-MS3 fold (Part G cache regression?).");
+
+            const int triggerCol = 12;          // pooled column 12 = trigger (IdaLogger pooled header)
+            const int triggerScanIdCol = 13;    // pooled column 13 = trigger_scan_id (== LogGoldenComparer.PooledTriggerScanIdCol)
+
+            bool sawMs2Baseline = false;
+            int foldRows = 0;
+            foreach (var r in rows)
+            {
+                if (triggerCol >= r.Length) continue;
+                string trigger = r[triggerCol];
+                if (trigger == "MS2") sawMs2Baseline = true;
+                else if (System.Text.RegularExpressions.Regex.IsMatch(trigger, @"^[abcxyz]\d+$"))
+                {
+                    foldRows++;
+                    // The driving (production) MS3 scan's tracking id must be a real 3-char id, not empty.
+                    Assert.That(triggerScanIdCol < r.Length, Is.True,
+                        "exploration_ms3_followup: MS3-fold pooled row is missing the trigger_scan_id column " +
+                        $"(trigger '{trigger}').");
+                    Assert.That(r[triggerScanIdCol].Length, Is.EqualTo(3),
+                        "exploration_ms3_followup: MS3-fold pooled row's trigger_scan_id " +
+                        $"('{r[triggerScanIdCol]}', trigger '{trigger}') is not a non-empty 3-char tracking id.");
+                }
+            }
+
+            Assert.That(sawMs2Baseline, Is.True,
+                "exploration_ms3_followup: no MS2 baseline pooled row (trigger == \"MS2\") — the MS2 " +
+                "identification did not establish the trajectory the production MS3 folds onto.");
+            Assert.That(foldRows, Is.GreaterThanOrEqualTo(1),
+                "exploration_ms3_followup: no MS3-fold pooled row — the production MS3 re-acquisition did not " +
+                "fold (Part G cache regression?). Expected >= 1 row whose trigger is a fragment ion " +
+                "(^[abcxyz]\\d+$, e.g. \"y6\").");
         }
 
         // ---- H-cs: engine-chained full-acquisition lineage (structural, non-golden) ----------
