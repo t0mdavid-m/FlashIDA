@@ -55,20 +55,20 @@ namespace Flash.Tests
         // tracking id (== col 0); relabel just that prefix, keep the marker + mass remainder intact.
         private const int CmdDescriptionCol = 28;
 
-        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 18 cols):
+        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 19 cols):
         // nominal_mass[0] mono_mass[1] proteoform[2] flash_extender_score[3] coverage_pct[4]
         // n_fragments[5] localized_mods[6] ambiguous_mods[7] contributing_scan_ids[8]
-        // combined_ms2_frame_masses[9] update_index[10] precursor_id[11] trigger[12]
-        // trigger_scan_id[13] combined_measured[14] combined_theoretical[15] combined_diff_da[16]
-        // combined_diff_ppm[17]. The four combined_* fragment-mass lists appended LAST are numeric
-        // (no ids) → compared verbatim/toleranced, no relabel. Volatile id columns UNCHANGED: col 8 +
-        // col 13 (both encoded 3-char), so no constant here shifts.
-        // LIKE scan_results child_ids and col 13 trigger_scan_id, the engine now writes col 8 as
+        // combined_ms2_frame_masses[9] combined_ms2_fragment_ions[10] combined_measured[11]
+        // combined_theoretical[12] combined_diff_da[13] combined_diff_ppm[14] update_index[15]
+        // precursor_id[16] trigger[17] trigger_scan_id[18]. The grouped fragment-mass table (cols 9-14)
+        // is numeric masses + string ion labels (no ids) → compared verbatim/toleranced, no relabel.
+        // Volatile id columns: col 8 (contributing_scan_ids) + col 18 (trigger_scan_id), both encoded 3-char.
+        // LIKE scan_results child_ids and col 18 trigger_scan_id, the engine writes col 8 as
         // base-94 encoded 3-char tracking ids (ScanCommandQueue::encode), so both id columns are
         // relabeled DIRECTLY via the shared id map (no re-encoding step) — pooled ids carry the SAME
         // T<n> labels as every other stream and join run-to-run.
         private const int PooledScanIdsCol = 8;
-        private const int PooledTriggerScanIdCol = 13;
+        private const int PooledTriggerScanIdCol = 18;
 
         // Volatile wall-clock columns -> placeholder.
         private static readonly Dictionary<int, string> CmdMask =
@@ -113,7 +113,7 @@ namespace Flash.Tests
             foreach (var row in DataRows(Path.Combine(caseDir, IdentificationName)))
                 foreach (var c in IdfIdCols) if (c < row.Length) Add(row[c]);
 
-            // pooled contributing_scan_ids (col 8) and trigger_scan_id (col 13) are BOTH space-/single
+            // pooled contributing_scan_ids (col 8) and trigger_scan_id (col 18) are BOTH space-/single
             // encoded 3-char base-94 tracking ids (== the encoded form the other three streams use); Add
             // each directly so it maps to the SAME T<n> label. Mirrors the scan_results child_ids
             // split-on-space path above.
@@ -164,7 +164,7 @@ namespace Flash.Tests
         }
 
         // pooled_identification.tsv: two volatile id columns — contributing_scan_ids (col 8) and
-        // trigger_scan_id (col 13).  Both hold base-94 encoded 3-char tracking ids (col 8 is
+        // trigger_scan_id (col 18).  Both hold base-94 encoded 3-char tracking ids (col 8 is
         // space-separated); each is relabeled DIRECTLY via the SHARED id map to T<n> labels — the same
         // labels the other streams use, so pooled rows join run-to-run.  All other pooled columns are
         // deterministic and compared verbatim; the pooled stream has NO timestamp/duration columns, so

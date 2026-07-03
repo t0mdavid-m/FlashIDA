@@ -429,12 +429,12 @@ namespace Flash.Tests
         ///
         /// Asserts:
         ///   * the pooled file exists and has &gt;= 2 data rows (an MS2 baseline + &gt;= 1 fold);
-        ///   * &gt;= 1 row's trigger (col 12) == "MS2" — the MS2 baseline;
+        ///   * &gt;= 1 row's trigger (col 17) == "MS2" — the MS2 baseline;
         ///   * &gt;= 1 row's trigger matches the fragment-ion pattern ^[abcxyz]\d+$ (e.g. "y6") — an MS3 fold,
         ///     which only the production-MS3 re-acquisition produces (non-winning CE-sweep variants never fold);
-        ///   * each fold row's trigger_scan_id (col 13) is a non-empty 3-char tracking id (the driving scan).
-        /// Column indices mirror IdaLogger's pooled header (trigger=12, trigger_scan_id=13) and
-        /// LogGoldenComparer.PooledScanIdsCol=8 / PooledTriggerScanIdCol=13. The delegate receives the
+        ///   * each fold row's trigger_scan_id (col 18) is a non-empty 3-char tracking id (the driving scan).
+        /// Column indices mirror IdaLogger's pooled header (trigger=17, trigger_scan_id=18 after the grouped
+        /// fragment-mass table) and LogGoldenComparer.PooledScanIdsCol=8 / PooledTriggerScanIdCol=18. The delegate receives the
         /// scan_commands.tsv path (RunCase passes commandsPath); the pooled file is its sibling in the same
         /// case dir.
         /// </summary>
@@ -451,8 +451,8 @@ namespace Flash.Tests
                 $"exploration_ms3_followup: pooled trajectory has {rows.Count} data row(s) (< 2) — expected an " +
                 "MS2 baseline plus >= 1 production-MS3 fold (Part G cache regression?).");
 
-            const int triggerCol = 12;          // pooled column 12 = trigger (IdaLogger pooled header)
-            const int triggerScanIdCol = 13;    // pooled column 13 = trigger_scan_id (== LogGoldenComparer.PooledTriggerScanIdCol)
+            const int triggerCol = 17;          // pooled column 17 = trigger (IdaLogger pooled header, after the grouped fragment-mass table)
+            const int triggerScanIdCol = 18;    // pooled column 18 = trigger_scan_id (== LogGoldenComparer.PooledTriggerScanIdCol)
 
             bool sawMs2Baseline = false;
             int foldRows = 0;
