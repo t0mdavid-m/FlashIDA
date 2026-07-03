@@ -59,21 +59,13 @@ namespace Flash.Tests
         // nominal_mass[0] mono_mass[1] proteoform[2] flash_extender_score[3] coverage_pct[4]
         // n_fragments[5] localized_mods[6] ambiguous_mods[7] contributing_scan_ids[8]
         // combined_ms2_frame_masses[9] update_index[10] precursor_id[11] trigger[12]
-        // trigger_scan_id[13]. Volatile id columns: col 8 (decoded ints) + col 13 (encoded 3-char).
-        // UNLIKE scan_results child_ids (encoded 3-char base-94 strings), the engine writes col 8
-        // as the DECODED integer scan ids (ProteoformTracker source_scan_id/winner_scan_id == the int
-        // queue_.decode() of the tracking id; written via std::to_string). So each token is RE-ENCODED to
-        // its 3-char base-94 string (mirroring ScanCommandQueue::encode) before the shared id-map relabel,
-        // so pooled ids carry the SAME T<n> labels as scan_results child_ids and join run-to-run.
-        // trigger_scan_id[13] is already an encoded 3-char base-94 tracking id (like col 0 on other
-        // streams) and is relabeled directly via the shared id map (no re-encoding step needed).
+        // trigger_scan_id[13]. Volatile id columns: col 8 + col 13 (both encoded 3-char).
+        // LIKE scan_results child_ids and col 13 trigger_scan_id, the engine now writes col 8 as
+        // base-94 encoded 3-char tracking ids (ScanCommandQueue::encode), so both id columns are
+        // relabeled DIRECTLY via the shared id map (no re-encoding step) — pooled ids carry the SAME
+        // T<n> labels as every other stream and join run-to-run.
         private const int PooledScanIdsCol = 8;
         private const int PooledTriggerScanIdCol = 13;
-
-        // The base-94 tracking-id alphabet (all printable ASCII 0x21-0x7E), byte-for-byte the C++
-        // ScanCommandQueue::tracking_alphabet_. encode() is the inverse of the engine's decode().
-        private const string TrackingAlphabet =
-            "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
 
         // Volatile wall-clock columns -> placeholder.
         private static readonly Dictionary<int, string> CmdMask =
@@ -118,14 +110,14 @@ namespace Flash.Tests
             foreach (var row in DataRows(Path.Combine(caseDir, IdentificationName)))
                 foreach (var c in IdfIdCols) if (c < row.Length) Add(row[c]);
 
-            // pooled contributing_scan_ids: space-separated DECODED int ids — re-encode each to its
-            // 3-char base-94 string (== the encoded form the other three streams use) before Add, so it
-            // maps to the SAME T<n> label. Mirrors the scan_results child_ids split-on-space path above.
-            // trigger_scan_id (col 13) is already an encoded 3-char base-94 string; Add directly.
+            // pooled contributing_scan_ids (col 8) and trigger_scan_id (col 13) are BOTH space-/single
+            // encoded 3-char base-94 tracking ids (== the encoded form the other three streams use); Add
+            // each directly so it maps to the SAME T<n> label. Mirrors the scan_results child_ids
+            // split-on-space path above.
             foreach (var row in DataRows(Path.Combine(caseDir, PooledName)))
             {
                 if (PooledScanIdsCol < row.Length && row[PooledScanIdsCol].Length > 0)
-                    foreach (var k in row[PooledScanIdsCol].Split(' ')) Add(EncodeTrackingId(k));
+                    foreach (var k in row[PooledScanIdsCol].Split(' ')) Add(k);
                 if (PooledTriggerScanIdCol < row.Length && row[PooledTriggerScanIdCol].Length > 0)
                     Add(row[PooledTriggerScanIdCol]);
             }
@@ -169,12 +161,11 @@ namespace Flash.Tests
         }
 
         // pooled_identification.tsv: two volatile id columns — contributing_scan_ids (col 8) and
-        // trigger_scan_id (col 13).  Col 8 holds DECODED int scan ids (space-separated), re-encoded to
-        // 3-char base-94 form and relabeled via the SHARED id map to T<n> labels — the same labels the
-        // other streams use, so pooled rows join run-to-run.  Col 13 is already an encoded 3-char
-        // base-94 tracking id and is relabeled directly (no re-encoding step).  All other pooled columns
-        // are deterministic and compared verbatim; the pooled stream has NO timestamp/duration columns,
-        // so NO masking applies.
+        // trigger_scan_id (col 13).  Both hold base-94 encoded 3-char tracking ids (col 8 is
+        // space-separated); each is relabeled DIRECTLY via the SHARED id map to T<n> labels — the same
+        // labels the other streams use, so pooled rows join run-to-run.  All other pooled columns are
+        // deterministic and compared verbatim; the pooled stream has NO timestamp/duration columns, so
+        // NO masking applies.
         private static string NormalizePooled(string path, Dictionary<string, string> ids)
         {
             if (!File.Exists(path)) return "";
@@ -186,24 +177,12 @@ namespace Flash.Tests
                 var cols = lines[li].Split('\t');
                 if (PooledScanIdsCol < cols.Length && cols[PooledScanIdsCol].Length > 0)
                     cols[PooledScanIdsCol] = string.Join(" ",
-                        cols[PooledScanIdsCol].Split(' ').Select(k => Relabel(EncodeTrackingId(k), ids)));
+                        cols[PooledScanIdsCol].Split(' ').Select(k => Relabel(k, ids)));
                 if (PooledTriggerScanIdCol < cols.Length && cols[PooledTriggerScanIdCol].Length > 0)
                     cols[PooledTriggerScanIdCol] = Relabel(cols[PooledTriggerScanIdCol], ids);
                 sb.Append(string.Join("\t", cols)).Append('\n');
             }
             return sb.ToString();
-        }
-
-        // Encode a decoded int tracking id back to its 3-char base-94 string, the inverse of the engine's
-        // ScanCommandQueue::decode (== how the other three streams store the id). Non-integer tokens (none
-        // expected) pass through unchanged so they can still be looked up / surfaced verbatim.
-        private static string EncodeTrackingId(string token)
-        {
-            if (!int.TryParse(token, out int value) || value < 0) return token;
-            int b = TrackingAlphabet.Length;
-            var buf = new char[3];
-            for (int i = 2; i >= 0; --i) { buf[i] = TrackingAlphabet[value % b]; value /= b; }
-            return new string(buf);
         }
 
         // ida_log is free text, not TSV: the masses / scores / features are deterministic and kept;
