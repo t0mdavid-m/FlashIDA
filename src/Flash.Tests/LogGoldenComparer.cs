@@ -55,11 +55,14 @@ namespace Flash.Tests
         // tracking id (== col 0); relabel just that prefix, keep the marker + mass remainder intact.
         private const int CmdDescriptionCol = 28;
 
-        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 14 cols):
+        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 18 cols):
         // nominal_mass[0] mono_mass[1] proteoform[2] flash_extender_score[3] coverage_pct[4]
         // n_fragments[5] localized_mods[6] ambiguous_mods[7] contributing_scan_ids[8]
         // combined_ms2_frame_masses[9] update_index[10] precursor_id[11] trigger[12]
-        // trigger_scan_id[13]. Volatile id columns: col 8 + col 13 (both encoded 3-char).
+        // trigger_scan_id[13] combined_measured[14] combined_theoretical[15] combined_diff_da[16]
+        // combined_diff_ppm[17]. The four combined_* fragment-mass lists appended LAST are numeric
+        // (no ids) → compared verbatim/toleranced, no relabel. Volatile id columns UNCHANGED: col 8 +
+        // col 13 (both encoded 3-char), so no constant here shifts.
         // LIKE scan_results child_ids and col 13 trigger_scan_id, the engine now writes col 8 as
         // base-94 encoded 3-char tracking ids (ScanCommandQueue::encode), so both id columns are
         // relabeled DIRECTLY via the shared id map (no re-encoding step) — pooled ids carry the SAME
