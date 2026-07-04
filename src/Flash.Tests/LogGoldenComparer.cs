@@ -18,7 +18,7 @@ namespace Flash.Tests
     ///     files so every parent/child join edge is preserved (a flat per-file mask would lose them).
     ///
     /// Column indices below are 0-based and pinned to the header order written by the FLASHIda
-    /// constructor (scan_commands 29 cols, scan_results 34 cols, identification 25 cols). They are
+    /// constructor (scan_commands 30 cols, scan_results 34 cols, identification 30 cols). They are
     /// asserted by the C++ FLASHIda_LoggingFields schema_column_counts section.
     ///
     /// F5 appended winner_tracking_id as the LAST scan_results column (index 33): the encoded id of an
