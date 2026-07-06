@@ -96,11 +96,11 @@ AllMass=
 MS1 Scan# <SCAN> RT 0.3121 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.3199 (Access ID <ID>) - 5 targets
-Mass=2256	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528163,1.000000,0.161604]	ChargeRange=[4-4]	HCD=20
-Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528163,1.000000,0.161604]	ChargeRange=[4-4]	HCD=25
-Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528163,1.000000,0.161604]	ChargeRange=[4-4]	HCD=30
-Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528163,1.000000,0.161604]	ChargeRange=[4-4]	HCD=35
-Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528163,1.000000,0.161604]	ChargeRange=[4-4]	HCD=40
+Mass=2256	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528162,1.000000,0.161604]	ChargeRange=[4-4]	HCD=20
+Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528162,1.000000,0.161604]	ChargeRange=[4-4]	HCD=25
+Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528162,1.000000,0.161604]	ChargeRange=[4-4]	HCD=30
+Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528162,1.000000,0.161604]	ChargeRange=[4-4]	HCD=35
+Mass=2256.18	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528162,1.000000,0.161604]	ChargeRange=[4-4]	HCD=40
 AllMass=2256.1789 2019.3825
 MS1 Scan# <SCAN> RT 0.3277 (Access ID <ID>) - 0 targets
 AllMass=
@@ -122,9 +122,9 @@ AllMass=4297.1774
 MS1 Scan# <SCAN> RT 0.3743 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.3821 (Access ID <ID>) - 5 targets
-Mass=2136	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=20
-Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=25
-Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=30
-Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=35
-Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=40
+Mass=2136	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504503,0.872528,0.352325,1.000000,2.794748]	ChargeRange=[4-4]	HCD=20
+Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504503,0.872528,0.352325,1.000000,2.794748]	ChargeRange=[4-4]	HCD=25
+Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504503,0.872528,0.352325,1.000000,2.794748]	ChargeRange=[4-4]	HCD=30
+Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504503,0.872528,0.352325,1.000000,2.794748]	ChargeRange=[4-4]	HCD=35
+Mass=2135.71	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504503,0.872528,0.352325,1.000000,2.794748]	ChargeRange=[4-4]	HCD=40
 AllMass=2135.7138
