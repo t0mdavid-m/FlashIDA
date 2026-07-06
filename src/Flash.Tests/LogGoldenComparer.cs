@@ -18,17 +18,17 @@ namespace Flash.Tests
     ///     files so every parent/child join edge is preserved (a flat per-file mask would lose them).
     ///
     /// Column indices below are 0-based and pinned to the header order written by the FLASHIda
-    /// constructor (scan_commands 30 cols, scan_results 34 cols, identification 30 cols). They are
+    /// constructor (scan_commands 31 cols, scan_results 29 cols, identification 31 cols). They are
     /// asserted by the C++ FLASHIda_LoggingFields schema_column_counts section.
     ///
-    /// F5 appended winner_tracking_id as the LAST scan_results column (index 33): the encoded id of an
+    /// F5 appended winner_tracking_id as the LAST scan_results column (index 28): the encoded id of an
     /// exploration group's winning variant (empty on every non-completing / non-exploration row). It is an
     /// id-bearing column, so it is relabeled via the shared id map (ResIdCols) and joins run-to-run.
     ///
     /// E5 inserted ms_level at scan_results column index 1 (int, unmasked), shifting every
-    /// downstream scan_results column by +1: child_ids 8->9, parent_tracking_id 27->28, and the
-    /// eight volatile timestamp/duration columns by +1. E6 appended the raw scan_description as the
-    /// LAST scan_commands column (index 28); its leading 3-char tracking-id prefix is relabeled here
+    /// downstream scan_results column by +1: child_ids 8->9, parent_tracking_id 22->23, and the
+    /// eight volatile timestamp/duration columns by +1. E6 appended the raw scan_description as
+    /// scan_commands column index 28 (no longer last: ms3_proteoform was appended after it); its leading 3-char tracking-id prefix is relabeled here
     /// via the shared id map so descriptors join run-to-run while the deterministic E2 mass/charge
     /// remainder is compared verbatim.
     /// </summary>
@@ -48,7 +48,7 @@ namespace Flash.Tests
 
         // ID-bearing columns per TSV. results child_ids (col 9) is space-split and handled separately.
         private static readonly int[] CmdIdCols = { 0, 22 };  // tracking_id, parent_tracking_id (unchanged by E6)
-        private static readonly int[] ResIdCols = { 0, 28, 33 };  // tracking_id, parent_tracking_id (+1 from E5 ms_level@1), winner_tracking_id (F5, last)
+        private static readonly int[] ResIdCols = { 0, 23, 28 };  // tracking_id, parent_tracking_id (23; was 28, -5 for removed scan_results cols 10-14), winner_tracking_id (28; F5, last; was 33, -5)
         private static readonly int[] IdfIdCols = { 2 };      // tracking_id (identification still leads ms_level,scan_mode,tracking_id)
         private const int ResChildCol = 9;                    // child_ids (space-separated; +1 from E5 ms_level@1)
         // scan_commands raw descriptor (E6), appended LAST. Its first 3 chars are the encoded
@@ -80,10 +80,10 @@ namespace Flash.Tests
             { 3, "<DUR>" }, // duration_ms
             { 4, "<TS>" },  // received_ts
             { 5, "<DUR>" }, // duration_received_ms
-            { 29, "<TS>" }, // dequeue_ts
-            { 30, "<DUR>" },// queue_duration_ms
-            { 31, "<DUR>" },// instrument_duration_ms
-            { 32, "<DUR>" } // processing_duration_ms
+            { 24, "<TS>" }, // dequeue_ts
+            { 25, "<DUR>" },// queue_duration_ms
+            { 26, "<DUR>" },// instrument_duration_ms
+            { 27, "<DUR>" } // processing_duration_ms
         };
         private static readonly Dictionary<int, string> NoMask = new Dictionary<int, string>();
 

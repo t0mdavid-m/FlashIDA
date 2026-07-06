@@ -645,7 +645,7 @@ namespace Flash.Tests
             Assert.That(File.Exists(commandsPath), Is.True, "engine must have written scan_commands.tsv");
             var rows = ParseTsv(commandsPath, out var header);
             int descCol = Array.IndexOf(header, "scan_description");
-            Assert.That(descCol, Is.EqualTo(28), "scan_description is the LAST scan_commands column (index 28)");
+            Assert.That(descCol, Is.EqualTo(28), "scan_description is at scan_commands column index 28 (no longer last after ms3_proteoform was appended)");
             var tsvDescByPrefix = new Dictionary<string, string>();
             foreach (var r in rows)
                 if (r.Length > descCol && r.Length > 0 && !tsvDescByPrefix.ContainsKey(r[0]))
