@@ -254,11 +254,8 @@ namespace Flash.Tests
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exploration follow-up golden skipped cleanly (no MS2-as-MS3 fabrication).");
                 return;
             }
-            // remaining_ratio: NO precursor injection here (owner scope: "fix all except followup"). This mode's
-            // conditional-MS2 follow-up trigger reads the fed spectrum, so it is left on the fixture as-is; its
-            // exploration rows keep their fixture-based remaining_ratio (1.0 where the precursor is present, else -1).
             RunCase("exploration_followup", "method_exploration_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
-                    feedMs3: true, ms3Map: ms3Map, injectExplorationPrecursor: false);
+                    feedMs3: true, ms3Map: ms3Map);
         }
 
         // I4: MS3-level EXPLORATION golden. A two-level MS2->MS3 CE-sweep cascade — the MS2-exploration
@@ -328,11 +325,9 @@ namespace Flash.Tests
             Assert.That(ms2CeMap.Count, Is.EqualTo(6),
                 "Requires the CE-0 baseline fixture (ms2_cytc_ce0.txt) + all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
 
-            // F1: #18's baselines add ~80 commands to this cascade, pushing the last precursor (pid25) past the
-            // default 600-iteration drive budget so its production-MS3 + pooled rows were truncated. Give it room.
             RunCase("exploration_ms3_followup", "method_exploration_ms3_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
-                    postDriveAssert: AssertProductionMs3Folded, maxIters: 1000);
+                    postDriveAssert: AssertProductionMs3Folded);
         }
 
         /// <summary>
@@ -742,8 +737,7 @@ namespace Flash.Tests
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
             bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
             int minMs2Commands = 0, int minFollowUps = 0,
-            Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null,
-            int maxIters = 600, bool injectExplorationPrecursor = true)
+            Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -781,9 +775,7 @@ namespace Flash.Tests
                     Path.Combine(SpectraDir, ms1File),
                     Path.Combine(SpectraDir, ms2File),
                     ms3Sel,
-                    maxIters: maxIters,
-                    ms2CeMap: ms2CeMap,
-                    injectExplorationPrecursor: injectExplorationPrecursor);
+                    ms2CeMap: ms2CeMap);
             } // Dispose() closes the C++ engine and flushes/closes the log streams
 
             // Fail-closed: a case that produced no scan commands is broken, never a valid golden.

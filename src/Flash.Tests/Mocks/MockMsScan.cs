@@ -205,8 +205,7 @@ namespace Flash.Tests.Mocks
         /// identification rows.
         /// </summary>
         public static MockMsScan FromTsvAsMSn(string filePath, int msOrder, string scanDescription,
-            double precursorMz, int chargeState, double isolationWidth = 2.0,
-            double injectPrecursorMz = 0.0, double injectPrecursorScale = 1.0)
+            double precursorMz, int chargeState, double isolationWidth = 2.0)
         {
             var scan = new MockMsScan();
             scan._headerDict["MSOrder"] = msOrder.ToString();
@@ -216,16 +215,6 @@ namespace Flash.Tests.Mocks
 
             scan._trailerAccess.Set("Scan Description", scanDescription);
             scan._trailerAccess.Set("Charge State", chargeState.ToString());
-
-            // remaining_ratio surviving-precursor injection: when injectPrecursorMz > 0, DROP the fixture's peaks
-            // in the injection window [injectPrecursorMz +/- isolationWidth/2] and inject a small synthetic
-            // surviving-precursor isotope envelope AT that m/z, scaled by injectPrecursorScale (< 1 for a fragment
-            // scan, 1.0 for the CE-0 baseline). This gives EVERY exploration group a depleted precursor at its
-            // OWN precursor m/z -- independent of what the shared fixture contains -- so remaining_ratio is a
-            // clean < 1 ladder in every mode. Fragments outside the window are untouched (mass counts stable).
-            bool inject = injectPrecursorMz > 0.0;
-            double injLow = injectPrecursorMz - isolationWidth / 2.0;
-            double injHigh = injectPrecursorMz + isolationWidth / 2.0;
 
             bool started = false;
             foreach (var line in File.ReadAllLines(filePath))
@@ -245,21 +234,8 @@ namespace Flash.Tests.Mocks
                 {
                     double mz = double.Parse(tokens[0]);
                     double intensity = double.Parse(tokens[1]);
-                    if (inject && mz >= injLow && mz <= injHigh) continue; // drop fixture peaks under the injected precursor
                     scan._centroids.Add(new Centroid(mz, intensity, 0, 120000));
                 }
-            }
-
-            if (inject)
-            {
-                // 3-isotope envelope at the precursor m/z & charge, scaled by the depletion factor. The absolute
-                // base cancels in remaining_ratio (variant window / baseline window); only the scale forms the ladder.
-                const double INJ_BASE = 1.0e6;
-                double spacing = 1.00235 / System.Math.Max(1, chargeState);
-                double[] rel = { 1.0, 0.55, 0.25 };
-                for (int k = 0; k < rel.Length; k++)
-                    scan._centroids.Add(new Centroid(injectPrecursorMz + k * spacing,
-                                                     INJ_BASE * injectPrecursorScale * rel[k], 0, 120000));
             }
 
             return scan;

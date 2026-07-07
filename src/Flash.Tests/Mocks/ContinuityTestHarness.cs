@@ -176,7 +176,7 @@ namespace Flash.Tests.Mocks
         public void PushScanAndDrainFull(string ms1Path, string ms2Path,
             Func<ScanCommand, string> ms3FixtureFor = null, int maxIters = 600,
             int maxMs2Responses = -1, Action<ContinuityTestHarness> onFirstMs2Response = null,
-            Dictionary<int, string> ms2CeMap = null, bool injectExplorationPrecursor = true)
+            Dictionary<int, string> ms2CeMap = null)
         {
             // Feed each TSV MS1 scan exactly once (nMs1 = scan count); any further MS1 survey is an idle tick.
             int nMs1;
@@ -231,13 +231,7 @@ namespace Flash.Tests.Mocks
                     }
                     double precMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].PrecursorMz : 0.0;
                     int z = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].ChargeState : 1;
-                    // MS3 remaining_ratio isolates the MS2 FRAGMENT (stage[last]); inject the depleted surviving
-                    // fragment there so the MS3 exploration rows also show a < 1 ladder (baseline 1.0).
-                    double ms3TargetMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[cmd.NumStages - 1].PrecursorMz : 0.0;
-                    double injMz3 = (injectExplorationPrecursor && IsExplorationVariant(cmd)) ? ms3TargetMz : 0.0;
-                    response = MockMsScan.FromTsvAsMSn(src, level, cmd.ScanDescription, precMz, z,
-                                                      injectPrecursorMz: injMz3,
-                                                      injectPrecursorScale: ExplorationPrecursorScale(cmd));
+                    response = MockMsScan.FromTsvAsMSn(src, level, cmd.ScanDescription, precMz, z);
                 }
                 else
                 {
@@ -270,10 +264,7 @@ namespace Flash.Tests.Mocks
                                 $"PushScanAndDrainFull: MS2 command collision energy {ce} has no CE-map fixture " +
                                 $"(available keys: {string.Join(",", ms2CeMap.Keys.OrderBy(k => k))}).");
                     }
-                    double injMz2 = (injectExplorationPrecursor && IsExplorationVariant(cmd)) ? precMz : 0.0;
-                    response = MockMsScan.FromTsvAsMSn(ms2Src, level, cmd.ScanDescription, precMz, z,
-                                                      injectPrecursorMz: injMz2,
-                                                      injectPrecursorScale: ExplorationPrecursorScale(cmd));
+                    response = MockMsScan.FromTsvAsMSn(ms2Src, level, cmd.ScanDescription, precMz, z);
                     ms2Responded++;
                 }
 
@@ -281,28 +272,6 @@ namespace Flash.Tests.Mocks
                 response.Dispose();
                 cmd = new ScanCommand();
             }
-        }
-
-        /// <summary>
-        /// remaining_ratio depletion factor for an exploration variant's precursor window. The CE-0 baseline
-        /// (fragmentation dose 0) stays 1.0 (the un-fragmented reference); each real CE/RT variant depletes the
-        /// surviving precursor monotonically with its fragmentation dose (collision energy for HCD, reaction time
-        /// for ETD), so remaining_ratio forms a &lt; 1 ladder that decreases with fragmentation -- uniform across
-        /// sweep types, no per-CE fixture files. Production (non-exploration) scans are never scaled.
-        /// </summary>
-        private static bool IsExplorationVariant(ScanCommand cmd)
-        {
-            string desc = cmd.ScanDescription ?? "";
-            return desc.Length >= 4 && desc[3] == 'E';           // id(3) + 'E' exploration marker
-        }
-
-        private static double ExplorationPrecursorScale(ScanCommand cmd)
-        {
-            if (cmd.NumStages <= 0 || cmd.Stages == null || !IsExplorationVariant(cmd)) return 1.0;
-            var frag = cmd.Stages[cmd.NumStages - 1];            // the fragmentation stage (last)
-            double dose = frag.CollisionEnergy + frag.ReactionTime;
-            if (dose <= 0.0) return 1.0;                         // CE-0/RT-0 baseline: full surviving precursor
-            return Math.Max(0.1, 1.0 - dose / 100.0);           // monotonic depletion, floored
         }
 
         /// <summary>
