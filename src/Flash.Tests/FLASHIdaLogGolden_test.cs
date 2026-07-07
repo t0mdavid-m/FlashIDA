@@ -254,8 +254,11 @@ namespace Flash.Tests
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exploration follow-up golden skipped cleanly (no MS2-as-MS3 fabrication).");
                 return;
             }
+            // remaining_ratio: NO precursor injection here (owner scope: "fix all except followup"). This mode's
+            // conditional-MS2 follow-up trigger reads the fed spectrum, so it is left on the fixture as-is; its
+            // exploration rows keep their fixture-based remaining_ratio (1.0 where the precursor is present, else -1).
             RunCase("exploration_followup", "method_exploration_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
-                    feedMs3: true, ms3Map: ms3Map);
+                    feedMs3: true, ms3Map: ms3Map, injectExplorationPrecursor: false);
         }
 
         // I4: MS3-level EXPLORATION golden. A two-level MS2->MS3 CE-sweep cascade — the MS2-exploration
@@ -740,7 +743,7 @@ namespace Flash.Tests
             bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
             int minMs2Commands = 0, int minFollowUps = 0,
             Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null,
-            int maxIters = 600)
+            int maxIters = 600, bool injectExplorationPrecursor = true)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -779,7 +782,8 @@ namespace Flash.Tests
                     Path.Combine(SpectraDir, ms2File),
                     ms3Sel,
                     maxIters: maxIters,
-                    ms2CeMap: ms2CeMap);
+                    ms2CeMap: ms2CeMap,
+                    injectExplorationPrecursor: injectExplorationPrecursor);
             } // Dispose() closes the C++ engine and flushes/closes the log streams
 
             // Fail-closed: a case that produced no scan commands is broken, never a valid golden.
