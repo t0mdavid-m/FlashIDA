@@ -325,9 +325,11 @@ namespace Flash.Tests
             Assert.That(ms2CeMap.Count, Is.EqualTo(6),
                 "Requires the CE-0 baseline fixture (ms2_cytc_ce0.txt) + all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
 
+            // F1: #18's baselines add ~80 commands to this cascade, pushing the last precursor (pid25) past the
+            // default 600-iteration drive budget so its production-MS3 + pooled rows were truncated. Give it room.
             RunCase("exploration_ms3_followup", "method_exploration_ms3_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
-                    postDriveAssert: AssertProductionMs3Folded);
+                    postDriveAssert: AssertProductionMs3Folded, maxIters: 1000);
         }
 
         /// <summary>
@@ -737,7 +739,8 @@ namespace Flash.Tests
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
             bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
             int minMs2Commands = 0, int minFollowUps = 0,
-            Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null)
+            Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null,
+            int maxIters = 600)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -775,6 +778,7 @@ namespace Flash.Tests
                     Path.Combine(SpectraDir, ms1File),
                     Path.Combine(SpectraDir, ms2File),
                     ms3Sel,
+                    maxIters: maxIters,
                     ms2CeMap: ms2CeMap);
             } // Dispose() closes the C++ engine and flushes/closes the log streams
 

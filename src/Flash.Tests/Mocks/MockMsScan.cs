@@ -205,7 +205,7 @@ namespace Flash.Tests.Mocks
         /// identification rows.
         /// </summary>
         public static MockMsScan FromTsvAsMSn(string filePath, int msOrder, string scanDescription,
-            double precursorMz, int chargeState, double isolationWidth = 2.0)
+            double precursorMz, int chargeState, double isolationWidth = 2.0, double precursorScale = 1.0)
         {
             var scan = new MockMsScan();
             scan._headerDict["MSOrder"] = msOrder.ToString();
@@ -215,6 +215,13 @@ namespace Flash.Tests.Mocks
 
             scan._trailerAccess.Set("Scan Description", scanDescription);
             scan._trailerAccess.Set("Charge State", chargeState.ToString());
+
+            // remaining_ratio depletion: scale ONLY the surviving-precursor peaks inside the isolation
+            // window [precursorMz +/- isolationWidth/2] by precursorScale (< 1 for a fragment scan, 1.0 for
+            // the CE-0 baseline). Peaks outside the window (the fragments) are untouched, so mass counts /
+            // winner selection are unaffected -- only the precursor-window intensity (hence remaining_ratio) moves.
+            double windowLow = precursorMz - isolationWidth / 2.0;
+            double windowHigh = precursorMz + isolationWidth / 2.0;
 
             bool started = false;
             foreach (var line in File.ReadAllLines(filePath))
@@ -234,6 +241,8 @@ namespace Flash.Tests.Mocks
                 {
                     double mz = double.Parse(tokens[0]);
                     double intensity = double.Parse(tokens[1]);
+                    if (precursorScale != 1.0 && mz >= windowLow && mz <= windowHigh)
+                        intensity *= precursorScale;
                     scan._centroids.Add(new Centroid(mz, intensity, 0, 120000));
                 }
             }

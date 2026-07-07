@@ -231,6 +231,9 @@ namespace Flash.Tests.Mocks
                     }
                     double precMz = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].PrecursorMz : 0.0;
                     int z = cmd.NumStages > 0 && cmd.Stages != null ? cmd.Stages[0].ChargeState : 1;
+                    // NOTE: MS2-exploration precursor depletion only (below). The MS3 remaining_ratio window is
+                    // around the MS2 FRAGMENT (stage[last]), not stage[0], so we do not scale here -- the MS3
+                    // depletion ladder (if wanted) needs the fragment-window center; deferred pending diff review.
                     response = MockMsScan.FromTsvAsMSn(src, level, cmd.ScanDescription, precMz, z);
                 }
                 else
@@ -264,7 +267,8 @@ namespace Flash.Tests.Mocks
                                 $"PushScanAndDrainFull: MS2 command collision energy {ce} has no CE-map fixture " +
                                 $"(available keys: {string.Join(",", ms2CeMap.Keys.OrderBy(k => k))}).");
                     }
-                    response = MockMsScan.FromTsvAsMSn(ms2Src, level, cmd.ScanDescription, precMz, z);
+                    response = MockMsScan.FromTsvAsMSn(ms2Src, level, cmd.ScanDescription, precMz, z,
+                                                      precursorScale: ExplorationPrecursorScale(cmd));
                     ms2Responded++;
                 }
 
@@ -272,6 +276,24 @@ namespace Flash.Tests.Mocks
                 response.Dispose();
                 cmd = new ScanCommand();
             }
+        }
+
+        /// <summary>
+        /// remaining_ratio depletion factor for an exploration variant's precursor window. The CE-0 baseline
+        /// (fragmentation dose 0) stays 1.0 (the un-fragmented reference); each real CE/RT variant depletes the
+        /// surviving precursor monotonically with its fragmentation dose (collision energy for HCD, reaction time
+        /// for ETD), so remaining_ratio forms a &lt; 1 ladder that decreases with fragmentation -- uniform across
+        /// sweep types, no per-CE fixture files. Production (non-exploration) scans are never scaled.
+        /// </summary>
+        private static double ExplorationPrecursorScale(ScanCommand cmd)
+        {
+            if (cmd.NumStages <= 0 || cmd.Stages == null) return 1.0;
+            string desc = cmd.ScanDescription ?? "";
+            if (desc.Length < 4 || desc[3] != 'E') return 1.0;   // 'E' = exploration variant (id(3)+marker)
+            var frag = cmd.Stages[cmd.NumStages - 1];            // the fragmentation stage (last)
+            double dose = frag.CollisionEnergy + frag.ReactionTime;
+            if (dose <= 0.0) return 1.0;                         // CE-0/RT-0 baseline: full surviving precursor
+            return Math.Max(0.1, 1.0 - dose / 100.0);           // monotonic depletion, floored
         }
 
         /// <summary>
