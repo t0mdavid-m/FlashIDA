@@ -283,8 +283,8 @@ namespace Flash.Tests
             // CE-keyed MS2 fixtures for the MS2-exploration sweep. NO FALLBACK: every CE the engine sweeps must
             // have a fixture (the harness throws otherwise). Built from the committed Exploration sweep grid.
             var ms2CeMap = BuildMs2CeMap(SpectraDir);
-            Assert.That(ms2CeMap.Count, Is.EqualTo(5),
-                "Task E.2-4 requires all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
+            Assert.That(ms2CeMap.Count, Is.EqualTo(6),
+                "Requires the CE-0 baseline fixture (ms2_cytc_ce0.txt) + all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
 
             RunCase("exploration_ms3", "method_exploration_ms3.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
@@ -322,8 +322,8 @@ namespace Flash.Tests
             // CE-keyed MS2 fixtures for the MS2-exploration sweep. NO FALLBACK: every CE the engine sweeps must
             // have a fixture (the harness throws otherwise). Built from the committed Exploration sweep grid.
             var ms2CeMap = BuildMs2CeMap(SpectraDir);
-            Assert.That(ms2CeMap.Count, Is.EqualTo(5),
-                "Task E.2-4 requires all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
+            Assert.That(ms2CeMap.Count, Is.EqualTo(6),
+                "Requires the CE-0 baseline fixture (ms2_cytc_ce0.txt) + all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
 
             RunCase("exploration_ms3_followup", "method_exploration_ms3_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
@@ -333,13 +333,17 @@ namespace Flash.Tests
         /// <summary>
         /// Build the CE -> energy-resolved cytC MS2 fixture map for the MS2-exploration sweep. Keys are the
         /// integer collision energies the engine sweeps (Exploration.cpp: ce_min 20, ce_max 40, ce_step 5 =>
-        /// {20,25,30,35,40}); each maps to ms2_cytc_ce&lt;CE&gt;.txt. Only fixtures present on disk are added,
-        /// so a missing one surfaces as a count mismatch in the caller (loud), never a silent skip.
+        /// {20,25,30,35,40}) PLUS the CE-0 baseline variant that baseline-on-all (#18) now prepends to every
+        /// exploration group. CE 0 = the un-fragmented reference: ms2_cytc_ce0.txt is the isolated cytC
+        /// precursor's z=15 isotope cluster (isolation window [824.04,825.90] of ms1_cytc.txt), NO fragments,
+        /// so the baseline contributes 0 fragments to the FragmentCount joint calibration (no ripple). Each CE
+        /// maps to ms2_cytc_ce&lt;CE&gt;.txt. Only fixtures present on disk are added, so a missing one surfaces
+        /// as a count mismatch in the caller (loud), never a silent skip.
         /// </summary>
         private static Dictionary<int, string> BuildMs2CeMap(string spectraDir)
         {
             var map = new Dictionary<int, string>();
-            foreach (int ce in new[] { 20, 25, 30, 35, 40 })
+            foreach (int ce in new[] { 0, 20, 25, 30, 35, 40 })
             {
                 string path = Path.Combine(spectraDir, $"ms2_cytc_ce{ce}.txt");
                 if (File.Exists(path)) map[ce] = path;

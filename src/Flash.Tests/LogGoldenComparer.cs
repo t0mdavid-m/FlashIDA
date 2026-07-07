@@ -195,7 +195,10 @@ namespace Flash.Tests
             if (!File.Exists(path)) return "";
             string text = File.ReadAllText(path).Replace("\r\n", "\n");
             text = Regex.Replace(text, @"Scan# \d+", "Scan# <SCAN>");
-            text = Regex.Replace(text, @"Access ID [^)]+\)", "Access ID <ID>)");
+            // Mask the base-94 Access ID. Anchor on the trailing " - <n> targets" (base-94 ids never
+            // contain a space) so a ')' INSIDE the id is consumed too — [^)]+ used to stop at the id's
+            // own ')', leaving the format paren as a run-dependent stray "<ID>))".
+            text = Regex.Replace(text, @"Access ID .+?\) - ", "Access ID <ID>) - ");
             return text;
         }
 
