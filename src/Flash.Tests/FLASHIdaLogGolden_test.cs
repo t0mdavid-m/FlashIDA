@@ -61,7 +61,7 @@ namespace Flash.Tests
 
         [Test, Category("Tier2")]
         public void Golden_Exploration_HCD() =>
-            RunCase("exploration_hcd", "method_exploration.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
+            RunCase("exploration_hcd", "method_exploration.json", "ms1_ca.txt", "ms2_ca_hcd25_scan181.txt");
 
         // ETD exploration sweep — the activation-type-parallel half of the HCD/ETD split (mirrors
         // the C++ FLASHIda_exploration ETD sections). Skips cleanly when the data-agent fixture
@@ -98,6 +98,15 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Inclusion() =>
             RunCase("inclusion", "method_inclusion_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1);
+
+        // Inclusion-pinned INTACT carbonic anhydrase (CA2) from the real 20260708 run: ms1_ca.txt carries the
+        // ~29006 Da / z30 precursor, pinned via inclusion_ca.txt and characterized against the CA2 protein_sequence
+        // in method_inclusion_ca.json -> a confident full-length (start=0,end=259) identification that clears the
+        // FLASHExtender truncation penalty. minMs2Commands:1 fail-closes if the inclusion pin fails to select.
+        [Test, Category("Tier2")]
+        public void Golden_Inclusion_CA() =>
+            RunCase("inclusion_ca", "method_inclusion_ca.json", "ms1_ca.txt", "ms2_ca_hcd45_scan185.txt",
                     minMs2Commands: 1);
 
         [Test, Category("Tier2")]
