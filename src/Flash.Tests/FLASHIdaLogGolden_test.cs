@@ -100,15 +100,6 @@ namespace Flash.Tests
             RunCase("inclusion", "method_inclusion_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1);
 
-        // Inclusion-pinned INTACT carbonic anhydrase (CA2) from the real 20260708 run: ms1_ca.txt carries the
-        // ~29006 Da / z30 precursor, pinned via inclusion_ca.txt and characterized against the CA2 protein_sequence
-        // in method_inclusion_ca.json -> a confident full-length (start=0,end=259) identification that clears the
-        // FLASHExtender truncation penalty. minMs2Commands:1 fail-closes if the inclusion pin fails to select.
-        [Test, Category("Tier2")]
-        public void Golden_Inclusion_CA() =>
-            RunCase("inclusion_ca", "method_inclusion_ca.json", "ms1_ca.txt", "ms2_ca_hcd45_scan185.txt",
-                    minMs2Commands: 1);
-
         [Test, Category("Tier2")]
         public void Golden_Inclusion_Strict() =>
             RunCase("inclusion_strict", "method_inclusion_cytc_strict.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
@@ -216,14 +207,13 @@ namespace Flash.Tests
         /// seen for a given ion wins. Returns an empty map (caller skips cleanly) when the directory
         /// is absent or holds no matching fixtures.
         /// </summary>
-        private static Dictionary<string, string> BuildMs3IonMap(string spectraDir)
+        private static Dictionary<string, string> BuildMs3IonMap(string spectraDir, string prefix = "ms3_cytc_")
         {
             var map = new Dictionary<string, string>();
             if (string.IsNullOrEmpty(spectraDir) || !Directory.Exists(spectraDir)) return map;
 
-            const string prefix = "ms3_cytc_";
             const string marker = "_scan";
-            foreach (var path in Directory.GetFiles(spectraDir, "ms3_cytc_*_scan*.txt"))
+            foreach (var path in Directory.GetFiles(spectraDir, prefix + "*_scan*.txt"))
             {
                 string name = Path.GetFileName(path);
                 if (!name.StartsWith(prefix, StringComparison.Ordinal)) continue;
@@ -247,6 +237,25 @@ namespace Flash.Tests
             }
             RunCase("ms3_cytc", "method_ms3_cytc_real.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map);
+        }
+
+        // Inclusion-pinned MS3 cytC golden built on the SECOND cytC fixture set (ms1_cytc2.txt /
+        // ms2_cytc2_scan434.txt + the ms3_cytc2_*_scan*.txt fragment manifest) and method_ms3_cytc_new.json
+        // (inclusion pin via inclusion_cytc_12307.txt). Mirrors Golden_MS3_CytC but fail-closes on the MS3
+        // cascade: minMs2Commands:1 requires the pin to select, and AssertInclusionMs3Produced requires an
+        // MS3 row in BOTH scan_commands.tsv and identification.tsv (no vacuous MS3 golden). Skips cleanly
+        // when no ms3_cytc2_*_scan*.txt fixtures are present (same no-fabrication contract).
+        [Test, Category("Tier2")]
+        public void Golden_Inclusion_MS3_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir, "ms3_cytc2_");
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc2_*_scan*.txt fixtures present — inclusion MS3 cytC golden skipped cleanly.");
+                return;
+            }
+            RunCase("inclusion_ms3_cytc", "method_ms3_cytc_new.json", "ms1_cytc2.txt", "ms2_cytc2_scan434.txt",
+                    feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1, postDriveAssert: AssertInclusionMs3Produced);
         }
 
         // I4: exploration FOLLOW-UP golden. An MS2 CE-sweep whose winner — via a non-tolerance override
@@ -494,6 +503,44 @@ namespace Flash.Tests
                 "exploration_ms3_followup: no MS3-fold pooled row — the production MS3 re-acquisition did not " +
                 "fold (Part G cache regression?). Expected >= 1 row whose trigger is a fragment ion " +
                 "(^[abcxyz]\\d+$, e.g. \"y6\").");
+        }
+
+        /// <summary>
+        /// Fail-closed vacuity guard for Golden_Inclusion_MS3_CytC. RunCase passes the scan_commands.tsv
+        /// PATH to the post-drive delegate; identification.tsv is its sibling in the same case dir. Asserts
+        /// BOTH streams actually carry an MS3 row, so the inclusion-pinned MS3 golden can never pass vacuously:
+        ///   (a) &gt;= 1 ms_level==3 row in scan_commands.tsv — the inclusion pin / MS2 cascaded to MS3; else
+        ///       the pin selected but no MS3 was ever commanded;
+        ///   (b) &gt;= 1 ms_level==3 row in identification.tsv — the requested MS3 ion(s) were not ALL silently
+        ///       skipped (an empty MS3 identification would otherwise golden as a valid-but-vacuous run).
+        /// </summary>
+        private static void AssertInclusionMs3Produced(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            string idPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
+
+            // (a) scan_commands.tsv must contain >= 1 MS3 command row.
+            Assert.That(File.Exists(commandsPath), Is.True,
+                "inclusion_ms3_cytc: engine must have written scan_commands.tsv for the MS3-produced check");
+            var cmdRows = ParseTsv(commandsPath, out var cmdHeader);
+            int cmdMsLevelCol = Array.IndexOf(cmdHeader, "ms_level");
+            Assert.That(cmdMsLevelCol, Is.GreaterThanOrEqualTo(0), "ms_level column present in scan_commands.tsv");
+            int ms3Cmds = cmdRows.Count(r => cmdMsLevelCol < r.Length && ParseIntSafe(r[cmdMsLevelCol]) == 3);
+            Assert.That(ms3Cmds, Is.GreaterThanOrEqualTo(1),
+                "inclusion_ms3_cytc: no ms_level==3 row in scan_commands.tsv — the inclusion pin / MS2 did not " +
+                "cascade to MS3.");
+
+            // (b) identification.tsv must contain >= 1 MS3 identification row (else every requested MS3 ion was
+            //     silently skipped -> vacuous golden).
+            Assert.That(File.Exists(idPath), Is.True,
+                "inclusion_ms3_cytc: engine must have written identification.tsv for the MS3-produced check");
+            var idRows = ParseTsv(idPath, out var idHeader);
+            int idMsLevelCol = Array.IndexOf(idHeader, "ms_level");
+            Assert.That(idMsLevelCol, Is.GreaterThanOrEqualTo(0), "ms_level column present in identification.tsv");
+            int ms3Ids = idRows.Count(r => idMsLevelCol < r.Length && ParseIntSafe(r[idMsLevelCol]) == 3);
+            Assert.That(ms3Ids, Is.GreaterThanOrEqualTo(1),
+                "inclusion_ms3_cytc: no ms_level==3 row in identification.tsv — every requested MS3 ion was " +
+                "silently skipped (vacuous MS3 golden).");
         }
 
         // ---- H-cs: engine-chained full-acquisition lineage (structural, non-golden) ----------

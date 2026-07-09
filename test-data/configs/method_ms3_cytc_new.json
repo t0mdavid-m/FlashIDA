@@ -78,7 +78,7 @@
         "Microscans": 4,
         "DataType": "Centroid",
         "Activation": "HCD",
-        "CollisionEnergy": 30
+        "CollisionEnergy": 35
       }
     ],
     "ms3": [
@@ -93,7 +93,7 @@
         "Microscans": 8,
         "DataType": "Centroid",
         "Activation": "CID",
-        "CollisionEnergy": 25
+        "CollisionEnergy": 30
       }
     ]
   },
@@ -104,12 +104,12 @@
     "timeout_ms": 30000
   },
   "characterization": {
-    "protein_sequence": "SHHWGYGKHNGPEHWHKDFPIANGERQSPVDIDTKAVVQDPALKPLALVYGEATSRRMVNNGHSFNVEYDDSQDKAVLKDGPLTGTYRLVQFHFHWGSSDDQGSEHTVDRKKYAAELHLVHWNTKYGDFGTAAQQPDGLAVVGVFLKVGDANPALQKVLDALDSIKTKGKSTDFPNFDPGSLLPNVLDYWTYPGSLTTPPLLESVTWIVLKEPISVSSQQMLKFRTLNFNAEGEPELLMLANWRPAQPLKNRQVRGFPK"
+    "protein_sequence": "GDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
   },
   "files": {
     "target_logs": [],
     "fasta": "",
-    "inclusion_list": "inclusion_ca.txt",
+    "inclusion_list": "inclusion_cytc_12307.txt",
     "ptm_list": ""
   },
   "selection_strategy": {
@@ -121,7 +121,8 @@
       "selection": "intensity"
     },
     "ms3": {
-      "selection": "none"
+      "selection": "intensity",
+      "max_targets": 200
     }
   }
 }
