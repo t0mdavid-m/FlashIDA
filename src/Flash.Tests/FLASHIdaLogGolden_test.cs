@@ -950,7 +950,16 @@ namespace Flash.Tests
             // Numeric-aware compare (CRLF-agnostic): cross-build OpenMS rebuilds jitter the logged FP scores
             // (ida.log) and score columns (scan_commands/scan_results .tsv) ~1e-8..3e-5 run to run, so exact match
             // can never converge. Float tokens tolerance; ids/counts/levels/sentinels/strings stay exact.
-            if (!GoldenNumericComparer.Equivalent(File.ReadAllText(goldenPath), normalized, out string diff))
+            //
+            // First apply the SAME compare-time canonicalization to BOTH sides: the engine dumps the MS1
+            // deconvolution (scan_results) and the MS2/MS3 fragment matches (identification) and ida.log's
+            // AllMass line in INTENSITY order, so near-tied entries swap position between non-deterministic
+            // CI builds. GoldenListCanonicalizer mass-sorts those parallel list-tuples symmetrically so a pure
+            // reorder matches while any value/count/int change still fails. It does NOT touch the stored
+            // golden bytes (no recapture) — only this in-memory comparison.
+            string goldenC = GoldenListCanonicalizer.Canonicalize(fileName, File.ReadAllText(goldenPath));
+            string freshC = GoldenListCanonicalizer.Canonicalize(fileName, normalized);
+            if (!GoldenNumericComparer.Equivalent(goldenC, freshC, out string diff))
                 return $"{fileName}: mismatch vs golden ({diff}). If intentional, recapture with LOG_GOLDEN_CAPTURE=1.";
             return null;
         }
