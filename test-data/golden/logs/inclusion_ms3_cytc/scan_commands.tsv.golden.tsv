@@ -1,0 +1,10 @@
+tracking_id	ms_level	scan_type	enqueue_ts	priority	faims_cv	mono_mass	charge	precursor_mz	isolation_width	collision_energy	activation	qscore	charge_cos	charge_snr	iso_cos	snr	charge_score	ppm_error	precursor_intensity	peakgroup_intensity	hcd_energy	parent_tracking_id	ion_type	ion_index	reaction_time	reagent_max_it	reagent_agc_target	scan_description	precursor_id	ms3_proteoform
+T0	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T0A	0	
+T1	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T1S	0	
+T2	2	recording	<TS>	2	0	12307.2	17	725.43	1.75338	35	HCD	0.92974	0.938859	56.0588	0.959485	110.007	0.897357	1.16164	1.65253e+07	1.00509e+08	35	T1		0	0	0	0	T2R12.3072k@17	1	
+T3	3	recording	<TS>	1	0	12307.2;4102.98	17;4	725.43;1027.5	1.75338;2	35;30	HCD;CID	0.92974;0.927547	0.938859;0.990351	56.0588;3.07181	0.959485;0.991211	110.007;3.38708	0.897357;1	1.16164;0.943327	1.65253e+07;107120	1.00509e+08;116636	35;30	T2	b	32	0;0	0;0	0;0	T3R4.110k@4b32	1	(GDVEKGKKIFVQKCAQCHTV)[+657.1760]EKGGKHKTGPNL
+T4	3	recording	<TS>	1	0	12307.2;2985.34	17;2	725.43;1494.68	1.75338;2.02455	35;30	HCD;CID	0.92974;0.915819	0.938859;0.972935	56.0588;10.8194	0.959485;0.979126	110.007;4.73218	0.897357;1	1.16164;0.98859	1.65253e+07;25337.9	1.00509e+08;41854.3	35;30	T2	b	21	0;0	0;0	0;0	T4R2.989k@2b21	1	(GDVEKGKKIFVQKCAQCHTV)[+657.1760]E
+T5	3	recording	<TS>	1	0	12307.2;3355.58	17;3	725.43;1120.2	1.75338;2	35;30	HCD;CID	0.92974;0.909066	0.938859;0.963794	56.0588;2.10234	0.959485;0.967344	110.007;4.82782	0.897357;1	1.16164;0.697541	1.65253e+07;22748.1	1.00509e+08;26132.9	35;30	T2	b	25	0;0	0;0	0;0	T5R3.361k@3b25	1	(GDVEKGKKIFVQKCAQCHTV)[+657.1760]EKGGK
+T6	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T6A	0	
+T7	1	survey	<TS>	3	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T7S	0	
+T8	1	agc	<TS>	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0	0	0			0	0	0	0	T8A	0	
