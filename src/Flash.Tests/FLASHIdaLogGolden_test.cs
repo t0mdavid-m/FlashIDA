@@ -236,7 +236,7 @@ namespace Flash.Tests
                 return;
             }
             RunCase("ms3_cytc", "method_ms3_cytc_real.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
-                    feedMs3: true, ms3Map: ms3Map);
+                    feedMs3: true, ms3Map: ms3Map, postDriveAssert: AssertMs3CytcLeafMatchesGroundTruth);
         }
 
         // Inclusion-pinned MS3 cytC golden built on the SECOND cytC fixture set (ms1_cytc2.txt /
@@ -541,6 +541,56 @@ namespace Flash.Tests
             Assert.That(ms3Ids, Is.GreaterThanOrEqualTo(1),
                 "inclusion_ms3_cytc: no ms_level==3 row in identification.tsv — every requested MS3 ion was " +
                 "silently skipped (vacuous MS3 golden).");
+        }
+
+        /// <summary>
+        /// End-to-end anchor for the MS3 leaf flip/mislocalization regression (Change L). Reads the RAW
+        /// identification.tsv the ms3_cytc drive produced and asserts precursor-1's per-event leaf `proteoform`
+        /// EQUALS the externally-grounded ground truth in test-data/reference/ms3_leaf_expected.tsv (the
+        /// owner-validated proformas for tracking ids !!& / !!'). This is deliberately NOT a byte-golden
+        /// re-capture: a golden compares the engine to its own last output (self-referential) and a future
+        /// blanket recapture could silently re-bless a regression; this compares the real pipeline to a fixed
+        /// external oracle, so the flip bug (-89 dragged off M1, ambiguity mislocalized) cannot come back
+        /// unnoticed. Only the deterministic localization is checked (not the jittering score columns).
+        /// </summary>
+        private static void AssertMs3CytcLeafMatchesGroundTruth(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            string idPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
+            Assert.That(File.Exists(idPath), Is.True,
+                "ms3_cytc: engine must have written identification.tsv for the ground-truth leaf check");
+            var idRows = ParseTsv(idPath, out var idHeader);
+            int tidCol = Array.IndexOf(idHeader, "tracking_id");
+            int pfCol = Array.IndexOf(idHeader, "proteoform");
+            int lvlCol = Array.IndexOf(idHeader, "ms_level");
+            Assert.That(tidCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: tracking_id column present in identification.tsv");
+            Assert.That(pfCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: proteoform column present in identification.tsv");
+            Assert.That(lvlCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms_level column present in identification.tsv");
+
+            string fixturePath = Path.Combine(TestDataDir, "reference", "ms3_leaf_expected.tsv");
+            Assert.That(File.Exists(fixturePath), Is.True,
+                $"ms3_cytc: ground-truth fixture missing: {fixturePath}");
+            var expected = ParseTsv(fixturePath, out var fxHeader);
+            int fxTid = Array.IndexOf(fxHeader, "tracking_id");
+            int fxPf = Array.IndexOf(fxHeader, "expected_proforma");
+            Assert.That(fxTid, Is.GreaterThanOrEqualTo(0), "ms3_cytc: tracking_id column present in the fixture");
+            Assert.That(fxPf, Is.GreaterThanOrEqualTo(0), "ms3_cytc: expected_proforma column present in the fixture");
+
+            foreach (var exp in expected)
+            {
+                if (fxTid >= exp.Length || fxPf >= exp.Length) continue;
+                string tid = exp[fxTid];
+                string wantPf = exp[fxPf];
+                var row = idRows.FirstOrDefault(r =>
+                    lvlCol < r.Length && ParseIntSafe(r[lvlCol]) == 3 &&
+                    tidCol < r.Length && r[tidCol] == tid);
+                Assert.That(row, Is.Not.Null,
+                    $"ms3_cytc: no MS3 identification row for tracking_id '{tid}' -- the ground-truth leaf anchor " +
+                    "cannot be checked (fixture/engine scan sequence drift).");
+                Assert.That(row[pfCol], Is.EqualTo(wantPf),
+                    $"ms3_cytc: per-event leaf proteoform for '{tid}' must equal the external ground truth " +
+                    $"(MS3 flip-localization regression). Expected '{wantPf}', got '{row[pfCol]}'.");
+            }
         }
 
         // ---- H-cs: engine-chained full-acquisition lineage (structural, non-golden) ----------
