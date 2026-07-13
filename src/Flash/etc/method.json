@@ -1,36 +1,36 @@
 {
   "global": {
-    "method_name": "MethodName",
-    "method_description": "Description",
-    "duration": 120
+    "method_name": "CytC MS3-all characterization (example)",
+    "method_description": "Direct-infusion cytochrome C: MS2 HCD CE-sweep + MS3 CID fragment-count exploration",
+    "duration": 30
   },
   "deconvolution": {
     "score_threshold": 0.0,
-    "tqscore_threshold": 0.9,
-    "min_charge": 4,
+    "tqscore_threshold": 0.1,
+    "min_charge": 1,
     "max_charge": 50,
-    "min_mass": 500,
+    "min_mass": 600,
     "max_mass": 50000,
     "tol": [
-      10,
-      10,
-      10
+      20,
+      20,
+      20
     ]
   },
   "precursor_selection": {
-    "RT_window": 180,
+    "RT_window": 120,
     "target_mode": 0,
-    "AllCharges": false,
-    "HCDEnergy": 29,
-    "strict_inclusion": false,
-    "tie_threshold": 0.1,
+    "AllCharges": true,
+    "HCDEnergy": 35,
+    "strict_inclusion": true,
+    "tie_threshold": 0.2,
     "ChargeBasedExclusion": false
   },
   "flashtnt": {
-    "min_length": 3,
-    "max_length": 8,
-    "max_ptm_count": 3,
-    "max_flanking_mass_diff": 50000,
+    "min_length": 4,
+    "max_length": 10,
+    "max_ptm_count": 5,
+    "max_flanking_mass_diff": 40000,
     "allow_gap": false,
     "max_aa_in_gap": 2,
     "fixed_mod": [],
@@ -41,58 +41,62 @@
   "conditional_ms2": false,
   "quantification": {
     "enabled": false,
-    "reporter_mz_tol": 0.002,
-    "fold_change_threshold": 1.4
+    "reporter_mz_tol": 0.003,
+    "fold_change_threshold": 2
   },
   "faims": {
     "cv_values": [
-      -50
+      0
     ],
-    "max_cv_skip": 0,
-    "cv_precursor_threshold": 15
+    "max_cv_skip": 2,
+    "cv_precursor_threshold": 20
   },
   "ms_settings": {
     "ms1": {
       "analyzer": "Orbitrap",
-      "first_mass": 500,
+      "first_mass": 400,
       "last_mass": 2000,
-      "resolution": 120000,
-      "agc_target": 800000,
-      "max_it": 246,
-      "microscans": 1,
-      "data_type": "Centroid",
-      "rf_lens": 30,
+      "resolution": 240000,
+      "agc_target": 4000000,
+      "max_it": 502,
+      "microscans": 4,
+      "rf_lens": 60,
+      "source_cid": 15,
       "source_cid_scaling": 0,
-      "source_cid": 15
+      "data_type": "Profile"
     },
     "ms2": [
       {
         "analyzer": "Orbitrap",
-        "first_mass": 100,
-        "last_mass": 2000,
+        "activation": "HCD",
+        "collision_energy": 35,
         "resolution": 120000,
         "agc_target": 500000,
-        "max_it": 100,
+        "max_it": 246,
+        "first_mass": 150,
+        "last_mass": 2000,
         "microscans": 4,
-        "data_type": "Centroid",
-        "activation": "ETD",
-        "reaction_time": 7,
-        "reagent_agc_target": 700000,
-        "reagent_max_it": 200
+        "data_type": "Profile",
+        "reaction_time": 0,
+        "reagent_max_it": 0,
+        "reagent_agc_target": 0
       }
     ],
     "ms3": [
       {
         "analyzer": "Orbitrap",
+        "activation": "CID",
+        "collision_energy": 30,
+        "resolution": 120000,
+        "agc_target": 500000000,
+        "max_it": 500,
         "first_mass": 200,
         "last_mass": 2000,
-        "resolution": 240000,
-        "agc_target": 50000000,
-        "max_it": 500,
         "microscans": 8,
-        "data_type": "Centroid",
-        "activation": "CID",
-        "collision_energy": 25
+        "data_type": "Profile",
+        "reaction_time": 0,
+        "reagent_max_it": 0,
+        "reagent_agc_target": 0
       }
     ]
   },
@@ -108,7 +112,9 @@
     "agc_interval_seconds": 30
   },
   "characterization": {
-    "protein_sequence": "SEQUENCE"
+    "objective": "ambiguity",
+    "protein_sequence": "GDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE",
+    "ms3_all_charges": false
   },
   "files": {
     "target_logs": [],
@@ -119,13 +125,54 @@
   "selection_strategy": {
     "ms1": {
       "selection": "qscore",
-      "max_targets": 1
+      "max_targets": 1,
+      "min_charge": 0,
+      "exploration": {
+        "metric": "none",
+        "ce_min": 20,
+        "ce_max": 40,
+        "ce_step": 1,
+        "overrides": null,
+        "remaining_precursor_target": 0.1,
+        "rt_min": 0,
+        "rt_max": 0,
+        "rt_step": 1,
+        "activations": null
+      }
     },
     "ms2": {
-      "selection": "intensity"
+      "selection": "intensity",
+      "max_targets": 1000,
+      "min_charge": 0,
+      "exploration": {
+        "metric": "mass_count",
+        "ce_min": 30,
+        "ce_max": 50,
+        "ce_step": 2,
+        "overrides": null,
+        "remaining_precursor_target": 0.1,
+        "rt_min": 0,
+        "rt_max": 0,
+        "rt_step": 1,
+        "activations": null
+      }
     },
     "ms3": {
-      "selection": "none"
+      "selection": "intensity",
+      "max_targets": 1000,
+      "min_charge": 0,
+      "exploration": {
+        "metric": "fragment_count",
+        "ce_min": 15,
+        "ce_max": 40,
+        "ce_step": 2,
+        "overrides": null,
+        "remaining_precursor_target": 0.1,
+        "rt_min": 0,
+        "rt_max": 0,
+        "rt_step": 1,
+        "activations": null
+      }
     }
   }
 }
