@@ -42,58 +42,69 @@ namespace Flash.Tests
             var serializer = new JavaScriptSerializer();
             var parsed = serializer.Deserialize<Dictionary<string, object>>(json);
             string[] requiredKeys = new[] {
-                "deconvolution", "precursor_selection", "tagging",
+                "global", "deconvolution", "precursor_selection", "flashtnt", "tagging",
                 "quantification", "faims", "ms_settings",
-                "scheduling", "exploration", "files"
+                "scheduling", "selection_strategy", "characterization", "files", "runtime"
             };
             foreach (var key in requiredKeys)
                 Assert.IsTrue(parsed.ContainsKey(key), "Missing key: " + key);
         }
 
         [Test, Category("Tier1")]
-        public void ToCppJson_DefaultMatchesGoldenFile()
+        public void FlashTnT_Defaults_PreserveCurrentBehavior()
         {
+            // A migrated config with a default flashtnt block must reproduce today's behavior.
             var mp = LoadJsonMethod("method_default.json");
-            string json = mp.ToCppJson();
-            string goldenPath = Path.Combine(TestDataDir, "json", "config_default.json");
-            Assert.IsTrue(File.Exists(goldenPath), "Golden file not found: " + goldenPath);
-            string goldenJson = File.ReadAllText(goldenPath);
-            var serializer = new JavaScriptSerializer();
-            var actual = serializer.Deserialize<Dictionary<string, object>>(json);
-            var expected = serializer.Deserialize<Dictionary<string, object>>(goldenJson);
-            CompareJsonSection(actual, expected, "deconvolution",
-                "score_threshold", "tqscore_threshold", "min_charge", "max_charge",
-                "min_mass", "max_mass", "tol");
-            CompareJsonSection(actual, expected, "precursor_selection",
-                "RT_window", "target_mode", "AllCharges",
-                "HCDEnergy", "strict_inclusion", "tie_threshold");
-            CompareJsonSection(actual, expected, "tagging",
-                "min_tag_length", "max_tag_length", "max_ptm_count", "max_flanking_mass_diff");
+            Assert.AreEqual(3, mp.Config.FlashTnT.MinLength);
+            Assert.AreEqual(8, mp.Config.FlashTnT.MaxLength);
+            Assert.AreEqual(3, mp.Config.FlashTnT.MaxPtmCount);
+            Assert.AreEqual(2, mp.Config.FlashTnT.MaxAaInGap);
+            Assert.IsFalse(mp.Config.FlashTnT.AllowGap);
+            Assert.AreEqual(2, mp.Config.FlashTnT.MaxBlindModCount);
+            // Load-bearing: 700 (prior hardcoded MS2 value), NOT the extender's own 500 default.
+            Assert.AreEqual(700.0, mp.Config.FlashTnT.MaxModMass, 0.001);
+            var cpp = mp.ToCppJson();
+            Assert.IsTrue(cpp.Contains("\"max_mod_mass\":700") || cpp.Contains("\"max_mod_mass\": 700"),
+                "ToCppJson must emit flashtnt.max_mod_mass = 700");
         }
 
         [Test, Category("Tier1")]
-        public void ToCppJson_FullMatchesGoldenFile()
+        public void FlashTnT_Deserialize_ReadsAllParams()
         {
-            var mp = LoadJsonMethod("method_json_roundtrip.json");
-            string json = mp.ToCppJson();
-            string goldenPath = Path.Combine(TestDataDir, "json", "config_full.json");
-            Assert.IsTrue(File.Exists(goldenPath), "Golden file not found: " + goldenPath);
-            string goldenJson = File.ReadAllText(goldenPath);
-            var serializer = new JavaScriptSerializer();
-            var actual = serializer.Deserialize<Dictionary<string, object>>(json);
-            var expected = serializer.Deserialize<Dictionary<string, object>>(goldenJson);
-            CompareJsonSection(actual, expected, "deconvolution",
-                "score_threshold", "tqscore_threshold", "min_charge", "max_charge",
-                "min_mass", "max_mass", "tol");
-            CompareJsonSection(actual, expected, "precursor_selection",
-                "RT_window", "target_mode", "AllCharges",
-                "HCDEnergy", "strict_inclusion", "tie_threshold");
-            var msSettings = (Dictionary<string, object>)actual["ms_settings"];
-            var ms2Array = (System.Collections.ArrayList)msSettings["ms2"];
-            Assert.AreEqual(2, ms2Array.Count, "Should have 2 MS2 entries");
-            var faims = (Dictionary<string, object>)actual["faims"];
-            var cvValues = (System.Collections.ArrayList)faims["cv_values"];
-            Assert.AreEqual(3, cvValues.Count, "Should have 3 FAIMS CVs");
+            string json = @"{
+                ""flashtnt"": {
+                    ""min_length"": 5, ""max_length"": 12, ""max_ptm_count"": 6,
+                    ""max_flanking_mass_diff"": 42000, ""allow_gap"": true, ""max_aa_in_gap"": 3,
+                    ""fixed_mod"": [""Carbamidomethyl (C)""], ""max_blind_mod_count"": 4, ""max_mod_mass"": 650
+                }
+            }";
+            var config = MethodConfigSerializer.Deserialize(json);
+            Assert.AreEqual(5, config.FlashTnT.MinLength);
+            Assert.AreEqual(12, config.FlashTnT.MaxLength);
+            Assert.AreEqual(6, config.FlashTnT.MaxPtmCount);
+            Assert.AreEqual(42000.0, config.FlashTnT.MaxFlankingMassDiff, 0.001);
+            Assert.IsTrue(config.FlashTnT.AllowGap);
+            Assert.AreEqual(3, config.FlashTnT.MaxAaInGap);
+            Assert.AreEqual(1, config.FlashTnT.FixedMod.Count);
+            Assert.AreEqual("Carbamidomethyl (C)", config.FlashTnT.FixedMod[0]);
+            Assert.AreEqual(4, config.FlashTnT.MaxBlindModCount);
+            Assert.AreEqual(650.0, config.FlashTnT.MaxModMass, 0.001);
+        }
+
+        [Test, Category("Tier1")]
+        public void FlashTnT_ToCppJson_EmitsFlashtntBlock_NotUnderTagging()
+        {
+            var mp = LoadJsonMethod("method_default.json");
+            var parsed = new JavaScriptSerializer()
+                .Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            Assert.IsTrue(parsed.ContainsKey("flashtnt"), "ToCppJson must emit a flashtnt block");
+            var ft = (Dictionary<string, object>)parsed["flashtnt"];
+            Assert.IsTrue(ft.ContainsKey("min_length"));
+            Assert.IsTrue(ft.ContainsKey("max_mod_mass"));
+            // The four moved keys must NOT remain under tagging.
+            if (parsed.ContainsKey("tagging") && parsed["tagging"] is Dictionary<string, object> tagging)
+                Assert.IsFalse(tagging.ContainsKey("min_tag_length"),
+                    "min_tag_length must have moved out of tagging into flashtnt");
         }
 
         [Test, Category("Tier1")]
@@ -143,37 +154,6 @@ namespace Flash.Tests
             Assert.AreEqual(mp.Config.PrecursorSelection.RTWindow, config2.PrecursorSelection.RTWindow);
             Assert.AreEqual(mp.Config.PrecursorSelection.HCDEnergy, config2.PrecursorSelection.HCDEnergy);
             Assert.AreEqual(mp.Config.Faims.CVValues.Length, config2.Faims.CVValues.Length);
-        }
-
-        private static void CompareJsonSection(
-            Dictionary<string, object> actual,
-            Dictionary<string, object> expected,
-            string section, params string[] fields)
-        {
-            var actSection = (Dictionary<string, object>)actual[section];
-            var expSection = (Dictionary<string, object>)expected[section];
-            foreach (var field in fields)
-            {
-                var exp = expSection[field];
-                var act = actSection[field];
-                if (exp is bool)
-                    Assert.AreEqual((bool)exp, (bool)act, string.Format("{0}.{1} mismatch", section, field));
-                else if (exp is System.Collections.ArrayList)
-                    CompareJsonArray((System.Collections.ArrayList)exp, (System.Collections.ArrayList)act,
-                        string.Format("{0}.{1}", section, field));
-                else
-                    Assert.AreEqual(Convert.ToDouble(exp), Convert.ToDouble(act), 0.001,
-                        string.Format("{0}.{1} mismatch", section, field));
-            }
-        }
-
-        private static void CompareJsonArray(System.Collections.ArrayList expected,
-            System.Collections.ArrayList actual, string path)
-        {
-            Assert.AreEqual(expected.Count, actual.Count, path + " length mismatch");
-            for (int i = 0; i < expected.Count; i++)
-                Assert.AreEqual(Convert.ToDouble(expected[i]), Convert.ToDouble(actual[i]), 0.001,
-                    string.Format("{0}[{1}] mismatch", path, i));
         }
 
         [Test, Category("Tier1")]

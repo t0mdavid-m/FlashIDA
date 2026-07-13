@@ -100,19 +100,16 @@ namespace Flash
         public string ToCppJson()
         {
             var c = Config;
-            int targetMode;
-            switch (c.PrecursorSelection.TargetingMode?.ToLower())
-            {
-                case "deep": targetMode = 3; break;
-                case "exclusion": targetMode = 2; break;
-                case "inclusion": targetMode = 1; break;
-                default: targetMode = 0; break;
-            }
-
             var ms2List = c.MsSettings.MS2 ?? new List<MS2Parameters>();
 
             var config = new JsonMethodConfig
             {
+                global = new JsonGlobalConfig
+                {
+                    method_name = c.Global.MethodName ?? "",
+                    method_description = c.Global.MethodDescription ?? "",
+                    duration = c.Global.Duration
+                },
                 deconvolution = new JsonDeconvolutionConfig
                 {
                     score_threshold = c.Deconvolution.ScoreThreshold,
@@ -126,19 +123,27 @@ namespace Flash
                 precursor_selection = new JsonPrecursorSelectionConfig
                 {
                     RT_window = c.PrecursorSelection.RTWindow,
-                    target_mode = targetMode,
+                    target_mode = c.PrecursorSelection.TargetMode,
                     AllCharges = c.PrecursorSelection.ConsiderAllChargeStates,
                     HCDEnergy = c.PrecursorSelection.HCDEnergy,
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
                     tie_threshold = c.PrecursorSelection.TieThreshold,
                     ChargeBasedExclusion = c.PrecursorSelection.ChargeBasedExclusion
                 },
+                flashtnt = new JsonFlashTnTConfig
+                {
+                    min_length = c.FlashTnT.MinLength,
+                    max_length = c.FlashTnT.MaxLength,
+                    max_ptm_count = c.FlashTnT.MaxPtmCount,
+                    max_flanking_mass_diff = c.FlashTnT.MaxFlankingMassDiff,
+                    allow_gap = c.FlashTnT.AllowGap,
+                    max_aa_in_gap = c.FlashTnT.MaxAaInGap,
+                    fixed_mod = (c.FlashTnT.FixedMod ?? new List<string>()).ToArray(),
+                    max_blind_mod_count = c.FlashTnT.MaxBlindModCount,
+                    max_mod_mass = c.FlashTnT.MaxModMass
+                },
                 tagging = new JsonTaggingConfig
                 {
-                    min_tag_length = c.Tagging.MinTagLength,
-                    max_tag_length = c.Tagging.MaxTagLength,
-                    max_ptm_count = c.Tagging.MaxPtmCount,
-                    max_flanking_mass_diff = c.Tagging.MaxFlankingMassDiff,
                     follow_up_scan = c.Tagging.FollowUpScan.HasValue ? new JsonMs2Config
                     {
                         analyzer = c.Tagging.FollowUpScan.Value.Analyzer ?? "",
@@ -222,21 +227,15 @@ namespace Flash
                 {
                     cycle_time = new JsonCycleTimeConfig
                     {
-                        enabled = c.Scheduling.CycleTimeEnabled,
-                        value_ms = c.Scheduling.CycleTimeMs
+                        enabled = c.Scheduling.CycleTime.Enabled,
+                        value_ms = c.Scheduling.CycleTime.ValueMs
                     },
                     scan_timeout = new JsonScanTimeoutConfig
                     {
-                        enabled = c.Scheduling.TimeoutEnabled,
-                        value_ms = c.Scheduling.TimeoutMs
+                        enabled = c.Scheduling.ScanTimeout.Enabled,
+                        value_ms = c.Scheduling.ScanTimeout.ValueMs
                     },
-                    agc_interval_seconds = 30
-                },
-                exploration = new JsonExplorationConfig
-                {
-                    enabled = false,
-                    max_depth = 1,
-                    max_variants = 5
+                    agc_interval_seconds = c.Scheduling.AgcIntervalSeconds
                 },
                 selection_strategy = BuildSelectionStrategy(),
                 characterization = new JsonCharacterizationConfig
@@ -358,12 +357,12 @@ namespace Flash
                 c.Deconvolution.MinMass, c.Deconvolution.MaxMass,
                 String.Join(",", c.Deconvolution.Tolerances));
             sb.AppendFormat("Precursor: RTWindow={0}s, TargetMode={1}\n",
-                c.PrecursorSelection.RTWindow, c.PrecursorSelection.TargetingMode);
+                c.PrecursorSelection.RTWindow, c.PrecursorSelection.TargetMode);
             sb.AppendFormat("Inclusion: Strict={0}, TieThreshold={1}\n",
                 c.PrecursorSelection.StrictInclusion, c.PrecursorSelection.TieThreshold);
             if (c.Tagging.Active)
                 sb.AppendFormat("Tagging: ConditionalMS2={0}, Tags=[{1},{2}], MaxPtm={3}\n",
-                    c.Tagging.ConditionalMS2, c.Tagging.MinTagLength, c.Tagging.MaxTagLength, c.Tagging.MaxPtmCount);
+                    c.Tagging.ConditionalMS2, c.FlashTnT.MinLength, c.FlashTnT.MaxLength, c.FlashTnT.MaxPtmCount);
             else
                 sb.AppendLine("Tagging: Off");
             if (c.Quantification.Active)

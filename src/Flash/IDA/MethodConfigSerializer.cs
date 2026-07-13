@@ -72,6 +72,12 @@ namespace Flash
                 rootProp.SetValue(config, sectionObj);
             }
 
+            // conditional_ms2 lives at the TOP level of the bridge schema (not under a section);
+            // map it onto Tagging.ConditionalMS2 (fall back to a nested tagging.conditional_ms2).
+            object condObj;
+            if (raw.TryGetValue("conditional_ms2", out condObj) && condObj != null)
+                config.Tagging.ConditionalMS2 = Convert.ToBoolean(condObj);
+
             return config;
         }
 
@@ -309,8 +315,21 @@ namespace Flash
         }
 
         /// <summary>
+        /// Normalize a JSON key or struct field name for tolerant matching: strip underscores and
+        /// lowercase, so bridge snake_case (first_mass) binds onto PascalCase Thermo fields
+        /// (FirstMass). Also aliases the bridge "resolution" key onto the OrbitrapResolution field.
+        /// </summary>
+        private static string NormalizeFieldName(string name)
+        {
+            string n = name.Replace("_", "").ToLowerInvariant();
+            if (n == "resolution")
+                n = "orbitrapresolution";
+            return n;
+        }
+
+        /// <summary>
         /// Populate a struct's public fields from a JSON dictionary, matching by field name
-        /// (case-insensitive).
+        /// (exact, then case-insensitive, then normalized snake_case).
         /// </summary>
         private static object PopulateStruct(Type structType, Dictionary<string, object> dict)
         {
@@ -319,15 +338,18 @@ namespace Flash
             foreach (FieldInfo field in structType.GetFields(
                 BindingFlags.Public | BindingFlags.Instance))
             {
-                // Try exact match first, then case-insensitive
+                // Try exact match, then case-insensitive, then normalized (strip underscores) so the
+                // bridge snake_case ms_settings keys (first_mass) bind onto the PascalCase Thermo
+                // struct fields (FirstMass); NormalizeFieldName also aliases "resolution"->OrbitrapResolution.
                 object rawValue;
                 if (!dict.TryGetValue(field.Name, out rawValue))
                 {
-                    // Case-insensitive fallback
                     bool found = false;
+                    string fieldNorm = NormalizeFieldName(field.Name);
                     foreach (var kvp in dict)
                     {
-                        if (string.Equals(kvp.Key, field.Name, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(kvp.Key, field.Name, StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(NormalizeFieldName(kvp.Key), fieldNorm, StringComparison.Ordinal))
                         {
                             rawValue = kvp.Value;
                             found = true;

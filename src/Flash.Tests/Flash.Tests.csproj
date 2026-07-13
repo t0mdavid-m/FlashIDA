@@ -88,6 +88,7 @@
   <ItemGroup>
     <Compile Include="SmokeTests.cs" />
     <Compile Include="JsonConfigTests.cs" />
+    <Compile Include="ConfigSchemaParityTests.cs" />
     <Compile Include="LogGoldenComparer.cs" />
     <Compile Include="FLASHIdaLogGolden_test.cs" />
     <Compile Include="GoldenCaptureTests.cs" />

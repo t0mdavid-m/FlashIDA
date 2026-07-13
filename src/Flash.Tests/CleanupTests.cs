@@ -43,8 +43,8 @@ namespace Flash.Tests
                 "Output should contain score_threshold");
             Assert.That(output, Does.Contain("min_charge"),
                 "Output should contain min_charge");
-            Assert.That(output, Does.Contain("hcd_energy"),
-                "Output should contain hcd_energy");
+            Assert.That(output, Does.Contain("HCDEnergy"),
+                "Output should contain HCDEnergy (bridge key)");
         }
     }
 }

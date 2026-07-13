@@ -18,40 +18,38 @@
     ]
   },
   "precursor_selection": {
-    "rt_window": 180,
-    "targeting_mode": "none",
+    "RT_window": 180,
+    "target_mode": 0,
+    "AllCharges": false,
+    "HCDEnergy": 29,
     "strict_inclusion": false,
-    "tie_threshold": 0.1
+    "tie_threshold": 0.1,
+    "ChargeBasedExclusion": false
   },
-  "tagging": {
-    "active": false,
-    "conditional_ms2": false,
-    "min_tag_length": 3,
-    "max_tag_length": 8,
+  "flashtnt": {
+    "min_length": 3,
+    "max_length": 8,
     "max_ptm_count": 3,
-    "max_flanking_mass_diff": 50000
+    "max_flanking_mass_diff": 50000,
+    "allow_gap": false,
+    "max_aa_in_gap": 2,
+    "fixed_mod": [],
+    "max_blind_mod_count": 2,
+    "max_mod_mass": 700
   },
+  "tagging": {},
+  "conditional_ms2": false,
   "quantification": {
-    "active": false,
+    "enabled": false,
     "reporter_mz_tol": 0.002,
-    "fold_change_threshold": 1.4,
-    "only_one_condition": false
+    "fold_change_threshold": 1.4
   },
   "faims": {
     "cv_values": [
       -50
-    ]
-  },
-  "developer": {
-    "precursor_selection": {
-      "use_id_score": false,
-      "consider_all_charges": false,
-      "hcd_energy": 29
-    },
-    "faims": {
-      "max_cv_skip": 0,
-      "mass_threshold": 15
-    }
+    ],
+    "max_cv_skip": 0,
+    "cv_precursor_threshold": 15
   },
   "ms_settings": {
     "ms1": {
@@ -98,10 +96,15 @@
     ]
   },
   "scheduling": {
-    "cycle_time_enabled": false,
-    "cycle_time_ms": 60000,
-    "timeout_enabled": false,
-    "timeout_ms": 30000
+    "cycle_time": {
+      "enabled": false,
+      "value_ms": 60000
+    },
+    "scan_timeout": {
+      "enabled": false,
+      "value_ms": 30000
+    },
+    "agc_interval_seconds": 30
   },
   "characterization": {
     "protein_sequence": "GDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFSYTDANKNKGITWGEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"

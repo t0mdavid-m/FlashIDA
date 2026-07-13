@@ -60,13 +60,13 @@ namespace Flash
     [JsonKey("precursor_selection")]
     public class PrecursorSelectionConfig
     {
-        [JsonKey("rt_window")]
+        [JsonKey("RT_window")]
         [Description("Retention time window in seconds for precursor tracking")]
         public double RTWindow { get; set; } = 180;
 
-        [JsonKey("targeting_mode")]
-        [Description("Targeting mode: none, inclusion, exclusion, or deep")]
-        public string TargetingMode { get; set; } = "none";
+        [JsonKey("target_mode")]
+        [Description("Targeting mode: 0=none, 1=inclusion, 2=exclusion, 3=deep")]
+        public int TargetMode { get; set; } = 0;
 
         [JsonKey("strict_inclusion")]
         [Description("If true, only acquire targets from the inclusion list")]
@@ -76,18 +76,15 @@ namespace Flash
         [Description("Tie-breaking threshold for precursor ranking")]
         public double TieThreshold { get; set; } = 0.1;
 
-        [Developer]
-        [JsonKey("consider_all_charges")]
+        [JsonKey("AllCharges")]
         [Description("Consider all charge states for precursor selection")]
         public bool ConsiderAllChargeStates { get; set; }
 
-        [Developer]
-        [JsonKey("hcd_energy")]
+        [JsonKey("HCDEnergy")]
         [Description("HCD collision energy for charge-state determination")]
         public int HCDEnergy { get; set; } = 29;
 
-        [Developer]
-        [JsonKey("charge_based_exclusion")]
+        [JsonKey("ChargeBasedExclusion")]
         [Description("Treat each (mass, charge) as an independent acquisition target; the mass itself is never globally excluded.")]
         public bool ChargeBasedExclusion { get; set; }
     }
@@ -103,31 +100,55 @@ namespace Flash
         [Description("Use conditional MS2 based on tag results")]
         public bool ConditionalMS2 { get; set; }
 
-        [JsonKey("min_tag_length")]
-        [Description("Minimum sequence tag length")]
-        public int MinTagLength { get; set; } = 3;
-
-        [JsonKey("max_tag_length")]
-        [Description("Maximum sequence tag length")]
-        public int MaxTagLength { get; set; } = 8;
-
-        [JsonKey("max_ptm_count")]
-        [Description("Maximum number of PTMs to consider per tag")]
-        public int MaxPtmCount { get; set; } = 3;
-
-        [JsonKey("max_flanking_mass_diff")]
-        [Description("Maximum flanking mass difference in Da")]
-        public double MaxFlankingMassDiff { get; set; } = 50000;
-
         [JsonKey("follow_up_scan")]
         [Description("Follow-up scan config for conditional MS2")]
         public MS2Parameters? FollowUpScan { get; set; }
     }
 
+    [JsonKey("flashtnt")]
+    public class FlashTnTConfig
+    {
+        [JsonKey("min_length")]
+        [Description("Minimum sequence tag length (FLASHTagger)")]
+        public int MinLength { get; set; } = 3;
+
+        [JsonKey("max_length")]
+        [Description("Maximum sequence tag length (FLASHTagger)")]
+        public int MaxLength { get; set; } = 8;
+
+        [JsonKey("max_ptm_count")]
+        [Description("Maximum number of PTMs per proteoform during expansion")]
+        public int MaxPtmCount { get; set; } = 3;
+
+        [JsonKey("max_flanking_mass_diff")]
+        [Description("Maximum flanking mass difference in Da (FLASHTagger)")]
+        public double MaxFlankingMassDiff { get; set; } = 50000;
+
+        [JsonKey("allow_gap")]
+        [Description("Allow mass gaps in sequence tags (FLASHTagger)")]
+        public bool AllowGap { get; set; } = false;
+
+        [JsonKey("max_aa_in_gap")]
+        [Description("Maximum amino acids in a tag mass gap (FLASHTagger)")]
+        public int MaxAaInGap { get; set; } = 2;
+
+        [JsonKey("fixed_mod")]
+        [Description("Fixed modifications applied by the tagger and extender")]
+        public List<string> FixedMod { get; set; } = new List<string>();
+
+        [JsonKey("max_blind_mod_count")]
+        [Description("Maximum blind modifications per proteoform (FLASHExtender)")]
+        public int MaxBlindModCount { get; set; } = 2;
+
+        [JsonKey("max_mod_mass")]
+        [Description("Maximum absolute mass of a blind modification in Da (FLASHExtender). 700 preserves prior behavior.")]
+        public double MaxModMass { get; set; } = 700;
+    }
+
     [JsonKey("quantification")]
     public class QuantificationConfig
     {
-        [JsonKey("active")]
+        [JsonKey("enabled")]
         [Description("Enable isobaric labeling quantification")]
         public bool Active { get; set; }
 
@@ -155,13 +176,11 @@ namespace Flash
         [Description("FAIMS compensation voltage values to cycle through")]
         public double[] CVValues { get; set; } = new double[] { -50 };
 
-        [Developer]
         [JsonKey("max_cv_skip")]
         [Description("Maximum number of FAIMS CV cycles to skip")]
         public int MaxCVSkip { get; set; }
 
-        [Developer]
-        [JsonKey("mass_threshold")]
+        [JsonKey("cv_precursor_threshold")]
         [Description("Mass threshold for FAIMS CV precursor grouping")]
         public int MassThreshold { get; set; } = 15;
     }
@@ -179,24 +198,42 @@ namespace Flash
         public List<MS3Parameters> MS3 { get; set; } = new List<MS3Parameters>();
     }
 
+    [JsonKey("cycle_time")]
+    public class CycleTimeConfig
+    {
+        [JsonKey("enabled")]
+        [Description("Enable cycle time limit")]
+        public bool Enabled { get; set; }
+
+        [JsonKey("value_ms")]
+        [Description("Maximum cycle time in milliseconds")]
+        public double ValueMs { get; set; } = 60000;
+    }
+
+    [JsonKey("scan_timeout")]
+    public class ScanTimeoutConfig
+    {
+        [JsonKey("enabled")]
+        [Description("Enable scan timeout")]
+        public bool Enabled { get; set; }
+
+        [JsonKey("value_ms")]
+        [Description("Scan timeout in milliseconds")]
+        public double ValueMs { get; set; } = 30000;
+    }
+
     [JsonKey("scheduling")]
     public class SchedulingConfig
     {
-        [JsonKey("cycle_time_enabled")]
-        [Description("Enable cycle time limit")]
-        public bool CycleTimeEnabled { get; set; }
+        [JsonKey("cycle_time")]
+        public CycleTimeConfig CycleTime { get; set; } = new CycleTimeConfig();
 
-        [JsonKey("cycle_time_ms")]
-        [Description("Maximum cycle time in milliseconds")]
-        public double CycleTimeMs { get; set; } = 60000;
+        [JsonKey("scan_timeout")]
+        public ScanTimeoutConfig ScanTimeout { get; set; } = new ScanTimeoutConfig();
 
-        [JsonKey("timeout_enabled")]
-        [Description("Enable scan timeout")]
-        public bool TimeoutEnabled { get; set; }
-
-        [JsonKey("timeout_ms")]
-        [Description("Scan timeout in milliseconds")]
-        public double TimeoutMs { get; set; } = 30000;
+        [JsonKey("agc_interval_seconds")]
+        [Description("AGC recalculation interval in seconds")]
+        public double AgcIntervalSeconds { get; set; } = 30;
     }
 
     [JsonKey("characterization")]
@@ -363,6 +400,9 @@ namespace Flash
         [JsonKey("tagging")]
         public TaggingConfig Tagging { get; set; } = new TaggingConfig();
 
+        [JsonKey("flashtnt")]
+        public FlashTnTConfig FlashTnT { get; set; } = new FlashTnTConfig();
+
         [JsonKey("quantification")]
         public QuantificationConfig Quantification { get; set; } = new QuantificationConfig();
 
@@ -433,11 +473,27 @@ namespace Flash
 
     public class JsonTaggingConfig
     {
-        public int min_tag_length { get; set; }
-        public int max_tag_length { get; set; }
+        public JsonMs2Config follow_up_scan { get; set; }
+    }
+
+    public class JsonFlashTnTConfig
+    {
+        public int min_length { get; set; }
+        public int max_length { get; set; }
         public int max_ptm_count { get; set; }
         public double max_flanking_mass_diff { get; set; }
-        public JsonMs2Config follow_up_scan { get; set; }
+        public bool allow_gap { get; set; }
+        public int max_aa_in_gap { get; set; }
+        public string[] fixed_mod { get; set; }
+        public int max_blind_mod_count { get; set; }
+        public double max_mod_mass { get; set; }
+    }
+
+    public class JsonGlobalConfig
+    {
+        public string method_name { get; set; }
+        public string method_description { get; set; }
+        public double duration { get; set; }
     }
 
     public class JsonQuantificationConfig
@@ -582,14 +638,15 @@ namespace Flash
 
     public class JsonMethodConfig
     {
+        public JsonGlobalConfig global { get; set; }
         public JsonDeconvolutionConfig deconvolution { get; set; }
         public JsonPrecursorSelectionConfig precursor_selection { get; set; }
+        public JsonFlashTnTConfig flashtnt { get; set; }
         public JsonTaggingConfig tagging { get; set; }
         public JsonQuantificationConfig quantification { get; set; }
         public JsonFaimsConfig faims { get; set; }
         public JsonMsSettingsConfig ms_settings { get; set; }
         public JsonSchedulingConfig scheduling { get; set; }
-        public JsonExplorationConfig exploration { get; set; }
         public JsonFilesConfig files { get; set; }
         public JsonCharacterizationConfig characterization { get; set; }
         public bool conditional_ms2 { get; set; }
