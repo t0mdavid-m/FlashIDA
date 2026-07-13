@@ -23,6 +23,11 @@ namespace Flash
         public static MethodConfig Deserialize(string json)
         {
             var raw = Serializer.Deserialize<Dictionary<string, object>>(json);
+
+            // Strict schema: reject any key with no home in the model (mistyped, PascalCase,
+            // legacy 'developer', dropped 'IsolationMode', …) before populating.
+            ValidateNoUnknownKeys(raw);
+
             var config = new MethodConfig();
 
             // Get the developer section (if present)
@@ -133,6 +138,117 @@ namespace Flash
         {
             var attr = type.GetCustomAttribute<JsonKeyAttribute>();
             return attr != null ? attr.Key : null;
+        }
+
+        // ----------------------------------------------------------------
+        // Strict schema validation — reject unknown keys
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Reject any key that has no home in the model tree. Walks the raw JSON against the
+        /// <see cref="MethodConfig"/> shape and throws (naming every offending dotted path) if a
+        /// key matches no [JsonKey] property/field. Keys are case-sensitive snake_case. The
+        /// dynamic <c>selection_strategy.*.exploration.overrides</c> dictionary is exempt.
+        /// </summary>
+        private static void ValidateNoUnknownKeys(Dictionary<string, object> raw)
+        {
+            var problems = new List<string>();
+            var topAllowed = BuildAllowedKeyMap(typeof(MethodConfig));
+
+            foreach (var kv in raw)
+            {
+                if (kv.Key == "conditional_ms2")   // top-level bool handled specially by Deserialize
+                    continue;
+
+                Type memberType;
+                if (!topAllowed.TryGetValue(kv.Key, out memberType))
+                {
+                    problems.Add(kv.Key);
+                    continue;
+                }
+                CollectUnknownKeys(kv.Value, memberType, kv.Key, problems);
+            }
+
+            if (problems.Count > 0)
+                throw new ArgumentException(
+                    "Unknown config key(s) not in the FLASHIda schema: " + string.Join(", ", problems)
+                    + ". Keys are case-sensitive snake_case; see FlashIDA/test-data/config_schema_reference.json.");
+        }
+
+        /// <summary>Recurse a raw JSON node against its model type, collecting unknown keys.</summary>
+        private static void CollectUnknownKeys(object rawNode, Type modelType, string path, List<string> problems)
+        {
+            modelType = Nullable.GetUnderlyingType(modelType) ?? modelType;
+
+            // Arrays / lists: validate each element against the element type.
+            var list = rawNode as ArrayList;
+            if (list != null)
+            {
+                Type elemType = GetElementType(modelType);
+                if (elemType != null)
+                    for (int i = 0; i < list.Count; i++)
+                        CollectUnknownKeys(list[i], elemType, path + "[" + i + "]", problems);
+                return;
+            }
+
+            var dict = rawNode as Dictionary<string, object>;
+            if (dict == null)
+                return;   // primitive leaf
+
+            // Dynamic string->string dictionaries (exploration.overrides): any key allowed.
+            if (modelType.IsGenericType && modelType.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                return;
+
+            var allowed = BuildAllowedKeyMap(modelType);
+            foreach (var kv in dict)
+            {
+                string childPath = path + "." + kv.Key;
+                Type memberType;
+                if (!allowed.TryGetValue(kv.Key, out memberType))
+                {
+                    problems.Add(childPath);
+                    continue;
+                }
+                CollectUnknownKeys(kv.Value, memberType, childPath, problems);
+            }
+        }
+
+        /// <summary>Map a model type's allowed JSON keys to their member types: struct [JsonKey]
+        /// fields, or class [JsonKey] properties.</summary>
+        private static Dictionary<string, Type> BuildAllowedKeyMap(Type type)
+        {
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            var map = new Dictionary<string, Type>();
+
+            bool isStruct = type.IsValueType && !type.IsPrimitive && !type.IsEnum
+                && type != typeof(decimal) && type != typeof(double)
+                && type != typeof(int) && type != typeof(bool);
+
+            if (isStruct)
+            {
+                foreach (FieldInfo f in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    var a = f.GetCustomAttribute<JsonKeyAttribute>();
+                    if (a != null) map[a.Key] = f.FieldType;
+                }
+            }
+            else
+            {
+                foreach (PropertyInfo p in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    var a = p.GetCustomAttribute<JsonKeyAttribute>();
+                    if (a != null) map[a.Key] = p.PropertyType;
+                }
+            }
+            return map;
+        }
+
+        private static Type GetElementType(Type type)
+        {
+            if (type.IsArray) return type.GetElementType();
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+                return type.GetGenericArguments()[0];
+            return null;
         }
 
         /// <summary>
@@ -315,21 +431,9 @@ namespace Flash
         }
 
         /// <summary>
-        /// Normalize a JSON key or struct field name for tolerant matching: strip underscores and
-        /// lowercase, so bridge snake_case (first_mass) binds onto PascalCase Thermo fields
-        /// (FirstMass). Also aliases the bridge "resolution" key onto the OrbitrapResolution field.
-        /// </summary>
-        private static string NormalizeFieldName(string name)
-        {
-            string n = name.Replace("_", "").ToLowerInvariant();
-            if (n == "resolution")
-                n = "orbitrapresolution";
-            return n;
-        }
-
-        /// <summary>
-        /// Populate a struct's public fields from a JSON dictionary, matching by field name
-        /// (exact, then case-insensitive, then normalized snake_case).
+        /// Populate a struct's public fields from a JSON dictionary, matching each field to its
+        /// explicit <see cref="JsonKeyAttribute"/> snake_case key (exact match only). Fields with no
+        /// [JsonKey] are ignored; absent keys leave the field at its default (missing keys are allowed).
         /// </summary>
         private static object PopulateStruct(Type structType, Dictionary<string, object> dict)
         {
@@ -338,27 +442,13 @@ namespace Flash
             foreach (FieldInfo field in structType.GetFields(
                 BindingFlags.Public | BindingFlags.Instance))
             {
-                // Try exact match, then case-insensitive, then normalized (strip underscores) so the
-                // bridge snake_case ms_settings keys (first_mass) bind onto the PascalCase Thermo
-                // struct fields (FirstMass); NormalizeFieldName also aliases "resolution"->OrbitrapResolution.
+                var keyAttr = field.GetCustomAttribute<JsonKeyAttribute>();
+                if (keyAttr == null)
+                    continue;
+
                 object rawValue;
-                if (!dict.TryGetValue(field.Name, out rawValue))
-                {
-                    bool found = false;
-                    string fieldNorm = NormalizeFieldName(field.Name);
-                    foreach (var kvp in dict)
-                    {
-                        if (string.Equals(kvp.Key, field.Name, StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(NormalizeFieldName(kvp.Key), fieldNorm, StringComparison.Ordinal))
-                        {
-                            rawValue = kvp.Value;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                        continue;
-                }
+                if (!dict.TryGetValue(keyAttr.Key, out rawValue))
+                    continue;
 
                 if (rawValue == null)
                     continue;
@@ -487,7 +577,10 @@ namespace Flash
             foreach (FieldInfo field in structType.GetFields(
                 BindingFlags.Public | BindingFlags.Instance))
             {
-                dict[field.Name] = field.GetValue(value);
+                var keyAttr = field.GetCustomAttribute<JsonKeyAttribute>();
+                if (keyAttr == null)
+                    continue;
+                dict[keyAttr.Key] = field.GetValue(value);
             }
             return dict;
         }

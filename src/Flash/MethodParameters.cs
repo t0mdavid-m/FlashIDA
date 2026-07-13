@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Web.Script.Serialization;
+using Flash.IDA;
 
 namespace Flash
 {
@@ -15,18 +16,18 @@ namespace Flash
     /// </remarks>
     public struct MS1Parameters
     {
-        public string Analyzer;
-        public double FirstMass;
-        public double LastMass;
-        public int OrbitrapResolution;
-        public int AGCTarget;
-        public double MaxIT;
-        public int Microscans;
-        public string DataType;
-        public double RFLens;
-        public double SourceCID;
+        [JsonKey("analyzer")] public string Analyzer;
+        [JsonKey("first_mass")] public double FirstMass;
+        [JsonKey("last_mass")] public double LastMass;
+        [JsonKey("resolution")] public int OrbitrapResolution;
+        [JsonKey("agc_target")] public int AGCTarget;
+        [JsonKey("max_it")] public double MaxIT;
+        [JsonKey("microscans")] public int Microscans;
+        [JsonKey("data_type")] public string DataType;
+        [JsonKey("rf_lens")] public double RFLens;
+        [JsonKey("source_cid")] public double SourceCID;
         // Should be zero
-        public double SourceCIDScaling;
+        [JsonKey("source_cid_scaling")] public double SourceCIDScaling;
     }
 
     /// <summary>
@@ -37,20 +38,19 @@ namespace Flash
     /// </remarks>
     public struct MS2Parameters
     {
-        public string Analyzer;
-        public string IsolationMode;
-        public double FirstMass;
-        public double LastMass;
-        public int OrbitrapResolution;
-        public int AGCTarget;
-        public double MaxIT;
-        public int Microscans;
-        public string DataType;
-        public string Activation;
-        public double ReactionTime;
-        public double ReagentMaxIT;
-        public int ReagentAGCTarget;
-        public int CollisionEnergy;
+        [JsonKey("analyzer")] public string Analyzer;
+        [JsonKey("first_mass")] public double FirstMass;
+        [JsonKey("last_mass")] public double LastMass;
+        [JsonKey("resolution")] public int OrbitrapResolution;
+        [JsonKey("agc_target")] public int AGCTarget;
+        [JsonKey("max_it")] public double MaxIT;
+        [JsonKey("microscans")] public int Microscans;
+        [JsonKey("data_type")] public string DataType;
+        [JsonKey("activation")] public string Activation;
+        [JsonKey("reaction_time")] public double ReactionTime;
+        [JsonKey("reagent_max_it")] public double ReagentMaxIT;
+        [JsonKey("reagent_agc_target")] public int ReagentAGCTarget;
+        [JsonKey("collision_energy")] public int CollisionEnergy;
     }
 
     /// <summary>
@@ -61,20 +61,19 @@ namespace Flash
     /// </remarks>
     public struct MS3Parameters
     {
-        public string Analyzer;
-        public string IsolationMode;
-        public double FirstMass;
-        public double LastMass;
-        public int OrbitrapResolution;
-        public int AGCTarget;
-        public double MaxIT;
-        public int Microscans;
-        public string DataType;
-        public string Activation;
-        public double ReactionTime;
-        public double ReagentMaxIT;
-        public int ReagentAGCTarget;
-        public int CollisionEnergy;
+        [JsonKey("analyzer")] public string Analyzer;
+        [JsonKey("first_mass")] public double FirstMass;
+        [JsonKey("last_mass")] public double LastMass;
+        [JsonKey("resolution")] public int OrbitrapResolution;
+        [JsonKey("agc_target")] public int AGCTarget;
+        [JsonKey("max_it")] public double MaxIT;
+        [JsonKey("microscans")] public int Microscans;
+        [JsonKey("data_type")] public string DataType;
+        [JsonKey("activation")] public string Activation;
+        [JsonKey("reaction_time")] public double ReactionTime;
+        [JsonKey("reagent_max_it")] public double ReagentMaxIT;
+        [JsonKey("reagent_agc_target")] public int ReagentAGCTarget;
+        [JsonKey("collision_energy")] public int CollisionEnergy;
     }
 
     /// <summary>
@@ -185,8 +184,7 @@ namespace Flash
                         rf_lens = c.MsSettings.MS1.RFLens,
                         source_cid = c.MsSettings.MS1.SourceCID,
                         source_cid_scaling = c.MsSettings.MS1.SourceCIDScaling,
-                        data_type = c.MsSettings.MS1.DataType ?? "",
-                        scan_rate = ""
+                        data_type = c.MsSettings.MS1.DataType ?? ""
                     },
                     ms2 = ms2List.Select(m => new JsonMs2Config
                     {
@@ -200,7 +198,6 @@ namespace Flash
                         last_mass = m.LastMass,
                         microscans = m.Microscans,
                         data_type = m.DataType ?? "",
-                        scan_rate = "",
                         reaction_time = m.ReactionTime,
                         reagent_max_it = m.ReagentMaxIT,
                         reagent_agc_target = m.ReagentAGCTarget
@@ -217,7 +214,6 @@ namespace Flash
                         last_mass = m.LastMass,
                         microscans = m.Microscans,
                         data_type = m.DataType ?? "",
-                        scan_rate = "",
                         reaction_time = m.ReactionTime,
                         reagent_max_it = m.ReagentMaxIT,
                         reagent_agc_target = m.ReagentAGCTarget
@@ -396,6 +392,184 @@ namespace Flash
                         i, m.Analyzer, m.OrbitrapResolution / 1000, activation, m.CollisionEnergy);
             }
             return sb.ToString().TrimEnd();
+        }
+
+        // ----------------------------------------------------------------
+        // Self-generating full-schema reference
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Produce the complete bridge-schema JSON — every section and key present at a
+        /// representative value — by running <see cref="ToCppJson"/> over a fully-populated config.
+        /// This is the single source of truth committed at
+        /// FlashIDA/test-data/config_schema_reference.json; a staleness test asserts the committed
+        /// file equals this output so the schema reference can never go stale.
+        /// </summary>
+        public static string GenerateReferenceConfigJson()
+        {
+            var mp = new MethodParameters { Config = BuildFullReferenceConfig() };
+            return PrettyPrintJson(mp.ToCppJson());
+        }
+
+        /// <summary>
+        /// A fully-populated config whose emitted JSON exercises every key and passes C++ validate():
+        /// tol covers MS3; MSn>=2 selection has a protein sequence; MS2 exploration has one scan and a
+        /// valid CE sweep; conditional_ms2 is off.
+        /// </summary>
+        private static MethodConfig BuildFullReferenceConfig()
+        {
+            var c = new MethodConfig();
+
+            c.Global.MethodName = "SchemaReference";
+            c.Global.MethodDescription =
+                "Full config: every key at a representative value; regenerated by GenerateReferenceConfigJson.";
+            c.Global.Duration = 90;
+
+            c.Deconvolution.ScoreThreshold = 0.11;
+            c.Deconvolution.TQScoreThreshold = 0.93;
+            c.Deconvolution.MinCharge = 4;
+            c.Deconvolution.MaxCharge = 47;
+            c.Deconvolution.MinMass = 511;
+            c.Deconvolution.MaxMass = 49001;
+            c.Deconvolution.Tolerances = new double[] { 11, 12, 13 };
+
+            c.PrecursorSelection.RTWindow = 181;
+            c.PrecursorSelection.TargetMode = 1;
+            c.PrecursorSelection.ConsiderAllChargeStates = true;
+            c.PrecursorSelection.HCDEnergy = 27;
+            c.PrecursorSelection.StrictInclusion = true;
+            c.PrecursorSelection.TieThreshold = 0.13;
+            c.PrecursorSelection.ChargeBasedExclusion = true;
+
+            c.FlashTnT.MinLength = 4;
+            c.FlashTnT.MaxLength = 9;
+            c.FlashTnT.MaxPtmCount = 5;
+            c.FlashTnT.MaxFlankingMassDiff = 41001;
+            c.FlashTnT.AllowGap = true;
+            c.FlashTnT.MaxAaInGap = 3;
+            c.FlashTnT.FixedMod = new List<string> { "Carbamidomethyl (C)" };
+            c.FlashTnT.MaxBlindModCount = 1;
+            c.FlashTnT.MaxModMass = 733;
+
+            c.Tagging.ConditionalMS2 = false;
+            c.Tagging.FollowUpScan = new MS2Parameters
+            {
+                Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002
+            };
+
+            c.Quantification.Active = false;
+            c.Quantification.ReporterMZTol = 0.0031;
+            c.Quantification.FoldChangeThreshold = 1.7;
+            c.Quantification.FollowUpScan = new MS2Parameters
+            {
+                Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003
+            };
+
+            c.Faims.CVValues = new double[] { -41, -52, -63 };
+            c.Faims.MaxCVSkip = 2;
+            c.Faims.MassThreshold = 17;
+
+            c.MsSettings.MS1 = new MS1Parameters
+            {
+                Analyzer = "Orbitrap", FirstMass = 501, LastMass = 2001, OrbitrapResolution = 120001,
+                AGCTarget = 800001, MaxIT = 247, Microscans = 2, DataType = "Centroid",
+                RFLens = 31, SourceCID = 16, SourceCIDScaling = 0
+            };
+            c.MsSettings.MS2 = new List<MS2Parameters>
+            {
+                new MS2Parameters
+                {
+                    Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 29, OrbitrapResolution = 120002,
+                    AGCTarget = 500001, MaxIT = 101, FirstMass = 101, LastMass = 2002, Microscans = 3,
+                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0
+                }
+            };
+            c.MsSettings.MS3 = new List<MS3Parameters>
+            {
+                new MS3Parameters
+                {
+                    Analyzer = "Orbitrap", Activation = "CID", CollisionEnergy = 26, OrbitrapResolution = 240001,
+                    AGCTarget = 5000001, MaxIT = 501, FirstMass = 201, LastMass = 2003, Microscans = 8,
+                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0
+                }
+            };
+
+            c.Scheduling.CycleTime.Enabled = true;
+            c.Scheduling.CycleTime.ValueMs = 60001;
+            c.Scheduling.ScanTimeout.Enabled = true;
+            c.Scheduling.ScanTimeout.ValueMs = 30001;
+            c.Scheduling.AgcIntervalSeconds = 29;
+
+            c.SelectionStrategy.MS1 = new MS1SelectionConfig { Selection = "qscore", MaxTargets = 3, MinCharge = 2 };
+            c.SelectionStrategy.MS2 = new MS2SelectionConfig
+            {
+                Selection = "intensity", MaxTargets = 4, MinCharge = 1,
+                Exploration = new ExplorationBlockConfig
+                {
+                    Metric = "mass_count", CEMin = 21, CEMax = 39, CEStep = 5,
+                    RemainingPrecursorTarget = 0.12, RTMin = 0, RTMax = 0, RTStep = 1
+                }
+            };
+            c.SelectionStrategy.MS3 = new MS3SelectionConfig { Selection = "none", MaxTargets = 3, MinCharge = 0 };
+
+            c.Characterization.Objective = "coverage";
+            c.Characterization.ProteinSequence = "MSENTINELPEPTIDESEQ";
+            c.Characterization.MS3AllCharges = true;
+
+            return c;
+        }
+
+        /// <summary>Re-indent a compact JSON string by walking its object graph (no JSON-syntax parsing).</summary>
+        private static string PrettyPrintJson(string compactJson)
+        {
+            object graph = new JavaScriptSerializer().DeserializeObject(compactJson);
+            var sb = new StringBuilder();
+            WriteJsonNode(graph, sb, 0);
+            sb.Append("\n");
+            return sb.ToString();
+        }
+
+        private static void WriteJsonNode(object node, StringBuilder sb, int indent)
+        {
+            string pad = new string(' ', indent * 2);
+            string pad1 = new string(' ', (indent + 1) * 2);
+
+            if (node is Dictionary<string, object> dict)
+            {
+                if (dict.Count == 0) { sb.Append("{}"); return; }
+                sb.Append("{\n");
+                int i = 0;
+                foreach (var kv in dict)
+                {
+                    sb.Append(pad1).Append('"').Append(EscapeJson(kv.Key)).Append("\": ");
+                    WriteJsonNode(kv.Value, sb, indent + 1);
+                    sb.Append(++i < dict.Count ? ",\n" : "\n");
+                }
+                sb.Append(pad).Append("}");
+                return;
+            }
+            if (node is object[] arr)
+            {
+                if (arr.Length == 0) { sb.Append("[]"); return; }
+                sb.Append("[\n");
+                for (int j = 0; j < arr.Length; j++)
+                {
+                    sb.Append(pad1);
+                    WriteJsonNode(arr[j], sb, indent + 1);
+                    sb.Append(j + 1 < arr.Length ? ",\n" : "\n");
+                }
+                sb.Append(pad).Append("]");
+                return;
+            }
+            if (node == null) { sb.Append("null"); return; }
+            if (node is string s) { sb.Append('"').Append(EscapeJson(s)).Append('"'); return; }
+            if (node is bool b) { sb.Append(b ? "true" : "false"); return; }
+            sb.Append(Convert.ToString(node, System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        private static string EscapeJson(string s)
+        {
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
         }
     }
 }

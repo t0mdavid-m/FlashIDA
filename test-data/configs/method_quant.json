@@ -44,14 +44,14 @@
     "reporter_mz_tol": 0.002,
     "fold_change_threshold": 1.4,
     "follow_up_scan": {
-      "Analyzer": "Orbitrap",
-      "FirstMass": 100,
-      "LastMass": 2000,
-      "OrbitrapResolution": 120000,
-      "AGCTarget": 500000,
-      "MaxIT": 100,
-      "Activation": "HCD",
-      "CollisionEnergy": 30
+      "analyzer": "Orbitrap",
+      "first_mass": 100,
+      "last_mass": 2000,
+      "resolution": 120000,
+      "agc_target": 500000,
+      "max_it": 100,
+      "activation": "HCD",
+      "collision_energy": 30
     }
   },
   "faims": {
@@ -63,47 +63,46 @@
   },
   "ms_settings": {
     "ms1": {
-      "Analyzer": "Orbitrap",
-      "FirstMass": 500,
-      "LastMass": 2000,
-      "OrbitrapResolution": 120000,
-      "AGCTarget": 800000,
-      "MaxIT": 246,
-      "Microscans": 1,
-      "DataType": "Centroid",
-      "RFLens": 30,
-      "SourceCIDScaling": 0,
-      "SourceCID": 15
+      "analyzer": "Orbitrap",
+      "first_mass": 500,
+      "last_mass": 2000,
+      "resolution": 120000,
+      "agc_target": 800000,
+      "max_it": 246,
+      "microscans": 1,
+      "data_type": "Centroid",
+      "rf_lens": 30,
+      "source_cid_scaling": 0,
+      "source_cid": 15
     },
     "ms2": [
       {
-        "Analyzer": "Orbitrap",
-        "FirstMass": 100,
-        "LastMass": 2000,
-        "OrbitrapResolution": 120000,
-        "AGCTarget": 500000,
-        "MaxIT": 100,
-        "Microscans": 4,
-        "DataType": "Centroid",
-        "Activation": "ETD",
-        "ReactionTime": 7,
-        "ReagentAGCTarget": 700000,
-        "ReagentMaxIT": 200
+        "analyzer": "Orbitrap",
+        "first_mass": 100,
+        "last_mass": 2000,
+        "resolution": 120000,
+        "agc_target": 500000,
+        "max_it": 100,
+        "microscans": 4,
+        "data_type": "Centroid",
+        "activation": "ETD",
+        "reaction_time": 7,
+        "reagent_agc_target": 700000,
+        "reagent_max_it": 200
       }
     ],
     "ms3": [
       {
-        "Analyzer": "Orbitrap",
-        "IsolationMode": "Quadrupole",
-        "FirstMass": 200,
-        "LastMass": 2000,
-        "OrbitrapResolution": 240000,
-        "AGCTarget": 50000000,
-        "MaxIT": 500,
-        "Microscans": 8,
-        "DataType": "Centroid",
-        "Activation": "CID",
-        "CollisionEnergy": 25
+        "analyzer": "Orbitrap",
+        "first_mass": 200,
+        "last_mass": 2000,
+        "resolution": 240000,
+        "agc_target": 50000000,
+        "max_it": 500,
+        "microscans": 8,
+        "data_type": "Centroid",
+        "activation": "CID",
+        "collision_energy": 25
       }
     ]
   },

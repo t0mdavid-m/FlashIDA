@@ -330,6 +330,11 @@ namespace Flash
         [JsonKey("min_charge")]
         [Description("Minimum charge state for target selection (0 = no filter)")]
         public int MinCharge { get; set; } = 0;
+
+        // ToCppJson emits an (inert at MS1) exploration block for every level; model it so the
+        // generated reference round-trips through the strict loader. C++ ignores exploration at MS1.
+        [JsonKey("exploration")]
+        public ExplorationBlockConfig Exploration { get; set; }
     }
 
     [JsonKey("ms2")]
@@ -511,6 +516,7 @@ namespace Flash
         public int cv_precursor_threshold { get; set; }
     }
 
+    // Emitted keys mirror the MS1Parameters struct fields exactly (single source of truth).
     public class JsonMs1Config
     {
         public string analyzer { get; set; }
@@ -524,9 +530,10 @@ namespace Flash
         public double source_cid { get; set; }
         public double source_cid_scaling { get; set; }
         public string data_type { get; set; }
-        public string scan_rate { get; set; }
     }
 
+    // Emitted keys mirror the MS2Parameters/MS3Parameters struct fields exactly.
+    // (rf_lens/source_cid/source_cid_scaling/scan_rate are MS1-only or unused; not emitted here.)
     public class JsonMs2Config
     {
         public string analyzer { get; set; }
@@ -538,11 +545,7 @@ namespace Flash
         public double first_mass { get; set; }
         public double last_mass { get; set; }
         public int microscans { get; set; }
-        public double rf_lens { get; set; }
-        public double source_cid { get; set; }
-        public double source_cid_scaling { get; set; }
         public string data_type { get; set; }
-        public string scan_rate { get; set; }
         public double reaction_time { get; set; }
         public double reagent_max_it { get; set; }
         public int reagent_agc_target { get; set; }

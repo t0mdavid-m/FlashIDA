@@ -148,6 +148,13 @@ namespace Flash.Tests
         {
             var mp = LoadJsonMethod("method_default.json");
             string serialized = MethodConfigSerializer.Serialize(mp.Config);
+
+            // Serialize is now symmetric with the strict loader: ms_settings uses snake_case keys
+            // (bound by [JsonKey]), never the PascalCase struct field names.
+            StringAssert.Contains("\"first_mass\"", serialized);
+            Assert.IsFalse(serialized.Contains("\"FirstMass\""),
+                "Serialize must emit snake_case ms_settings keys, not PascalCase field names.");
+
             var config2 = MethodConfigSerializer.Deserialize(serialized);
             Assert.AreEqual(mp.Config.Deconvolution.MinCharge, config2.Deconvolution.MinCharge);
             Assert.AreEqual(mp.Config.Deconvolution.MaxCharge, config2.Deconvolution.MaxCharge);
