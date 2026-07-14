@@ -239,6 +239,30 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, postDriveAssert: AssertMs3CytcLeafMatchesGroundTruth);
         }
 
+        // Exercises the ambiguity_resolution MS3-selection metric end-to-end on the real M-start cytC
+        // example. Identical fixtures + harness to Golden_MS3_CytC, but the config
+        // (method_ms3_cytc_ambiguity.json) flips selection_strategy.ms3.selection from "intensity" to
+        // "ambiguity_resolution", so MS3 targets become the ions that BRACKET FLASHExtender-detected PTM
+        // sites (cytC's heme region) instead of the top-intensity fragments. This is NOT a found==0
+        // regression guard — it captures the ambiguity targeting path's output so it can be reviewed for
+        // reasonableness. The ms3_cytc_* fragment feed is tolerant (RunCase: TryGetValue -> null), so a
+        // bracketing target with no captured fixture is simply unfed rather than crashing the drive.
+        // minMs2Commands:1 fail-closes if the inclusion pin does not select the cytC precursor. We do NOT
+        // reuse AssertMs3CytcLeafMatchesGroundTruth (it pins the intensity-path leaf, which the ambiguity
+        // metric deliberately does not reproduce).
+        [Test, Category("Tier2")]
+        public void Golden_MS3_AmbiguityResolution_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — ambiguity MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("ms3_ambiguity_cytc", "method_ms3_cytc_ambiguity.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
         // Inclusion-pinned MS3 cytC golden built on the SECOND cytC fixture set (ms1_cytc2.txt /
         // ms2_cytc2_scan434.txt + the ms3_cytc2_*_scan*.txt fragment manifest) and method_ms3_cytc_new.json
         // (inclusion pin via inclusion_cytc_12307.txt). Mirrors Golden_MS3_CytC but fail-closes on the MS3
