@@ -106,6 +106,7 @@
     "agc_interval_seconds": 30
   },
   "characterization": {
+    "objective": "coverage",
     "protein_sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
   },
   "files": {
@@ -123,7 +124,7 @@
       "selection": "intensity"
     },
     "ms3": {
-      "selection": "ambiguity_resolution",
+      "selection": "intensity",
       "max_targets": 200
     }
   }

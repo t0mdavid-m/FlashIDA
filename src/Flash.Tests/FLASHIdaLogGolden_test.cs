@@ -239,28 +239,50 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, postDriveAssert: AssertMs3CytcLeafMatchesGroundTruth);
         }
 
-        // Exercises the ambiguity_resolution MS3-selection metric end-to-end on the real M-start cytC
-        // example. Identical fixtures + harness to Golden_MS3_CytC, but the config
-        // (method_ms3_cytc_ambiguity.json) flips selection_strategy.ms3.selection from "intensity" to
-        // "ambiguity_resolution", so MS3 targets become the ions that BRACKET FLASHExtender-detected PTM
-        // sites (cytC's heme region) instead of the top-intensity fragments. This is NOT a found==0
-        // regression guard — it captures the ambiguity targeting path's output so it can be reviewed for
-        // reasonableness. The ms3_cytc_* fragment feed is tolerant (RunCase: TryGetValue -> null), so a
-        // bracketing target with no captured fixture is simply unfed rather than crashing the drive.
-        // minMs2Commands:1 fail-closes if the inclusion pin does not select the cytC precursor. We do NOT
-        // reuse AssertMs3CytcLeafMatchesGroundTruth (it pins the intensity-path leaf, which the ambiguity
-        // metric deliberately does not reproduce).
+        // Coverage-objective MS3 targeting on the real cytC example. This is the CONTRAST PARTNER to
+        // Golden_MS3_CytC, which runs method_ms3_cytc_real.json with the DEFAULT characterization
+        // objective ("ambiguity"). Setting characterization.objective="coverage" makes
+        // ProteoformTracker::planNextScans pick fragments that CONTAIN the largest uncovered backbone
+        // gaps instead of containers of the ambiguous mod ranges, so the emitted MS3 targets differ from
+        // the ambiguity golden (ms3_cytc). NB: selection_strategy.ms3.selection does NOT drive targeting
+        // here — characterization.objective does (the SelectionMetric is inert for acquisition on this
+        // path). minMs2Commands:1 fail-closes if the inclusion pin does not select the cytC precursor.
         [Test, Category("Tier2")]
-        public void Golden_MS3_AmbiguityResolution_CytC()
+        public void Golden_MS3_CoverageObjective_CytC()
         {
             var ms3Map = BuildMs3IonMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
-                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — ambiguity MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — coverage MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
                 return;
             }
-            RunCase("ms3_ambiguity_cytc", "method_ms3_cytc_ambiguity.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+            RunCase("ms3_coverage_cytc", "method_ms3_cytc_coverage.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
+        // Active guard that the two characterization objectives select DIFFERENT MS3 targets on the same
+        // cytC data — the "ambiguity vs coverage" contrast that motivates the coverage golden. Ambiguity
+        // (method_ms3_cytc_real.json, default objective) picks containers of the ambiguous mod ranges;
+        // Coverage (method_ms3_cytc_coverage.json) picks containers of the largest uncovered backbone
+        // gaps. If a future regression collapses the two objectives to the same targets, this fails.
+        [Test, Category("Tier2")]
+        public void Ms3Objective_AmbiguityVsCoverage_SelectDifferentTargets()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — objective contrast skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            var ambiguity = DriveMs3TargetKeys("contrast_ambiguity", "method_ms3_cytc_real.json",
+                                               "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", ms3Map);
+            var coverage = DriveMs3TargetKeys("contrast_coverage", "method_ms3_cytc_coverage.json",
+                                              "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", ms3Map);
+            Assert.That(ambiguity.Count, Is.GreaterThan(0), "ambiguity objective emitted no MS3 targets");
+            Assert.That(coverage.Count, Is.GreaterThan(0), "coverage objective emitted no MS3 targets");
+            Assert.That(coverage.SetEquals(ambiguity), Is.False,
+                "coverage and ambiguity objectives selected the SAME MS3 target ions [" +
+                string.Join(",", ambiguity.OrderBy(x => x)) + "] — the objective contrast is vacuous for this data");
         }
 
         // Inclusion-pinned MS3 cytC golden built on the SECOND cytC fixture set (ms1_cytc2.txt /
@@ -992,6 +1014,63 @@ namespace Flash.Tests
                 Assert.Fail($"Log golden failures for '{caseName}':\n  " + string.Join("\n  ", failures));
         }
 
+
+        // Drive one config through the same ground-truth interleaved harness as RunCase (engine-id-echo,
+        // MS3 fed per decoded ion via the tolerant map) and return the SET of emitted MS3-target ion keys
+        // ("<ion_type><ion_index>") read from scan_commands.tsv (ms_level==3). No golden compare — used by
+        // the objective-contrast test to prove ambiguity vs coverage select different MS3 targets. Mirrors
+        // the RunCase drive block; the MS3 target commands are emitted during MS2 processing regardless of
+        // whether each target's fixture is present, so an unfed target still appears in scan_commands.
+        private HashSet<string> DriveMs3TargetKeys(string caseName, string configFile, string ms1File, string ms2File,
+            Dictionary<string, string> ms3Map)
+        {
+            string caseDir = Path.Combine(OutputDir, caseName);
+            Directory.CreateDirectory(caseDir);
+            foreach (var f in LogGoldenComparer.FileNames)
+            {
+                string p = Path.Combine(caseDir, f);
+                if (File.Exists(p)) File.Delete(p);
+            }
+
+            using (var harness = new ContinuityTestHarness(
+                Path.Combine(ConfigDir, configFile), false, false,
+                configure: mp =>
+                {
+                    mp.Config.Runtime.IdaLogPath = Path.Combine(caseDir, LogGoldenComparer.IdaLogName);
+                    mp.Config.Runtime.ScanCommandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
+                    mp.Config.Runtime.ScanResultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
+                    mp.Config.Runtime.IdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
+                    mp.Config.Runtime.PooledIdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
+                }))
+            {
+                var map = ms3Map ?? new Dictionary<string, string>();
+                Func<ScanCommand, string> ms3Sel = c =>
+                {
+                    string ion = DecodeIonFromScanDescription(c.ScanDescription);
+                    return ion != null && map.TryGetValue(ion, out var p) ? p : null;
+                };
+                harness.PushScanAndDrainFull(
+                    Path.Combine(SpectraDir, ms1File),
+                    Path.Combine(SpectraDir, ms2File),
+                    ms3Sel,
+                    ms2CeMap: null);
+            }
+
+            string commandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
+            var keys = new HashSet<string>();
+            var rows = ParseTsv(commandsPath, out var header);
+            int lvlCol = Array.IndexOf(header, "ms_level");
+            int ionTypeCol = Array.IndexOf(header, "ion_type");
+            int ionIdxCol = Array.IndexOf(header, "ion_index");
+            foreach (var r in rows)
+            {
+                if (lvlCol < 0 || lvlCol >= r.Length || ParseIntSafe(r[lvlCol]) != 3) continue;
+                string it = ionTypeCol >= 0 && ionTypeCol < r.Length ? r[ionTypeCol] : "";
+                string ii = ionIdxCol >= 0 && ionIdxCol < r.Length ? r[ionIdxCol] : "";
+                keys.Add(it + ii);
+            }
+            return keys;
+        }
 
         private void WriteNormalized(string caseName, string fileName, string normalized)
         {
