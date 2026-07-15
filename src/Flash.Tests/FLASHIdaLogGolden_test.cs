@@ -352,7 +352,7 @@ namespace Flash.Tests
 
             RunCase("exploration_ms3", "method_exploration_ms3.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
-                    postDriveAssert: AssertMs3Stage0CeNotCollapsed);
+                    postDriveAssert: p => { AssertMs3Stage0CeNotCollapsed(p); AssertExplorationMs3LeafMatchesPooled(p); });
         }
 
         /// <summary>
@@ -391,7 +391,7 @@ namespace Flash.Tests
 
             RunCase("exploration_ms3_followup", "method_exploration_ms3_followup.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap,
-                    postDriveAssert: AssertProductionMs3Folded);
+                    postDriveAssert: p => { AssertProductionMs3Folded(p); AssertExplorationMs3LeafMatchesPooled(p); });
         }
 
         /// <summary>
@@ -485,6 +485,109 @@ namespace Flash.Tests
             Assert.That(distinctCe.Count, Is.GreaterThan(1),
                 "exploration_ms3 energy-resolved trend: expected at least one strict stage-0 CE difference " +
                 "between fragments (already guaranteed by (a), restated for the trend contract).");
+        }
+
+        /// <summary>
+        /// End-to-end invariant for the exploration two-winner render-seed fix (Exploration.cpp: the MS3 render
+        /// seed proto_ctx / group.proteoform_ctx is taken from tracker->buildWinnerProteoformContext -- the
+        /// finalized model the pooled log emits -- not the exploration-metric winner's frag_result). The per-scan
+        /// MS3 leaf in identification.tsv must carry the SAME modification decomposition (set of PTM masses) as
+        /// the authoritative pooled_identification model for the same precursor. Pre-fix, an MS2 CE sweep whose
+        /// mass_count winner decomposed a FUSED single blind mod (e.g. -89.0302 + 615.2512 = +526.2213, Met1
+        /// unmodified) leaked into the MS3 render seed, so the leaf reported ONE +526.2213 mod while pooled kept
+        /// the two split mods -- the streams disagreed. This asserts, for precursor 1, that every MS3 leaf row's
+        /// PTM-mass set equals the pooled model's PTM-mass set (count AND values within 0.05 Da). Both streams are
+        /// byte-compared by the golden comparer, so the check cannot pass vacuously; it FAILS the moment a fused
+        /// metric-winner mod reappears in the leaf (count mismatch) or any leaf mass drifts off the pooled set.
+        /// </summary>
+        private static void AssertExplorationMs3LeafMatchesPooled(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            string mode = Path.GetFileName(caseDir);   // exploration_ms3 or exploration_ms3_followup
+            string idPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
+            string pooledPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
+            Assert.That(File.Exists(idPath), Is.True,
+                $"{mode}: engine must have written identification.tsv for the leaf==pooled check");
+            Assert.That(File.Exists(pooledPath), Is.True,
+                $"{mode}: engine must have written pooled_identification.tsv for the leaf==pooled check");
+
+            // --- pooled model PTM-mass set for precursor 1 (from the FINAL update row) ---
+            var pooledRows = ParseTsv(pooledPath, out var pooledHeader);
+            int pPidCol = Array.IndexOf(pooledHeader, "precursor_id");
+            int pLocCol = Array.IndexOf(pooledHeader, "localized_mods");
+            int pAmbCol = Array.IndexOf(pooledHeader, "ambiguous_mods");
+            int pUpdCol = Array.IndexOf(pooledHeader, "update_index");
+            Assert.That(pPidCol, Is.GreaterThanOrEqualTo(0), "pooled: precursor_id column present");
+            Assert.That(pLocCol, Is.GreaterThanOrEqualTo(0), "pooled: localized_mods column present");
+            Assert.That(pAmbCol, Is.GreaterThanOrEqualTo(0), "pooled: ambiguous_mods column present");
+            Assert.That(pUpdCol, Is.GreaterThanOrEqualTo(0), "pooled: update_index column present");
+
+            string[] finalPooled = null;
+            int bestUpd = int.MinValue;
+            foreach (var r in pooledRows)
+            {
+                if (pPidCol >= r.Length || ParseIntSafe(r[pPidCol]) != 1) continue;
+                int upd = pUpdCol < r.Length ? ParseIntSafe(r[pUpdCol]) : 0;
+                if (upd >= bestUpd) { bestUpd = upd; finalPooled = r; }
+            }
+            Assert.That(finalPooled, Is.Not.Null,
+                $"{mode}: no pooled_identification row for precursor 1 — the leaf==pooled invariant cannot be checked.");
+
+            var pooledMasses = ExtractModMasses(
+                (pLocCol < finalPooled.Length ? finalPooled[pLocCol] : "") + ";" +
+                (pAmbCol < finalPooled.Length ? finalPooled[pAmbCol] : ""));
+            Assert.That(pooledMasses.Count, Is.GreaterThan(0),
+                $"{mode}: pooled model for precursor 1 carries no PTM masses — unexpected for the cytC recipe " +
+                "(fixture drift or a broken pooled writer).");
+
+            // --- every MS3 leaf row for precursor 1 must carry the SAME PTM-mass set ---
+            var idRows = ParseTsv(idPath, out var idHeader);
+            int iLvlCol = Array.IndexOf(idHeader, "ms_level");
+            int iPfCol = Array.IndexOf(idHeader, "proteoform");
+            int iPidCol = Array.IndexOf(idHeader, "precursor_id");
+            Assert.That(iLvlCol, Is.GreaterThanOrEqualTo(0), "identification: ms_level column present");
+            Assert.That(iPfCol, Is.GreaterThanOrEqualTo(0), "identification: proteoform column present");
+            Assert.That(iPidCol, Is.GreaterThanOrEqualTo(0), "identification: precursor_id column present");
+
+            int leafRows = 0;
+            foreach (var r in idRows)
+            {
+                if (iLvlCol >= r.Length || ParseIntSafe(r[iLvlCol]) != 3) continue;
+                if (iPidCol >= r.Length || ParseIntSafe(r[iPidCol]) != 1) continue;
+                if (iPfCol >= r.Length) continue;
+                leafRows++;
+                var leafMasses = ExtractModMasses(r[iPfCol]);
+                Assert.That(leafMasses.Count, Is.EqualTo(pooledMasses.Count),
+                    $"{mode}: MS3 leaf proteoform '{r[iPfCol]}' has {leafMasses.Count} PTM mass(es) but the " +
+                    $"pooled model for precursor 1 has {pooledMasses.Count} — the two-winner render-seed split is back " +
+                    "(a fused exploration-metric-winner mod leaked into the MS3 leaf/command).");
+                foreach (double lm in leafMasses)
+                    Assert.That(pooledMasses.Any(pm => Math.Abs(pm - lm) < 0.05), Is.True,
+                        $"{mode}: MS3 leaf PTM mass {lm:F4} (proteoform '{r[iPfCol]}') is not in the pooled " +
+                        $"model's mass set [{string.Join(", ", pooledMasses.Select(m => m.ToString("F4")))}] — leaf != pooled.");
+            }
+            Assert.That(leafRows, Is.GreaterThanOrEqualTo(1),
+                $"{mode}: no MS3 (ms_level==3) leaf row for precursor 1 — the leaf==pooled invariant is " +
+                "vacuous (fixture/engine drift removed the MS3 leaves).");
+        }
+
+        /// <summary>
+        /// Extract the multiset of modification masses (the numeric value of every [+/-NN.NNNN] bracket) from a
+        /// ProForma proteoform string or a pooled localized/ambiguous mods cell. Both formats encode each mod as a
+        /// [mass] bracket, so this yields a comparable, format-agnostic mass set for the leaf==pooled invariant.
+        /// </summary>
+        private static List<double> ExtractModMasses(string s)
+        {
+            var masses = new List<double>();
+            if (string.IsNullOrEmpty(s)) return masses;
+            foreach (System.Text.RegularExpressions.Match m in
+                     System.Text.RegularExpressions.Regex.Matches(s, @"\[([+-]?\d+(?:\.\d+)?)\]"))
+            {
+                if (double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double v))
+                    masses.Add(v);
+            }
+            return masses;
         }
 
         /// <summary>
