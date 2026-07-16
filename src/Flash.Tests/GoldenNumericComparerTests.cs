@@ -87,15 +87,18 @@ namespace Flash.Tests
         // make a pure REORDER Equivalent while any value / count / integer change still FAILS.
         //
         // Each input is a header line + ONE data row with the REAL column count (scan_results 29,
-        // identification 31); every column outside the tuple is the placeholder "px" (identical on both
-        // sides so GoldenNumericComparer's skeleton check passes).
+        // identification 32). The header carries the REAL column NAMES at the tuple positions so the
+        // name-based canonicalizer resolves them; every other column is a unique placeholder name with a
+        // "px" data value (identical on both sides so GoldenNumericComparer's skeleton check passes). The
+        // same header is passed as the canonicalizer's reference (an identity permute for these rows).
         // -------------------------------------------------------------------------------------------------
 
         // Canonicalize both sides (like FLASHIdaLogGolden_test.CompareOne) then run the numeric comparer.
-        private static bool EqCanon(string fileName, string golden, string fresh)
+        // referenceHeader is the golden's header row (the canonical column order); ida.log ignores it.
+        private static bool EqCanon(string fileName, string golden, string fresh, string[] referenceHeader)
         {
-            string g = GoldenListCanonicalizer.Canonicalize(fileName, golden);
-            string f = GoldenListCanonicalizer.Canonicalize(fileName, fresh);
+            string g = GoldenListCanonicalizer.Canonicalize(fileName, golden, referenceHeader);
+            string f = GoldenListCanonicalizer.Canonicalize(fileName, fresh, referenceHeader);
             return GoldenNumericComparer.Equivalent(g, f, out _);
         }
 
@@ -111,8 +114,37 @@ namespace Flash.Tests
             return string.Join("\n", lines) + "\n"; // mirror Normalize's trailing-newline shape
         }
 
-        private static readonly string ResultsHeader = string.Join("\t", Blank(29));
-        private static readonly string IdHeader = string.Join("\t", Blank(31));
+        // Header with UNIQUE placeholder names ("c0","c1",...) except the tuple positions, which carry the
+        // REAL names the name-based canonicalizer resolves. Unique names keep the permute a clean 1:1 map.
+        private static string[] MakeHeader(int n)
+        {
+            var h = new string[n];
+            for (int i = 0; i < n; i++) h[i] = "c" + i;
+            return h;
+        }
+
+        private static string[] BuildResultsHeader()
+        {
+            var h = MakeHeader(29);
+            h[19] = "deconv_masses"; h[20] = "deconv_intensities";
+            h[21] = "deconv_min_charge"; h[22] = "deconv_max_charge";
+            return h;
+        }
+
+        private static string[] BuildIdHeader()
+        {
+            var h = MakeHeader(32);
+            h[0] = "ms_level";
+            h[15] = "ms2_fragments"; h[16] = "ms2_fragment_masses";
+            h[17] = "ms3_fragments"; h[18] = "ms3_fragment_masses";
+            h[26] = "theoretical_masses"; h[27] = "diff_da"; h[28] = "diff_ppm";
+            return h;
+        }
+
+        private static readonly string[] ResultsHeaderCols = BuildResultsHeader();
+        private static readonly string[] IdHeaderCols = BuildIdHeader();
+        private static readonly string ResultsHeader = string.Join("\t", ResultsHeaderCols);
+        private static readonly string IdHeader = string.Join("\t", IdHeaderCols);
 
         // scan_results data row: deconv 4-tuple at cols 19-22, everything else placeholder.
         private static string ResultsRow(string masses, string ints, string minC, string maxC)
@@ -129,7 +161,7 @@ namespace Flash.Tests
         // identification ms_level==2 data row: fragment 5-tuple at cols 15,16,26,27,28.
         private static string Ms2Row(string frags, string masses, string theo, string dda, string dppm)
         {
-            var c = Blank(31);
+            var c = Blank(32);
             c[0] = "2";   // ms_level
             c[2] = "T4";  // tracking_id
             c[15] = frags;
@@ -148,7 +180,7 @@ namespace Flash.Tests
             string fresh = Doc(ResultsHeader,
                 ResultsRow("300.5;100.5;200.5", "3000.0;1000.0;2000.0", "3;1;2", "6;4;5"));
             Assert.IsFalse(Eq(golden, fresh), "pre-canonicalize the reorder must differ (guards vacuity)");
-            Assert.IsTrue(EqCanon(LogGoldenComparer.ResultsName, golden, fresh));
+            Assert.IsTrue(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
 
         [Test] // 11b — a DROPPED deconv entry (count change) still FAILS
@@ -158,7 +190,7 @@ namespace Flash.Tests
                 ResultsRow("100.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
             string fresh = Doc(ResultsHeader,
                 ResultsRow("100.5;200.5", "1000.0;2000.0", "1;2", "4;5"));
-            Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh));
+            Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
 
         [Test] // 11c — a deconv MASS changed beyond tol still FAILS (order preserved -> only the value differs)
@@ -168,7 +200,7 @@ namespace Flash.Tests
                 ResultsRow("100.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
             string fresh = Doc(ResultsHeader,
                 ResultsRow("150.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
-            Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh));
+            Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
 
         [Test] // 11d — a changed deconv_min_charge INT (reordered otherwise) still FAILS: ints stay exact
@@ -179,7 +211,7 @@ namespace Flash.Tests
             // same multiset reordered C,A,B but record B's min_charge 2 -> 9 (record still sorts by its mass)
             string fresh = Doc(ResultsHeader,
                 ResultsRow("300.5;100.5;200.5", "3000.0;1000.0;2000.0", "3;1;9", "6;4;5"));
-            Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh));
+            Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
 
         [Test] // 11e — identification ms_level==2 fragment 5-tuple reordered -> Equivalent after canonicalize
@@ -190,7 +222,7 @@ namespace Flash.Tests
             string fresh = Doc(IdHeader,
                 Ms2Row("y2;y5;b3", "200.2;500.5;300.3", "200.3;500.6;300.4", "-0.3;-0.1;-0.2", "-2.0;-1.0;-1.5"));
             Assert.IsFalse(Eq(golden, fresh), "pre-canonicalize the reorder must differ (guards vacuity)");
-            Assert.IsTrue(EqCanon(LogGoldenComparer.IdentificationName, golden, fresh));
+            Assert.IsTrue(EqCanon(LogGoldenComparer.IdentificationName, golden, fresh, IdHeaderCols));
         }
 
         [Test] // 11e' — a changed fragment ion-index INT still FAILS
@@ -201,7 +233,7 @@ namespace Flash.Tests
             // identical masses so records align after canonicalize; only ion label y5 -> y6 changes
             string fresh = Doc(IdHeader,
                 Ms2Row("y6;b3;y2", "500.5;300.3;200.2", "500.6;300.4;200.3", "-0.1;-0.2;-0.3", "-1.0;-1.5;-2.0"));
-            Assert.IsFalse(EqCanon(LogGoldenComparer.IdentificationName, golden, fresh));
+            Assert.IsFalse(EqCanon(LogGoldenComparer.IdentificationName, golden, fresh, IdHeaderCols));
         }
 
         [Test] // 11f — ida.log AllMass reordered -> Equivalent after canonicalize
@@ -210,7 +242,7 @@ namespace Flash.Tests
             string golden = Doc("Scan# <SCAN>", "AllMass=100.5 200.5 300.5");
             string fresh = Doc("Scan# <SCAN>", "AllMass=300.5 100.5 200.5");
             Assert.IsFalse(Eq(golden, fresh), "pre-canonicalize the reorder must differ (guards vacuity)");
-            Assert.IsTrue(EqCanon(LogGoldenComparer.IdaLogName, golden, fresh));
+            Assert.IsTrue(EqCanon(LogGoldenComparer.IdaLogName, golden, fresh, null));
         }
 
         [Test] // 11f' — an AllMass value change OR a dropped mass still FAILS
@@ -219,8 +251,8 @@ namespace Flash.Tests
             string golden = Doc("Scan# <SCAN>", "AllMass=100.5 200.5 300.5");
             string changed = Doc("Scan# <SCAN>", "AllMass=100.5 250.5 300.5"); // one mass moved beyond tol
             string dropped = Doc("Scan# <SCAN>", "AllMass=100.5 300.5");        // a mass removed (count change)
-            Assert.IsFalse(EqCanon(LogGoldenComparer.IdaLogName, golden, changed));
-            Assert.IsFalse(EqCanon(LogGoldenComparer.IdaLogName, golden, dropped));
+            Assert.IsFalse(EqCanon(LogGoldenComparer.IdaLogName, golden, changed, null));
+            Assert.IsFalse(EqCanon(LogGoldenComparer.IdaLogName, golden, dropped, null));
         }
     }
 }

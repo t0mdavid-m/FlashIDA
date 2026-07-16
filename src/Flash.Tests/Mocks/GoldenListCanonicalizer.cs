@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
@@ -18,27 +19,16 @@ namespace Flash.Tests.Mocks
     /// not the jittering intensity) puts both sides in one canonical order, so pure reorders match while any
     /// value / count / integer change still fails downstream.
     ///
-    /// Column indices below are 0-based and verified against the committed golden headers
-    /// (test-data/golden/logs/exploration_hcd/scan_results.tsv.golden.tsv and
-    /// test-data/golden/logs/ms3_cytc/identification.tsv.golden.tsv).
+    /// The reorderable tuple columns and the ms_level dispatch column are resolved BY NAME from the
+    /// caller-supplied reference (golden) header — the canonicalizer is agnostic to the live column order.
+    /// Before the list-sort, every row (header + data) is permuted into the reference column order by name
+    /// (fail closed if the fresh header is not a permutation of the reference), so a pure engine-writer
+    /// column reorder needs no change here and no golden recapture.
     /// </summary>
     internal static class GoldenListCanonicalizer
     {
-        // scan_results.tsv reorderable deconv columns (verified: header order tracking_id..winner_tracking_id).
-        private const int ResDeconvMasses = 19;
-        private const int ResDeconvIntensities = 20;
-        private const int ResDeconvMinCharge = 21;
-        private const int ResDeconvMaxCharge = 22;
-
-        // identification.tsv columns (verified: ms_level leads; fragment/theoretical/diff blocks parallel).
-        private const int IdMsLevel = 0;
-        private const int IdMs2Fragments = 15;
-        private const int IdMs2FragmentMasses = 16;
-        private const int IdMs3Fragments = 17;
-        private const int IdMs3FragmentMasses = 18;
-        private const int IdTheoreticalMasses = 26;
-        private const int IdDiffDa = 27;
-        private const int IdDiffPpm = 28;
+        // scan_results reorderable deconv 4-tuple and the identification MS2/MS3 fragment tuples are resolved
+        // BY NAME (see ResolveColumns) against the reference header, not by hardcoded index.
 
         private const string AllMassPrefix = "AllMass=";
 
@@ -46,11 +36,14 @@ namespace Flash.Tests.Mocks
         private const char RecordSep = '|';
 
         /// <summary>
-        /// Return <paramref name="normalizedText"/> with the reorderable list fields of the given stream
-        /// canonicalized (mass-sorted). Header (line 0 of the TSV streams) is left verbatim, line count and
-        /// trailing-newline shape are preserved. CommandsName / PooledName / any unknown stream: unchanged.
+        /// Return <paramref name="normalizedText"/> permuted into <paramref name="referenceHeader"/> column
+        /// order by name and with the reorderable list fields mass-sorted. For the TSV streams every row
+        /// (header + data) is first permuted into the reference order (fail closed if the text's header is not
+        /// a permutation of the reference), so both sides land in one canonical column order before the
+        /// positional compare — no golden recapture on a pure column reorder. ida.log is free text (no
+        /// permute). Line count and trailing-newline shape are preserved.
         /// </summary>
-        public static string Canonicalize(string fileName, string normalizedText)
+        public static string Canonicalize(string fileName, string normalizedText, string[] referenceHeader)
         {
             if (normalizedText == null) return null;
 
@@ -60,15 +53,100 @@ namespace Flash.Tests.Mocks
             // and GoldenNumericComparer folds "\r\n" again downstream (a no-op on the result).
             string text = normalizedText.Replace("\r\n", "\n");
 
-            if (fileName == LogGoldenComparer.ResultsName)
-                return CanonicalizeTsv(text, CanonicalizeResultsRow);
-            if (fileName == LogGoldenComparer.IdentificationName)
-                return CanonicalizeTsv(text, CanonicalizeIdentificationRow);
             if (fileName == LogGoldenComparer.IdaLogName)
-                return CanonicalizeIdaLog(text);
+                return CanonicalizeIdaLog(text);   // free text: no columns to permute
 
-            // CommandsName, PooledName (combined_* lists / id columns), unknown streams: leave untouched.
+            if (referenceHeader == null) throw new ArgumentNullException(nameof(referenceHeader));
+
+            // Permute every row into the reference (golden) column order BY NAME; both the golden (identity
+            // permute) and the fresh (NEW->golden permute) end up in one order for the positional compare.
+            text = PermuteColumnsToReference(fileName, text, referenceHeader);
+
+            if (fileName == LogGoldenComparer.ResultsName)
+            {
+                int[] deconv = ResolveColumns(referenceHeader,
+                    "deconv_masses", "deconv_intensities", "deconv_min_charge", "deconv_max_charge");
+                return CanonicalizeTsv(text, cols => ReorderParallelColumns(cols, deconv, deconv[0]));
+            }
+            if (fileName == LogGoldenComparer.IdentificationName)
+            {
+                int msLevelCol = ColumnIndex(referenceHeader, "ms_level");
+                int[] ms2 = ResolveColumns(referenceHeader,
+                    "ms2_fragments", "ms2_fragment_masses", "theoretical_masses", "diff_da", "diff_ppm");
+                int ms2Key = ColumnIndex(referenceHeader, "ms2_fragment_masses");
+                int[] ms3 = ResolveColumns(referenceHeader,
+                    "ms2_fragments", "ms2_fragment_masses", "ms3_fragments", "ms3_fragment_masses",
+                    "theoretical_masses", "diff_da", "diff_ppm");
+                int ms3Key = ColumnIndex(referenceHeader, "ms3_fragment_masses");
+                return CanonicalizeTsv(text, cols =>
+                {
+                    if (msLevelCol >= cols.Length) return false;
+                    string level = cols[msLevelCol];
+                    if (level == "2") return ReorderParallelColumns(cols, ms2, ms2Key);
+                    if (level == "3") return ReorderParallelColumns(cols, ms3, ms3Key);
+                    return false;
+                });
+            }
+
+            // CommandsName, PooledName: permuted into reference order above; no reorderable list columns.
             return text;
+        }
+
+        // Permute every line (header + data) of a normalized TSV stream into referenceHeader column order,
+        // matching columns BY NAME. Fail closed if the text's header is not an exact permutation of the
+        // reference (a rename/add/drop is a schema change, not a permutation). The identity case (golden vs
+        // its own header) leaves the bytes unchanged.
+        private static string PermuteColumnsToReference(string fileName, string text, string[] referenceHeader)
+        {
+            var lines = text.Split('\n');
+            if (lines.Length == 0 || lines[0].Length == 0) return text;
+
+            var srcHeader = lines[0].Split('\t');
+            if (srcHeader.Length != referenceHeader.Length)
+                throw new InvalidOperationException(
+                    $"{fileName}: header width {srcHeader.Length} != reference {referenceHeader.Length} (not a permutation)");
+
+            var srcIndex = new Dictionary<string, int>();
+            for (int i = 0; i < srcHeader.Length; i++)
+                if (!srcIndex.ContainsKey(srcHeader[i])) srcIndex[srcHeader[i]] = i;
+
+            var srcOf = new int[referenceHeader.Length];
+            for (int r = 0; r < referenceHeader.Length; r++)
+                if (!srcIndex.TryGetValue(referenceHeader[r], out srcOf[r]))
+                    throw new InvalidOperationException(
+                        $"{fileName}: column '{referenceHeader[r]}' missing from fresh header (not a permutation)");
+
+            for (int li = 0; li < lines.Length; li++)
+            {
+                if (lines[li].Length == 0) continue; // preserved trailing empty line
+                var cols = lines[li].Split('\t');
+                var outCols = new string[referenceHeader.Length];
+                bool full = true;
+                for (int r = 0; r < referenceHeader.Length; r++)
+                {
+                    int s = srcOf[r];
+                    if (s < cols.Length) outCols[r] = cols[s];
+                    else { full = false; break; }
+                }
+                if (full) lines[li] = string.Join("\t", outCols);
+                // ragged rows (should never happen for full TSV output) pass through verbatim
+            }
+            return string.Join("\n", lines);
+        }
+
+        // Resolve each name to its 0-based index in header; throw if any is missing (schema drift).
+        private static int[] ResolveColumns(string[] header, params string[] names)
+        {
+            var idx = new int[names.Length];
+            for (int i = 0; i < names.Length; i++) idx[i] = ColumnIndex(header, names[i]);
+            return idx;
+        }
+
+        private static int ColumnIndex(string[] header, string name)
+        {
+            int i = Array.IndexOf(header, name);
+            if (i < 0) throw new InvalidOperationException($"canonicalizer: column '{name}' not found in reference header");
+            return i;
         }
 
         // Rewrite every data row (line 0 header stays verbatim) via rowRewriter, which mutates cols in place
@@ -84,34 +162,6 @@ namespace Flash.Tests.Mocks
                     lines[i] = string.Join("\t", cols);
             }
             return string.Join("\n", lines);
-        }
-
-        // scan_results data row: reorder the deconv 4-tuple by the (stable, printed-precision) mass key.
-        private static bool CanonicalizeResultsRow(string[] cols)
-        {
-            return ReorderParallelColumns(cols,
-                new[] { ResDeconvMasses, ResDeconvIntensities, ResDeconvMinCharge, ResDeconvMaxCharge },
-                ResDeconvMasses);
-        }
-
-        // identification data row: dispatch by ms_level (col 0). MS1 / other / empty fragment lists: skip.
-        private static bool CanonicalizeIdentificationRow(string[] cols)
-        {
-            if (IdMsLevel >= cols.Length) return false;
-            string level = cols[IdMsLevel];
-            if (level == "2")
-                return ReorderParallelColumns(cols,
-                    new[] { IdMs2Fragments, IdMs2FragmentMasses, IdTheoreticalMasses, IdDiffDa, IdDiffPpm },
-                    IdMs2FragmentMasses);
-            if (level == "3")
-                return ReorderParallelColumns(cols,
-                    new[]
-                    {
-                        IdMs2Fragments, IdMs2FragmentMasses, IdMs3Fragments, IdMs3FragmentMasses,
-                        IdTheoreticalMasses, IdDiffDa, IdDiffPpm
-                    },
-                    IdMs3FragmentMasses);
-            return false;
         }
 
         /// <summary>

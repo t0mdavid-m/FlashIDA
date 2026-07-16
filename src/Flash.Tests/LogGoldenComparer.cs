@@ -17,20 +17,17 @@ namespace Flash.Tests
     ///   * tracking ids are relabeled to T0, T1, ... by first-appearance order, shared across all
     ///     files so every parent/child join edge is preserved (a flat per-file mask would lose them).
     ///
-    /// Column indices below are 0-based and pinned to the header order written by the FLASHIda
-    /// constructor (scan_commands 31 cols, scan_results 29 cols, identification 31 cols). They are
-    /// asserted by the C++ FLASHIda_LoggingFields schema_column_counts section.
+    /// Columns are resolved BY HEADER NAME (read from each file's own line-0 header), so this
+    /// normalizer is AGNOSTIC to the live column order — a pure column reorder in the engine writer
+    /// needs no change here and no golden recapture. The header is emitted verbatim; the compare-time
+    /// GoldenListCanonicalizer permutes both sides into the golden's column order by name before the
+    /// positional comparison.
     ///
-    /// F5 appended winner_tracking_id as the LAST scan_results column (index 28): the encoded id of an
-    /// exploration group's winning variant (empty on every non-completing / non-exploration row). It is an
-    /// id-bearing column, so it is relabeled via the shared id map (ResIdCols) and joins run-to-run.
-    ///
-    /// E5 inserted ms_level at scan_results column index 1 (int, unmasked), shifting every
-    /// downstream scan_results column by +1: child_ids 8->9, parent_tracking_id 22->23, and the
-    /// eight volatile timestamp/duration columns by +1. E6 appended the raw scan_description as
-    /// scan_commands column index 28 (no longer last: ms3_proteoform was appended after it); its leading 3-char tracking-id prefix is relabeled here
-    /// via the shared id map so descriptors join run-to-run while the deterministic E2 mass/charge
-    /// remainder is compared verbatim.
+    /// winner_tracking_id (scan_results) is the encoded id of an exploration group's winning variant
+    /// (empty on non-completing rows); it is an id-bearing column relabeled via the shared id map so it
+    /// joins run-to-run. child_ids / contributing_scan_ids are space-separated encoded-id lists.
+    /// scan_description's leading 3-char tracking-id prefix is relabeled via the shared id map so
+    /// descriptors join run-to-run while the deterministic mass/charge remainder is compared verbatim.
     /// </summary>
     public static class LogGoldenComparer
     {
@@ -46,46 +43,41 @@ namespace Flash.Tests
         public static readonly string[] FileNames =
             { IdaLogName, CommandsName, ResultsName, IdentificationName, PooledName };
 
-        // ID-bearing columns per TSV. results child_ids (col 9) is space-split and handled separately.
-        private static readonly int[] CmdIdCols = { 0, 22 };  // tracking_id, parent_tracking_id (unchanged by E6)
-        private static readonly int[] ResIdCols = { 0, 23, 28 };  // tracking_id, parent_tracking_id (23; was 28, -5 for removed scan_results cols 10-14), winner_tracking_id (28; F5, last; was 33, -5)
-        private static readonly int[] IdfIdCols = { 2 };      // tracking_id (identification still leads ms_level,scan_mode,tracking_id)
-        private const int ResChildCol = 9;                    // child_ids (space-separated; +1 from E5 ms_level@1)
-        // scan_commands raw descriptor (E6), appended LAST. Its first 3 chars are the encoded
-        // tracking id (== col 0); relabel just that prefix, keep the marker + mass remainder intact.
-        private const int CmdDescriptionCol = 28;
+        // ID-bearing columns per TSV, resolved BY HEADER NAME (order-agnostic to the live column layout).
+        // The NAME LISTS are visited in a FIXED logical order so BuildIdMap assigns T<n> labels in the same
+        // first-appearance sequence regardless of physical column position — keeping labels byte-identical to
+        // the stored (old-order-capture) goldens. child_ids / contributing_scan_ids are space-split.
+        private static readonly string[] CmdIdColNames = { "tracking_id", "parent_tracking_id" };
+        private static readonly string[] ResIdColNames = { "tracking_id", "parent_tracking_id", "winner_tracking_id" };
+        private static readonly string[] IdfIdColNames = { "tracking_id" };
+        private const string ResChildColName = "child_ids";            // space-separated encoded ids
+        // scan_commands raw descriptor: its first 3 chars are the encoded tracking id (== tracking_id);
+        // relabel just that prefix, keep the marker + mass remainder intact.
+        private const string CmdDescriptionColName = "scan_description";
 
-        // pooled_identification.tsv contributing_scan_ids (engine pooled_stream_ header order, 19 cols):
-        // nominal_mass[0] mono_mass[1] proteoform[2] flash_extender_score[3] coverage_pct[4]
-        // n_fragments[5] localized_mods[6] ambiguous_mods[7] contributing_scan_ids[8]
-        // combined_ms2_frame_masses[9] combined_ms2_fragment_ions[10] combined_measured[11]
-        // combined_theoretical[12] combined_diff_da[13] combined_diff_ppm[14] update_index[15]
-        // precursor_id[16] trigger[17] trigger_scan_id[18]. The grouped fragment-mass table (cols 9-14)
-        // is numeric masses + string ion labels (no ids) → compared verbatim/toleranced, no relabel.
-        // Volatile id columns: col 8 (contributing_scan_ids) + col 18 (trigger_scan_id), both encoded 3-char.
-        // LIKE scan_results child_ids and col 18 trigger_scan_id, the engine writes col 8 as
-        // base-94 encoded 3-char tracking ids (ScanCommandQueue::encode), so both id columns are
-        // relabeled DIRECTLY via the shared id map (no re-encoding step) — pooled ids carry the SAME
-        // T<n> labels as every other stream and join run-to-run.
-        private const int PooledScanIdsCol = 8;
-        private const int PooledTriggerScanIdCol = 18;
+        // pooled_identification.tsv volatile id columns: contributing_scan_ids (space-separated) and
+        // trigger_scan_id. Both hold base-94 encoded 3-char tracking ids (ScanCommandQueue::encode), so both
+        // are relabeled DIRECTLY via the shared id map — pooled ids carry the SAME T<n> labels as every other
+        // stream and join run-to-run. The grouped fragment-mass table is numeric masses + string ion labels
+        // (no ids) → compared verbatim/toleranced, no relabel.
+        private const string PooledScanIdsColName = "contributing_scan_ids";
+        private const string PooledTriggerScanIdColName = "trigger_scan_id";
 
-        // Volatile wall-clock columns -> placeholder.
-        private static readonly Dictionary<int, string> CmdMask =
-            new Dictionary<int, string> { { 3, "<TS>" } };    // enqueue_ts (unchanged by E6)
-        // E5 shifted every scan_results column after index 0 by +1 (ms_level@1 is an int, left UNMASKED).
-        private static readonly Dictionary<int, string> ResMask = new Dictionary<int, string>
+        // Volatile wall-clock columns -> placeholder, keyed BY NAME.
+        private static readonly Dictionary<string, string> CmdMaskNames =
+            new Dictionary<string, string> { { "enqueue_ts", "<TS>" } };
+        private static readonly Dictionary<string, string> ResMaskNames = new Dictionary<string, string>
         {
-            { 2, "<TS>" },  // resolve_ts
-            { 3, "<DUR>" }, // duration_ms
-            { 4, "<TS>" },  // received_ts
-            { 5, "<DUR>" }, // duration_received_ms
-            { 24, "<TS>" }, // dequeue_ts
-            { 25, "<DUR>" },// queue_duration_ms
-            { 26, "<DUR>" },// instrument_duration_ms
-            { 27, "<DUR>" } // processing_duration_ms
+            { "resolve_ts", "<TS>" },
+            { "duration_ms", "<DUR>" },
+            { "received_ts", "<TS>" },
+            { "duration_received_ms", "<DUR>" },
+            { "dequeue_ts", "<TS>" },
+            { "queue_duration_ms", "<DUR>" },
+            { "instrument_duration_ms", "<DUR>" },
+            { "processing_duration_ms", "<DUR>" }
         };
-        private static readonly Dictionary<int, string> NoMask = new Dictionary<int, string>();
+        private static readonly Dictionary<string, string> NoMaskNames = new Dictionary<string, string>();
 
         /// <summary>
         /// Build tracking_id -> T&lt;n&gt; by first appearance across the three TSVs in fixed order
@@ -100,60 +92,90 @@ namespace Flash.Tests
                 if (!map.ContainsKey(id)) map[id] = "T" + map.Count;
             }
 
-            foreach (var row in DataRows(Path.Combine(caseDir, CommandsName)))
-                foreach (var c in CmdIdCols) if (c < row.Length) Add(row[c]);
-
-            foreach (var row in DataRows(Path.Combine(caseDir, ResultsName)))
-            {
-                foreach (var c in ResIdCols) if (c < row.Length) Add(row[c]);
-                if (ResChildCol < row.Length && row[ResChildCol].Length > 0)
-                    foreach (var k in row[ResChildCol].Split(' ')) Add(k);
-            }
-
-            foreach (var row in DataRows(Path.Combine(caseDir, IdentificationName)))
-                foreach (var c in IdfIdCols) if (c < row.Length) Add(row[c]);
-
-            // pooled contributing_scan_ids (col 8) and trigger_scan_id (col 18) are BOTH space-/single
-            // encoded 3-char base-94 tracking ids (== the encoded form the other three streams use); Add
-            // each directly so it maps to the SAME T<n> label. Mirrors the scan_results child_ids
-            // split-on-space path above.
-            foreach (var row in DataRows(Path.Combine(caseDir, PooledName)))
-            {
-                if (PooledScanIdsCol < row.Length && row[PooledScanIdsCol].Length > 0)
-                    foreach (var k in row[PooledScanIdsCol].Split(' ')) Add(k);
-                if (PooledTriggerScanIdCol < row.Length && row[PooledTriggerScanIdCol].Length > 0)
-                    Add(row[PooledTriggerScanIdCol]);
-            }
+            // Visit id cells in the SAME logical order as before (commands -> results -> identification ->
+            // pooled; within each row the name-list order, then the space-split child/scan-id column) so the
+            // first-appearance T<n> numbering is byte-identical to the stored (old-order) goldens.
+            AddIdsFromTsv(Path.Combine(caseDir, CommandsName), CmdIdColNames, null, Add);
+            AddIdsFromTsv(Path.Combine(caseDir, ResultsName), ResIdColNames, ResChildColName, Add);
+            AddIdsFromTsv(Path.Combine(caseDir, IdentificationName), IdfIdColNames, null, Add);
+            AddIdsFromPooled(Path.Combine(caseDir, PooledName), Add);
 
             return map;
+        }
+
+        // Visit id cells of one TSV in header-name order: for each data row, each name in @idColNames
+        // (in list order), then the space-split @childColName column (or none). Missing names are skipped.
+        private static void AddIdsFromTsv(string path, string[] idColNames, string childColName, Action<string> add)
+        {
+            if (!File.Exists(path)) return;
+            var lines = File.ReadAllLines(path);
+            if (lines.Length == 0) return;
+            var hdr = HeaderIndex(lines[0]);
+            var idCols = idColNames.Select(n => hdr.TryGetValue(n, out var i) ? i : -1).ToArray();
+            int childCol = (childColName != null && hdr.TryGetValue(childColName, out var cc)) ? cc : -1;
+            for (int li = 1; li < lines.Length; li++)
+            {
+                var row = lines[li].Split('\t');
+                foreach (var c in idCols) if (c >= 0 && c < row.Length) add(row[c]);
+                if (childCol >= 0 && childCol < row.Length && row[childCol].Length > 0)
+                    foreach (var k in row[childCol].Split(' ')) add(k);
+            }
+        }
+
+        // pooled visit order: contributing_scan_ids (space-split) THEN trigger_scan_id, per data row.
+        private static void AddIdsFromPooled(string path, Action<string> add)
+        {
+            if (!File.Exists(path)) return;
+            var lines = File.ReadAllLines(path);
+            if (lines.Length == 0) return;
+            var hdr = HeaderIndex(lines[0]);
+            int scanIdsCol = hdr.TryGetValue(PooledScanIdsColName, out var si) ? si : -1;
+            int triggerCol = hdr.TryGetValue(PooledTriggerScanIdColName, out var ti) ? ti : -1;
+            for (int li = 1; li < lines.Length; li++)
+            {
+                var row = lines[li].Split('\t');
+                if (scanIdsCol >= 0 && scanIdsCol < row.Length && row[scanIdsCol].Length > 0)
+                    foreach (var k in row[scanIdsCol].Split(' ')) add(k);
+                if (triggerCol >= 0 && triggerCol < row.Length && row[triggerCol].Length > 0)
+                    add(row[triggerCol]);
+            }
         }
 
         /// <summary>Normalize one log file (dispatched by name) into golden-comparable text.</summary>
         public static string Normalize(string caseDir, string fileName, Dictionary<string, string> ids)
         {
             string path = Path.Combine(caseDir, fileName);
-            if (fileName == CommandsName) return NormalizeTsv(path, ids, CmdIdCols, -1, CmdMask, CmdDescriptionCol);
-            if (fileName == ResultsName) return NormalizeTsv(path, ids, ResIdCols, ResChildCol, ResMask, -1);
-            if (fileName == IdentificationName) return NormalizeTsv(path, ids, IdfIdCols, -1, NoMask, -1);
+            if (fileName == CommandsName) return NormalizeTsv(path, ids, CmdIdColNames, null, CmdMaskNames, CmdDescriptionColName);
+            if (fileName == ResultsName) return NormalizeTsv(path, ids, ResIdColNames, ResChildColName, ResMaskNames, null);
+            if (fileName == IdentificationName) return NormalizeTsv(path, ids, IdfIdColNames, null, NoMaskNames, null);
             if (fileName == PooledName) return NormalizePooled(path, ids);
             if (fileName == IdaLogName) return NormalizeIdaLog(path);
             throw new ArgumentException("unknown log file: " + fileName);
         }
 
         private static string NormalizeTsv(string path, Dictionary<string, string> ids,
-            int[] idCols, int childCol, Dictionary<int, string> mask, int descCol)
+            string[] idColNames, string childColName, Dictionary<string, string> maskNames, string descColName)
         {
             if (!File.Exists(path)) return "";
             var lines = File.ReadAllLines(path);
+            if (lines.Length == 0) return "";
+            // Resolve every column role from THIS file's own header (order-agnostic).
+            var hdr = HeaderIndex(lines[0]);
+            var idCols = idColNames.Select(n => hdr.TryGetValue(n, out var i) ? i : -1).ToArray();
+            int childCol = (childColName != null && hdr.TryGetValue(childColName, out var cc)) ? cc : -1;
+            int descCol = (descColName != null && hdr.TryGetValue(descColName, out var dc)) ? dc : -1;
+            var mask = new Dictionary<int, string>();
+            foreach (var kv in maskNames) if (hdr.TryGetValue(kv.Key, out var mi)) mask[mi] = kv.Value;
+
             var sb = new StringBuilder();
             for (int li = 0; li < lines.Length; li++)
             {
-                if (li == 0) { sb.Append(lines[li]).Append('\n'); continue; } // header verbatim
+                if (li == 0) { sb.Append(lines[li]).Append('\n'); continue; } // header verbatim (permuted at canonicalize time)
                 var cols = lines[li].Split('\t');
-                foreach (var c in idCols) if (c < cols.Length) cols[c] = Relabel(cols[c], ids);
+                foreach (var c in idCols) if (c >= 0 && c < cols.Length) cols[c] = Relabel(cols[c], ids);
                 if (childCol >= 0 && childCol < cols.Length && cols[childCol].Length > 0)
                     cols[childCol] = string.Join(" ", cols[childCol].Split(' ').Select(k => Relabel(k, ids)));
-                // E6 scan_description: relabel the leading 3-char tracking-id prefix only, leaving
+                // scan_description: relabel the leading 3-char tracking-id prefix only, leaving
                 // the deterministic marker + adaptive-precision mass/charge remainder verbatim.
                 if (descCol >= 0 && descCol < cols.Length)
                     cols[descCol] = RelabelDescriptionPrefix(cols[descCol], ids);
@@ -173,16 +195,20 @@ namespace Flash.Tests
         {
             if (!File.Exists(path)) return "";
             var lines = File.ReadAllLines(path);
+            if (lines.Length == 0) return "";
+            var hdr = HeaderIndex(lines[0]);
+            int scanIdsCol = hdr.TryGetValue(PooledScanIdsColName, out var si) ? si : -1;
+            int triggerCol = hdr.TryGetValue(PooledTriggerScanIdColName, out var ti) ? ti : -1;
             var sb = new StringBuilder();
             for (int li = 0; li < lines.Length; li++)
             {
                 if (li == 0) { sb.Append(lines[li]).Append('\n'); continue; } // header verbatim
                 var cols = lines[li].Split('\t');
-                if (PooledScanIdsCol < cols.Length && cols[PooledScanIdsCol].Length > 0)
-                    cols[PooledScanIdsCol] = string.Join(" ",
-                        cols[PooledScanIdsCol].Split(' ').Select(k => Relabel(k, ids)));
-                if (PooledTriggerScanIdCol < cols.Length && cols[PooledTriggerScanIdCol].Length > 0)
-                    cols[PooledTriggerScanIdCol] = Relabel(cols[PooledTriggerScanIdCol], ids);
+                if (scanIdsCol >= 0 && scanIdsCol < cols.Length && cols[scanIdsCol].Length > 0)
+                    cols[scanIdsCol] = string.Join(" ",
+                        cols[scanIdsCol].Split(' ').Select(k => Relabel(k, ids)));
+                if (triggerCol >= 0 && triggerCol < cols.Length && cols[triggerCol].Length > 0)
+                    cols[triggerCol] = Relabel(cols[triggerCol], ids);
                 sb.Append(string.Join("\t", cols)).Append('\n');
             }
             return sb.ToString();
@@ -221,11 +247,13 @@ namespace Flash.Tests
             return label + desc.Substring(3);
         }
 
-        private static IEnumerable<string[]> DataRows(string path)
+        // Build name -> 0-based column index from a header line. First occurrence wins (headers are unique).
+        private static Dictionary<string, int> HeaderIndex(string headerLine)
         {
-            if (!File.Exists(path)) yield break;
-            var lines = File.ReadAllLines(path);
-            for (int i = 1; i < lines.Length; i++) yield return lines[i].Split('\t');
+            var map = new Dictionary<string, int>();
+            var cols = headerLine.Split('\t');
+            for (int i = 0; i < cols.Length; i++) if (!map.ContainsKey(cols[i])) map[cols[i]] = i;
+            return map;
         }
     }
 }

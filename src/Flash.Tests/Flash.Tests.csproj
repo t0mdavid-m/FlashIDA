@@ -104,6 +104,7 @@
     <Compile Include="Mocks\GoldenListCanonicalizer.cs" />
     <Compile Include="Mocks\ContinuityTestHarness.cs" />
     <Compile Include="GoldenNumericComparerTests.cs" />
+    <Compile Include="LogColumnReorderTests.cs" />
     <Compile Include="InterfaceShapeTests.cs" />
     <Compile Include="DataPipeTests.cs" />
     <Compile Include="AcquisitionLoop\ContinuityTests.cs" />

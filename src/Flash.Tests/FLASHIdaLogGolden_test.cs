@@ -603,9 +603,9 @@ namespace Flash.Tests
         ///   * &gt;= 1 row's trigger (col 17) == "MS2" — the MS2 baseline;
         ///   * &gt;= 1 row's trigger matches the fragment-ion pattern ^[abcxyz]\d+$ (e.g. "y6") — an MS3 fold,
         ///     which only the production-MS3 re-acquisition produces (non-winning CE-sweep variants never fold);
-        ///   * each fold row's trigger_scan_id (col 18) is a non-empty 3-char tracking id (the driving scan).
-        /// Column indices mirror IdaLogger's pooled header (trigger=17, trigger_scan_id=18 after the grouped
-        /// fragment-mass table) and LogGoldenComparer.PooledScanIdsCol=8 / PooledTriggerScanIdCol=18. The delegate receives the
+        ///   * each fold row's trigger_scan_id is a non-empty 3-char tracking id (the driving scan).
+        /// The trigger / trigger_scan_id columns are resolved BY HEADER NAME (order-agnostic to the pooled
+        /// column layout, so an engine column reorder needs no change here). The delegate receives the
         /// scan_commands.tsv path (RunCase passes commandsPath); the pooled file is its sibling in the same
         /// case dir.
         /// </summary>
@@ -617,13 +617,18 @@ namespace Flash.Tests
                 "exploration_ms3_followup: engine must have written pooled_identification.tsv for the " +
                 "production-MS3 fold check");
 
-            var rows = ParseTsv(pooledPath, out var _);   // skips the header; splits rows on '\t'
+            var rows = ParseTsv(pooledPath, out var header);   // header captured for name-based column resolution
             Assert.That(rows.Count, Is.GreaterThanOrEqualTo(2),
                 $"exploration_ms3_followup: pooled trajectory has {rows.Count} data row(s) (< 2) — expected an " +
                 "MS2 baseline plus >= 1 production-MS3 fold (Part G cache regression?).");
 
-            const int triggerCol = 17;          // pooled column 17 = trigger (IdaLogger pooled header, after the grouped fragment-mass table)
-            const int triggerScanIdCol = 18;    // pooled column 18 = trigger_scan_id (== LogGoldenComparer.PooledTriggerScanIdCol)
+            // Resolve by header NAME — order-agnostic to the pooled column layout (post-reorder-safe).
+            int triggerCol = Array.IndexOf(header, "trigger");
+            int triggerScanIdCol = Array.IndexOf(header, "trigger_scan_id");
+            Assert.That(triggerCol, Is.GreaterThanOrEqualTo(0),
+                "exploration_ms3_followup: pooled header is missing the 'trigger' column.");
+            Assert.That(triggerScanIdCol, Is.GreaterThanOrEqualTo(0),
+                "exploration_ms3_followup: pooled header is missing the 'trigger_scan_id' column.");
 
             bool sawMs2Baseline = false;
             int foldRows = 0;
@@ -1211,10 +1216,15 @@ namespace Flash.Tests
             // deconvolution (scan_results) and the MS2/MS3 fragment matches (identification) and ida.log's
             // AllMass line in INTENSITY order, so near-tied entries swap position between non-deterministic
             // CI builds. GoldenListCanonicalizer mass-sorts those parallel list-tuples symmetrically so a pure
-            // reorder matches while any value/count/int change still fails. It does NOT touch the stored
-            // golden bytes (no recapture) — only this in-memory comparison.
-            string goldenC = GoldenListCanonicalizer.Canonicalize(fileName, File.ReadAllText(goldenPath));
-            string freshC = GoldenListCanonicalizer.Canonicalize(fileName, normalized);
+            // reorder matches while any value/count/int change still fails. It ALSO permutes both sides into
+            // the golden's column order BY NAME, so the frozen (old-order) golden matches the NEW-order live
+            // output after an engine column reorder. It does NOT touch the stored golden bytes (no recapture)
+            // — only this in-memory comparison. The golden's header row (line 0) is the canonical reference
+            // order; ida.log has no header, so the reference is ignored for it.
+            string goldenText = File.ReadAllText(goldenPath);
+            string[] refHeader = goldenText.Replace("\r\n", "\n").Split('\n')[0].Split('\t');
+            string goldenC = GoldenListCanonicalizer.Canonicalize(fileName, goldenText, refHeader);
+            string freshC = GoldenListCanonicalizer.Canonicalize(fileName, normalized, refHeader);
             if (!GoldenNumericComparer.Equivalent(goldenC, freshC, out string diff))
                 return $"{fileName}: mismatch vs golden ({diff}). If intentional, recapture with LOG_GOLDEN_CAPTURE=1.";
             return null;
