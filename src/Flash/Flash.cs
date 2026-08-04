@@ -44,8 +44,13 @@ namespace Flash
         //its echo in Trailer["Access ID"]. NOT an engine identity - see docs/adr/0008.
         private const int HandshakeJobNumber = 41;
 
-        //switch indicating that we need to stop
-        static bool stopRequest = false;
+        //switch indicating that we need to stop.
+        //volatile: written from the DataPipe pool thread (abort path) and read by the
+        //empty-bodied spin loop in Main, which the JIT would otherwise be free to hoist.
+        static volatile bool stopRequest = false;
+
+        //one-shot guard so a systemic failure cannot fire the abort once per buffered scan
+        private static int stopRequested = 0;
 
         //helper class to create scan objects
         static ScanFactory scanFactory;
@@ -302,7 +307,8 @@ namespace Flash
             //Initialize data processing pipeline
             try
             {
-                dataPipe = new DataPipe(flashIDAProcessor);
+                dataPipe = new DataPipe(flashIDAProcessor,
+                    ex => RequestStop(String.Format("Aborting run - scan processing failed: {0}", ex.Message)));
                 log.Info("Created DataPipe");
             }
             catch (Exception ex)
@@ -477,11 +483,15 @@ namespace Flash
                 if (!inCustom) inCustom = true;
                 currentNumber = HandshakeJobNumber;
             }
-            
-            //push current scan to the DataPipe
+
+            //push current scan to the DataPipe.
+            //Push TRANSFERS OWNERSHIP: on success the pipeline is the last reader and disposes the
+            //scan itself. Disposing here would free Thermo shared memory while the pool thread is
+            //still lazily enumerating Centroids/Header/Trailer.
+            bool pipelineOwns = false;
             if (inCustom)
             {
-                dataPipe.Push(msScan);
+                pipelineOwns = dataPipe.Push(msScan);
 
                 var cmd = new ScanCommand();
                 if (wrapper.GetNextScanCommand(ref cmd) == 1)
@@ -490,7 +500,7 @@ namespace Flash
                 }
             }
 
-            msScan.Dispose();//Release resources
+            if (!pipelineOwns) msScan.Dispose();//Release resources we still own
         }
 
         /// <summary>
@@ -509,9 +519,26 @@ namespace Flash
         /// </summary>
         private static void StopExecution(object sender, ElapsedEventArgs args)
         {
+            RequestStop("Time is over");
+        }
+
+        /// <summary>
+        /// Request an orderly end of the run. One-shot: a systemic scan-processing failure would
+        /// otherwise call this once per buffered scan.
+        /// </summary>
+        /// <param name="reason">Why the run is stopping - logged verbatim, so never pass a fixed
+        /// string on an error path (an abort logging "Time is over" is actively misleading).</param>
+        private static void RequestStop(string reason)
+        {
+            //fully qualified: 'using System.Threading' would make the Timer in 'static Timer duration'
+            //ambiguous against System.Timers.Timer (CS0104).
+            if (System.Threading.Interlocked.Exchange(ref stopRequested, 1) != 0) return;
+
+            //set the flag FIRST: a throw in the logging or timer teardown below must not be able to
+            //strand the run in the Main spin loop.
             stopRequest = true;
-            log.Info("Time is over");
-            duration.Close();
+            log.Info(reason);
+            if (duration != null) duration.Close();
         }
 
         /// <summary>

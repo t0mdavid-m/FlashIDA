@@ -39,13 +39,13 @@ unreachable. Treat it as the acquisition design, not as what runs today.
 ```
 Thermo MsScanArrived  ──► ProcessSpectrum(IMsScan)          [instrument event thread]
                             │
-                            ├─ if Trailer["Access ID"] == "41"  ──► inCustom = true   (one-time latch)
+                            ├─ if Trailer["Access ID"] == HandshakeJobNumber ──► inCustom = true  (latch)
                             │
                             └─ if (inCustom):
                                  dataPipe.Push(scan)  ─────────► BufferBlock ─► ActionBlock  [pool thread]
-                                 │                                   └─► UnifiedScanProcessor.ProcessMS
-                                 │                                        └─► FLASHIdaWrapper.ProcessScan  (P/Invoke, enqueues)
-                                 │
+                                 │   (ownership transfers)           └─► UnifiedScanProcessor.ProcessMS
+                                 │                                        └─► FLASHIdaWrapper.ProcessScan
+                                 │                                   └─► scan.Dispose()  ← pipeline frees it
                                  └─ ONE GetNextScanCommand ─► ScanFactory.BuildFromCommand ─► SendCustomScan
 ```
 
@@ -55,12 +55,13 @@ Four things this diagram exists to correct:
   `while (!stopRequest) { }` on the Main thread (`Flash.cs:191-197`) that burns a core and does
   no work. Acquisition is entirely event-driven — the "loop" is the chain of `MsScanArrived`
   callbacks, each doing one ingest plus one drain.
-- **Nothing happens until the `"41"` latch fires.** `inCustom` is set only when a scan returns
-  with `Trailer["Access ID"] == "41"` (`Flash.cs:449-453`). The two startup branches are
-  asymmetric: `-o/--nocc` hand-builds an AGC scan with `id: 41` so the latch fires, but the
-  default contact-closure branch submits the engine's first command, whose id is
-  `tracking_id_counter_` starting at **0** — so it comes back as Access ID `"0"` and the latch
-  never fires. Worth knowing before debugging a "nothing is happening" instrument run.
+- **Nothing happens until the handshake latch fires.** `inCustom` is set only when a scan comes
+  *back* with `Trailer["Access ID"] == HandshakeJobNumber` — the echo is what proves the instrument
+  entered custom control, so it can never be latched at send time. **Both** startup paths must send
+  the same `BuildHandshakeScan()`; a path that leaves the job number to chance is a defect by
+  construction. (The contact-closure path once built the handshake from `GetNextScanCommand`, which
+  stamped the engine's first tracking id — `0` — so the latch never fired and the run acquired
+  nothing. See ADR-0008.)
 - **The drain is one command per arriving scan, not a loop.** A burst of commands from one
   `processScan` drains across subsequent scans. (It *must* be bounded — see the ABI note below.)
 - **`processScan` and `getNextScanCommand` genuinely run on different threads** — the pool
@@ -111,14 +112,22 @@ exception was caught, never "queue empty".
   nulls, joins arrays with `';'`, and replaces `'_'` with `' '` in the key (`FAIMS_CV` → `"FAIMS CV"`)
   (`ScanFactory.cs:133-145`).
 - **`DataPipe.cs`** — `BufferBlock` → `ActionBlock`, constructed with no execution options, so
-  `MaxDegreeOfParallelism` is 1 and `ProcessMS` calls are serialized. `Push` is fire-and-forget.
-  ⚠️ `ProcessSpectrum` calls `msScan.Dispose()` synchronously at the end of the same callback,
-  while the pool thread may not yet have read `Centroids`/`Header`/`Trailer`. Only `DataPipeTests`
-  exercises the async path — the NUnit continuity harness calls `ProcessMS` directly.
-  `Complete()`/`WaitForCompletion()` are called only from tests: production never drains the
-  pipeline, never disposes the wrapper (`DisposeFLASHIda` runs on the finalizer, if ever), and
-  never unsubscribes. Shutdown is just `stopRequest = true`. It survives only because `IdaLogger`
-  flushes after every row.
+  `MaxDegreeOfParallelism` is 1 and `ProcessMS` calls are serialized.
+  - **`Push` transfers ownership.** It returns `true` when the pipeline accepted the scan, and the
+    pipeline then disposes it in a `finally` after `ProcessMS` returns. The producer must dispose
+    **only** when `Push` returns false. Disposing on the producer side frees Thermo shared memory
+    the pool thread is still lazily reading (`Centroids`/`Header`/`Trailer`) — and because the
+    consumer runs behind a queue, the window is the whole queue depth, not a race.
+  - **The `ActionBlock` must never fault.** An escaping exception faults it *permanently* and
+    unobserved (`Completion` is only awaited by tests), severing the link while `GetNextScanCommand`
+    keeps handing the instrument idle AGC scans — a silent, total loss of acquisition. It therefore
+    catches, logs FATAL, and invokes the required `onFailure` callback, which ends the run.
+  - Only `DataPipeTests` exercises the async path — the NUnit continuity harness calls `ProcessMS`
+    directly. `Complete()`/`WaitForCompletion()` are called only from tests: production never drains
+    the pipeline, never disposes the wrapper (`DisposeFLASHIda` runs on the finalizer, if ever), and
+    never unsubscribes. Shutdown is `RequestStop(reason)`, one-shot, setting a `volatile`
+    `stopRequest` that releases `Main`'s spin-wait. It survives only because `IdaLogger` flushes
+    after every row.
 - **`MethodConfig.cs` / `MethodParameters.cs` / `IDA/MethodConfigSerializer.cs`** — see *Config*.
 
 `ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs` and

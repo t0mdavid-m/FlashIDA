@@ -70,9 +70,20 @@ namespace Flash.Tests.Mocks
             _centroids = new List<ICentroid>();
         }
 
+        /// <summary>
+        /// True once <see cref="Dispose"/> has been called.
+        ///
+        /// A real IMsScan wraps Thermo shared memory that Dispose releases, so WHO disposes and WHEN
+        /// is a correctness property, not bookkeeping: the DataPipe consumer reads Centroids/Header/
+        /// Trailer lazily on a pool thread, and disposing before it finishes is a use-after-free.
+        /// DataPipeTests asserts the ordering against this flag.
+        /// </summary>
+        public bool IsDisposed { get; private set; }
+
         public void Dispose()
         {
-            // No resources to release in mock
+            // No unmanaged resources in the mock; record the call so tests can assert ownership.
+            IsDisposed = true;
         }
 
         // === Factory methods ===
