@@ -40,6 +40,10 @@ namespace Flash
         //switch indicating that we received custom scan control
         static bool inCustom = false;
 
+        //Instrument job number stamped on the handshake scan; the latch in ProcessSpectrum keys on
+        //its echo in Trailer["Access ID"]. NOT an engine identity - see docs/adr/0008.
+        private const int HandshakeJobNumber = 41;
+
         //switch indicating that we need to stop
         static bool stopRequest = false;
 
@@ -320,22 +324,10 @@ namespace Flash
                 duration.Start();
                 log.Info("Method started");
 
-                //send the first custom scan (the magic one)
+                //send the first custom scan (the handshake one)
                 try
                 {
-                    scanControl.SetFusionCustomScan(scanFactory.CreateFusionCustomScan(
-                        new ScanParameters
-                        {
-                            Analyzer = "IonTrap",
-                            FirstMass = new double[] { methodParams.Config.MsSettings.MS1.FirstMass },
-                            LastMass = new double[] { methodParams.Config.MsSettings.MS1.LastMass },
-                            ScanRate = "Turbo",
-                            AGCTarget = 30000,
-                            MaxIT = 1,
-                            Microscans = 1,
-                            DataType = "Profile",
-                            ScanType = "Full",
-                        }, id: 41, IsAGC: true, delay: 3));
+                    scanControl.SetFusionCustomScan(BuildHandshakeScan());
                     log.Info("Sent the first magic scan");
                 }
                 catch (Exception ex)
@@ -372,18 +364,52 @@ namespace Flash
             duration.Start();
             log.Info("Method started");
             
-            //send the first custom scan (the magic one)
+            //send the first custom scan (the handshake one).
+            //MUST be the same handshake scan the OverrideCC branch sends: it carries the
+            //HandshakeJobNumber the latch in ProcessSpectrum keys on. Building it from
+            //GetNextScanCommand instead stamps the engine's first tracking id (0, an
+            //iAPI-reserved value), the latch never fires, and the run acquires nothing.
             try
             {
-                var startupCmd2 = new ScanCommand();
-                wrapper.GetNextScanCommand(ref startupCmd2);
-                scanControl.SetFusionCustomScan(scanFactory.BuildFromCommand(startupCmd2));
+                scanControl.SetFusionCustomScan(BuildHandshakeScan());
                 log.Info("Sent the first magic scan");
             }
             catch (Exception ex)
             {
                 log.Error(String.Format("First magic scan failed: {0}\n{1}", ex.Message, ex.StackTrace));
             }
+        }
+
+        /// <summary>
+        /// Build the handshake ("magic") scan that switches the instrument into custom control.
+        /// </summary>
+        /// <remarks>
+        /// Both startup paths (contact closure and -o/--nocc) MUST send this exact scan - it is the
+        /// single definition of the handshake, so the two paths cannot drift apart again.
+        ///
+        /// Deliberately a cheap, fast IonTrap scan: it is a control signal, not data, and we want it
+        /// echoed back immediately. <c>delay: 3</c> is load-bearing - SingleProcessingDelay is the time
+        /// the instrument waits for further custom scan requests after executing this one, i.e. the
+        /// grace window that keeps custom control open until the first real command is drained.
+        ///
+        /// Must be handed to <c>scanControl.SetFusionCustomScan</c> DIRECTLY, never via
+        /// <see cref="SendCustomScan"/>, which would overwrite RunningNumber with ++currentNumber.
+        /// </remarks>
+        private static IFusionCustomScan BuildHandshakeScan()
+        {
+            return scanFactory.CreateFusionCustomScan(
+                new ScanParameters
+                {
+                    Analyzer = "IonTrap",
+                    FirstMass = new double[] { methodParams.Config.MsSettings.MS1.FirstMass },
+                    LastMass = new double[] { methodParams.Config.MsSettings.MS1.LastMass },
+                    ScanRate = "Turbo",
+                    AGCTarget = 30000,
+                    MaxIT = 1,
+                    Microscans = 1,
+                    DataType = "Profile",
+                    ScanType = "Full",
+                }, id: HandshakeJobNumber, IsAGC: true, delay: 3);
         }
 
         /// <summary>
@@ -445,11 +471,11 @@ namespace Flash
                     msScan.Header["MassAnalyzer"], msScan.Header["Scan"], scanId, msScan.Header["PrecursorMass[0]"]));
             }
 
-            //when magic scan received switch to custom control mode
-            if (scanId == "41")
+            //when handshake scan received switch to custom control mode
+            if (scanId == HandshakeJobNumber.ToString())
             {
                 if (!inCustom) inCustom = true;
-                currentNumber = 41;
+                currentNumber = HandshakeJobNumber;
             }
             
             //push current scan to the DataPipe
