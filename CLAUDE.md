@@ -2,70 +2,238 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Scope: the C# side only.** This is a git submodule of the `flashida-development` workspace.
+The parent `../CLAUDE.md` owns the bridge/ABI contract, CI, build commands, goldens and config
+flow, and wins on any conflict; `../OpenMS/CLAUDE.md` owns the C++ engine. Don't restate them here.
+
 ## Project Overview
 
-FLASHIda is a real-time intelligent data acquisition (IDA) system for top-down proteomics on Thermo Scientific tribrid instruments. It controls which mass spectra the instrument acquires and in which order, using real-time deconvolution and machine learning-based quality assessment for precursor selection.
+FLASHIda is a real-time intelligent data acquisition (IDA) system for top-down proteomics on
+Thermo Scientific tribrid instruments. It decides which spectra the instrument acquires and in
+which order, using real-time deconvolution and quality scoring for precursor selection.
 
-- **Language**: C# (.NET Framework 4.8, C# 7.3)
-- **IDE**: Visual Studio 2019
-- **Platform**: Windows x64 only (requires physical Thermo instrument or test mode)
-- **Solution file**: `src/Flash.sln`
+C# 7.3 / .NET Framework 4.8, x64, Windows only. Solution: `src/Flash.sln`. Output: `bin/`.
 
-## Build
+## The build currently ships the OFFLINE harness, not the instrument app
 
-Open `src/Flash.sln` in Visual Studio 2019 and build, or use MSBuild (run `nuget restore src/Flash.sln` first):
+`src/Flash/Flash.csproj:38` pins `<StartupObject>Flash.IDA.FLASHIdaWrapper</StartupObject>`.
+Two classes define a `Main`, and the csproj picks the offline one:
 
-```
-msbuild src/Flash.sln /p:Configuration=Debug /p:Platform="Any CPU" /m
-```
+| `Main` | Contains | Reachable? |
+|---|---|---|
+| `Flash.IDA.FLASHIdaWrapper.Main` (`IDA/FLASHIdaWrapper.cs:438`) | Offline deconvolution over a text spectrum file | **Yes — this is Flash.exe** |
+| `Flash.Flash.Main` (`Flash.cs:154`) | Thermo instrument connection, log4net renaming, the whole Mono.Options CLI (`-t/--test`, `-m`, `-o`, `-r`, …) | **No — dead code in this build** |
 
-Debug output goes to `bin/` (both `Flash.exe` and `Flash.Tests.dll`). The Thermo iAPI DLLs must be placed in `dependencies/` before building (not checked in; see Installation.md). OpenMS runtime DLLs are committed in `dll/` and copied to `bin/` by MSBuild.
+So `Flash.exe` takes **positional args only**: `<input_spectrum> <output.tsv> <method.json> [ms2_spectrum]`.
+There is no `-t/--test` flag — passing `-t` makes it `args[0]` and the run dies with
+`Cannot open input file: -t`. Fewer than 3 args prints usage and exits 1. Git history shows the
+StartupObject used to be `Flash.Flash`; **restoring instrument acquisition means flipping it back**.
 
-Automated tests exist: a C# NUnit suite in `src/Flash.Tests/` (run in CI via `nunit3-console.exe` against `bin/Flash.Tests.dll`), plus a PowerShell regression/golden harness (`test-scripts/regression-runner.ps1`) and the C++ ctest suite in the OpenMS submodule. The `-t/--test` flag runs `FLASHIdaWrapper.Main()` for offline deconvolution against text-file input without an instrument: `Flash.exe <input> <output> <method.json> [ms2_file]`.
+Everything in *Architecture* below describes `Flash.cs`, which is real, maintained, and currently
+unreachable. Treat it as the acquisition design, not as what runs today.
 
 ## Architecture
 
-### Data Flow
+### Data flow (production / instrument path)
 
 ```
-Instrument → IMsScan → DataPipe (BufferBlock → ActionBlock)
-  → IScanProcessor.ProcessMS() → FLASHIdaWrapper.ProcessScan() (P/Invoke to OpenMS.dll; enqueues)
-  ── then, separately, the acquisition loop in Flash.cs drains queued commands ──
-  → FLASHIdaWrapper.GetNextScanCommand() → ScanFactory.BuildFromCommand() → Instrument
+Thermo MsScanArrived  ──► ProcessSpectrum(IMsScan)          [instrument event thread]
+                            │
+                            ├─ if Trailer["Access ID"] == "41"  ──► inCustom = true   (one-time latch)
+                            │
+                            └─ if (inCustom):
+                                 dataPipe.Push(scan)  ─────────► BufferBlock ─► ActionBlock  [pool thread]
+                                 │                                   └─► UnifiedScanProcessor.ProcessMS
+                                 │                                        └─► FLASHIdaWrapper.ProcessScan  (P/Invoke, enqueues)
+                                 │
+                                 └─ ONE GetNextScanCommand ─► ScanFactory.BuildFromCommand ─► SendCustomScan
 ```
 
-### Key Components
+Four things this diagram exists to correct:
 
-- **Flash.cs** — Entry point. Connects to instrument via Thermo Fusion API, manages instrument state, loads JSON method config (`method.json`), creates the scan processor, and runs the main acquisition loop.
+- **`Flash.cs` has no acquisition loop.** Its only loop is a do-nothing busy-wait
+  `while (!stopRequest) { }` on the Main thread (`Flash.cs:191-197`) that burns a core and does
+  no work. Acquisition is entirely event-driven — the "loop" is the chain of `MsScanArrived`
+  callbacks, each doing one ingest plus one drain.
+- **Nothing happens until the `"41"` latch fires.** `inCustom` is set only when a scan returns
+  with `Trailer["Access ID"] == "41"` (`Flash.cs:449-453`). The two startup branches are
+  asymmetric: `-o/--nocc` hand-builds an AGC scan with `id: 41` so the latch fires, but the
+  default contact-closure branch submits the engine's first command, whose id is
+  `tracking_id_counter_` starting at **0** — so it comes back as Access ID `"0"` and the latch
+  never fires. Worth knowing before debugging a "nothing is happening" instrument run.
+- **The drain is one command per arriving scan, not a loop.** A burst of commands from one
+  `processScan` drains across subsequent scans. (It *must* be bounded — see the ABI note below.)
+- **`processScan` and `getNextScanCommand` genuinely run on different threads** — the pool
+  thread and the instrument event thread respectively. The engine's mutexes are load-bearing.
 
-- **IScanProcessor.cs** — Interface for scan processors: a single `void ProcessMS(IMsScan)`. In the unified model the processor enqueues work into the C++ engine; instrument commands are drained separately via `FLASHIdaWrapper.GetNextScanCommand()` in `Flash.cs` (they are *not* returned from `ProcessMS`).
+### Scan identity round-trips through `Scan Description`, not `Access ID`
 
-- **IDA/UnifiedScanProcessor.cs** — The sole scan processor. Routes all MS levels through `FLASHIdaWrapper.ProcessScan()` → C++ `processScan()`, then commands are drained via `GetNextScanCommand()`.
+The engine recognizes a returning scan by the **first 3 characters of the `Scan Description`
+trailer** — a base-94 tracking id it minted itself. `ScanFactory` copies `cmd.ScanDescription`
+into the scan parameters (`ScanFactory.cs:232-233`), the instrument echoes it back, and
+`UnifiedScanProcessor` passes `msScan.Trailer["Scan Description"]` across the bridge as the only
+identity token (`UnifiedScanProcessor.cs:21-28`).
 
-- **IDA/FLASHIdaWrapper.cs** — P/Invoke bridge to the C++ OpenMS.dll deconvolution engine. Declares the 5 `[DllImport("OpenMS.dll")]` bridge functions and the mirrored `ScanCommand` struct. Also contains `Main()` for standalone testing. Isobaric quantification is *not* a separate processor — it is a config-driven mode (`quantification.active` in `method.json`) handled through `UnifiedScanProcessor` → the C++ engine (`TOPDOWN/FLASHIda/Quantification.cpp`).
+`cmd.ScanId` *is* written to `RunningNumber` by `BuildFromCommand`, but `SendCustomScan`
+immediately overwrites it with `++currentNumber` (`Flash.cs:397`) — harmless, because it is not
+the round-trip key. **A scan whose description the engine did not mint is rejected before
+deconvolution.** That is the always-on MS1 gate, and it is why tests cannot fabricate ids.
 
-- **DataPipe.cs** — Two-stage TPL Dataflow pipeline (`BufferBlock` → `ActionBlock`): buffers incoming scans, then invokes `IScanProcessor.ProcessMS` on each.
+### `GetNextScanCommand` never returns 0 — bound every drain loop
 
-- **ScanFactory.cs** — Creates Thermo API custom scan requests. Uses reflection to map string parameter dictionaries to API properties.
+The engine returns `1` on every path; an empty queue produces a fabricated idle AGC command, not
+a `0`. A bare `while (GetNextScanCommand(ref cmd) == 1)` **spins forever**. Each sanctioned
+driver carries its own stop condition: `PushScan` breaks on `cmd.IsAgc == 1`;
+`PushScanAndDrainFull` bounds on `idle >= 3` plus `maxIters`. A `0` from the C# wrapper means an
+exception was caught, never "queue empty".
 
-- **MethodParameters.cs** / **MethodConfig.cs** / **IDA/MethodConfigSerializer.cs** — Load and structure the JSON method file (`method.json`). Reflection-driven via `[JsonKey]` + `[Developer]` attributes. Sections: `global`, `deconvolution`, `precursor_selection`, `tagging`, `quantification`, `faims`, `ms_settings`, `scheduling`, `selection_strategy`, `ms3`, `files`, `runtime`, plus a synthetic `developer` section into which `[Developer]`-marked fields are routed. `MethodParameters.ToCppJson()` re-serializes into a *different* C++-facing schema before crossing the bridge. See `docs/kb/config-flow/` for the end-to-end flow.
+### Key components
 
-**No-longer-present:** `ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs` were removed when scan processing was unified through `UnifiedScanProcessor` → C++ engine.
+- **`IDA/FLASHIdaWrapper.cs`** — the P/Invoke bridge: 5 `[DllImport]`s, the mirrored 2048-byte
+  `ScanCommand` struct, and the offline `Main`. Its **static constructor unconditionally sets
+  `OPENMS_DATA_PATH` to `<assembly dir>/share/OpenMS`**, so any externally exported value is
+  discarded for every C# process. Constructor serializes via `mp.ToCppJson()` and throws
+  `InvalidOperationException` if `CreateFLASHIda` returns null. Standard Dispose pattern; the
+  null-pointer guard makes double-dispose safe.
+  - Data-path error sentinels (all swallow exceptions into log4net): `ProcessScan` → `-1`,
+    `GetNextScanCommand` → `0`, `GetNextTrackingId` → `-1`. The native null-argument guards use
+    the same values, so the two error sources are indistinguishable to the caller.
+  - **Offline `Main` bootstraps a tracking id before feeding MS1**: it drains up to 16 commands
+    hunting the first non-AGC MS1 with a non-empty description, uses it, and discards the rest
+    (`:377-398`). Without this the MS1 gate would reject every scan and the run would silently
+    deconvolve nothing. Note every scan in the input file is fed as **ms_level 1** (`:488`), and
+    the 15-column TSV header is written unconditionally — a run that selects nothing yields a
+    header-only file.
+- **`IDA/UnifiedScanProcessor.cs`** — the *sole* `IScanProcessor`. One `void ProcessMS(IMsScan)`;
+  all MS levels go through `ProcessScan`. Commands are drained separately, not returned from here.
+- **`ScanFactory.cs`** — builds Thermo custom scan requests. The reflection goes **struct →
+  dictionary**, not dictionary → API properties: it enumerates `ScanParameters`' *fields*, skips
+  nulls, joins arrays with `';'`, and replaces `'_'` with `' '` in the key (`FAIMS_CV` → `"FAIMS CV"`)
+  (`ScanFactory.cs:133-145`).
+- **`DataPipe.cs`** — `BufferBlock` → `ActionBlock`, constructed with no execution options, so
+  `MaxDegreeOfParallelism` is 1 and `ProcessMS` calls are serialized. `Push` is fire-and-forget.
+  ⚠️ `ProcessSpectrum` calls `msScan.Dispose()` synchronously at the end of the same callback,
+  while the pool thread may not yet have read `Centroids`/`Header`/`Trailer`. Only `DataPipeTests`
+  exercises the async path — the NUnit continuity harness calls `ProcessMS` directly.
+  `Complete()`/`WaitForCompletion()` are called only from tests: production never drains the
+  pipeline, never disposes the wrapper (`DisposeFLASHIda` runs on the finalizer, if ever), and
+  never unsubscribes. Shutdown is just `stopRequest = true`. It survives only because `IdaLogger`
+  flushes after every row.
+- **`MethodConfig.cs` / `MethodParameters.cs` / `IDA/MethodConfigSerializer.cs`** — see *Config*.
 
-### Acquisition Modes
+`ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs` and
+`QuantScanProcessor.cs` do **not** exist — scan processing was unified.
 
-Configured via `precursor_selection.targeting_mode` in `method.json`: None (standard DDA), Inclusion, Exclusion, Deep. Additional modes: MS2 Tagging (protein-family detection), Conditional MS2 (tag-based method routing), Isobaric Quantification, MS3 Characterization (3 sub-modes).
+## Config (C# side)
 
-### External Dependencies
+The 13 top-level sections are the `[JsonKey]`-annotated **properties of the `MethodConfig` class**
+(`MethodConfig.cs:394-434`), plus the special-cased root bool `conditional_ms2`:
+`global`, `deconvolution`, `precursor_selection`, `tagging`, `flashtnt`, `quantification`,
+`faims`, `ms_settings`, `scheduling`, `selection_strategy`, `characterization`, `files`, `runtime`.
 
-- **Thermo iAPI DLLs** (proprietary, in `dependencies/`): `API-2.0.dll`, `Fusion.API-1.0.dll`, `Spectrum-1.0.dll`, `Thermo.TNG.Factory.dll`, `Thermo.TNG.Client.API.dll`
-- **OpenMS C++ engine** (in `dll/`): `OpenMS.dll` plus Qt6, OpenSwathAlgo, zlib
-- **NuGet**: log4net, Mono.Options, System.Threading.Tasks.Dataflow
+> **Do not enumerate sections by grepping for class-level `[JsonKey]`.** Nested classes carry one
+> too (`ms1`/`ms2`/`ms3`/`cycle_time`/`scan_timeout`/`exploration`), which is exactly how a phantom
+> top-level `ms3` entered the old version of this file. C++ now throws on a top-level `ms3` with a
+> migration message.
 
-### Logging
+`ms1`/`ms2`/`ms3` appear under **both** `ms_settings` and `selection_strategy` meaning different
+things, and are validated differently:
 
-Two log4net loggers: general logger (console + FlashLog file) and IDA logger (IDALog file only, detailed precursor analysis). Configured in `App.config`.
+| | `ms_settings.msN` | `selection_strategy.msN` |
+|---|---|---|
+| Meaning | instrument scan parameters | per-level selection policy |
+| Type | **structs** `MS1Parameters` / `List<MS2Parameters>` / `List<MS3Parameters>` | **classes** `MS{1,2,3}SelectionConfig` |
+| Validated against | struct **fields** | class **properties** |
+| Adding a key | `[JsonKey]` on a struct field | `[JsonKey]` on a class property |
 
-### Method Configuration
+`BuildAllowedKeyMap` dispatches on struct-vs-class at runtime (`MethodConfigSerializer.cs:218-244`).
 
-JSON-based (`src/Flash/etc/method.json`). See `docs/kb/config-flow/` for the end-to-end flow from `method.json` to the C++ engine's `Config` structs.
+### Config gotchas that cost real debugging time
+
+- **`deconvolution.tol` needs ≥ 3 entries, always.** `BuildSelectionStrategy` unconditionally
+  emits ms1+ms2+ms3, so C++ always materializes levels {1,2,3} and requires `tol.size() >= 3`.
+  The C# model default is `{10,10}` — two entries — which produces an **unloadable config**. All
+  31 committed test configs carry exactly 3.
+- **The C++ `.value(key, default)` fallbacks are dead in production.** `ToCppJson` emits every key
+  unconditionally, so the *effective* defaults are the C# property initializers — and several
+  disagree with the C++ literal a reader would find: `score_threshold` −1 vs 0.0, `HCDEnergy` 29
+  vs −1, `reporter_mz_tol` 0.0 vs 0.002, `fold_change_threshold` 0.0 vs 1.4.
+- **`selection_strategy.ms1.exploration` is discarded on both sides.** It is modelled only so the
+  generated reference JSON round-trips through the strict loader; C++ ignores exploration for
+  `level_num <= 1`.
+- **An exploration block with `metric: "none"` has its sweep values silently rewritten** to
+  ce 20/40/5. The forwarding guard is an ordinal, case-sensitive `!= "none"`, so `"None"` takes
+  the *other* branch. All three levels share one `defaultExpl` **instance**.
+
+Unknown keys are hard-rejected here and again in C++. `test-data/config_schema_reference.json` is
+generated from the schema — regenerate it, never hand-edit.
+
+## Tests (`src/Flash.Tests/`)
+
+### One canonical acquisition drive — never hand-roll one
+
+`ContinuityTestHarness.PushScanAndDrainFull` (C#) and `FLASHIda_TestHelpers.h::runInterleaved`
+(C++) are two mirrors of one contract: pull one command → classify idle vs workload → feed exactly
+one response scan stamped with **that command's own engine-emitted `ScanDescription`** → repeat.
+Idle predicate, identical both sides:
+`IsAgc != 0 || string.IsNullOrEmpty(ScanDescription) || (level <= 1 && ms1Fed >= nMs1)`.
+Terminate on `idle >= 3` or `maxIters` (C# default 600).
+
+You cannot invent a scan id — the engine's MS1 gate rejects any description it did not mint. That
+gate is what forces interleaved driving, and it is pinned by
+`FLASHIda_ProcessScan_test.cpp` `processScan_ms1_gate_rejects_unrequested_id`.
+
+> **Vacuity trap.** `MockMsScan`'s default description is the sentinel `"~~~S"`, chosen to decode
+> above any engine id so it never collides — which means it always **fails** the pending-map gate.
+> An MS1 fed via raw `PushScan` is rejected before deconvolution regardless of its contents. Use
+> `PushMs1` (drains a real survey id and re-stamps) or `PushScanAndDrainFull`. CT04/CT05
+> (`EmptySpectrum_ZeroCommands`, `NoiseOnlySpectrum_ZeroCommands`) currently pass **by the gate,
+> not by deconvolution behaviour**. CT31 is deliberately left as a raw loop to pin the
+> never-returns-0 ABI invariant.
+
+### Two capture channels, different fidelity
+
+- `harness.CapturedRecords` — `ScanCommandRecord.FromScanCommand`, the **raw struct** including
+  every scoring field, `ReactionTime` and `ParentScanId`.
+- `harness.CollectResults()` — re-reads the **built** `IFusionCustomScan` `Values` dictionary and
+  filters `ScanType == "MSn"`; sees no scoring fields and infers `MsnLevel` from the `';'`-count of
+  `"PrecursorMass"`.
+
+Continuity goldens serialize via `ToJsonObject`, which deliberately omits `ReactionTime` and
+`ParentScanId` and formats doubles `G17`.
+
+> **A capture run proves nothing.** With `LOG_GOLDEN_CAPTURE=1`, `RunCase` writes the goldens and
+> calls `Assert.Pass(...)` then returns — **no comparison happens**, so the suite is always green.
+> Never conclude "tests pass" from a capture run.
+
+Golden comparison tolerates float drift (ints/strings/structure stay exact) because CI links a
+freshly built `OpenMS.dll` on every run. Golden locations and recapture paths: see `../CLAUDE.md`.
+
+## Dependencies, logging, data
+
+- **Thermo iAPI (proprietary, in `dependencies/`)** — `API-2.0.dll`, `Fusion.API-1.0.dll`,
+  `Spectrum-1.0.dll`, `Thermo.TNG.Factory.dll` (all from the iAPI GitHub release) and
+  `Thermo.TNG.Client.API.dll` (copied from a local Tune install, see `Installation.md`).
+  `Thermo.TNG.Client.API` carries `<Private>False</Private>` in `Flash.csproj`, so **the Flash
+  project deliberately does not copy it to `bin/`** — it is a *licensed, Tune-version-specific* DLL
+  that must not be redistributed, and on the instrument it resolves against the local Tune install
+  (hence `<SpecificVersion>False</SpecificVersion>`). This is original design, not drift: it dates
+  to the initial public commit, and `Installation.md`'s deployed-folder listing pointedly omits it
+  while listing the other four. `Flash.Tests.csproj` references it *without* that flag, so a
+  full-solution build incidentally drops a copy into `bin/`; CI depends on neither, copying
+  `dependencies\*.dll` explicitly after msbuild. **Do not "fix" the asymmetry** — it encodes
+  "the app must not ship this DLL; the test host may have a local copy."
+- **OpenMS runtime (in `dll/`)** — the 5 DLLs are `<None Include>` items with `<Link>` +
+  `CopyToOutputDirectory=PreserveNewest`, so they land flat in `bin/`. CI overwrites 4 of the 5
+  with a freshly built engine before the C# build; `zlib.dll` stays committed.
+- **`share/OpenMS` exists twice and has drifted** — `FlashIDA/share/OpenMS` (148 files, pruned) is
+  copied to `bin/share/OpenMS` and is what every C# process actually reads;
+  `OpenMS/share/OpenMS` (254 files) is what `OPENMS_DATA_PATH` points at for ctest.
+- **log4net** (`App.config`) — 2 loggers, 4 appenders. `General` → colored console (threshold INFO)
+  + `FlashLog_<date>.log` (**`appendToFile=false`**, i.e. truncating). `IDA` → `IDALog_<date>.log`
+  (bare `%message`, machine-parseable) + `IDAInfoForward`, whose `LevelRangeFilter` is
+  `levelMin=INFO` **and `levelMax=INFO`**, so IDA WARN/ERROR could never reach the console.
+  That is inert rather than a defect: `LogManager.GetLogger("IDA")` (`FLASHIdaWrapper.cs:111`) is a
+  write-only field — **nothing logs to the IDA logger at all**, and every real warning/error goes to
+  `General`, which passes WARN/ERROR through. Worth knowing only if you ever start using it.
+- **NuGet** — log4net, Mono.Options, System.Threading.Tasks.Dataflow.
