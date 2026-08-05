@@ -883,7 +883,11 @@ namespace Flash.Tests.AcquisitionLoop
                 // maxMs2Responses:1), bounding the data-dependent MS3 cascade. Re-expressed over CapturedRecords.
                 harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, "ms1_cytc.txt"),
-                    Path.Combine(SpectraDir, "ms2_cytc_scan149.txt"),
+                    // scan-57, not scan-149: the scan-149 ladder is too weak for FLASHExtender to
+                    // return a proteoform hit, and without an identification the tracker is never fed
+                    // so ZERO MS3 is emitted (Exploration.cpp:823-825). The green C++ mirror of this
+                    // scenario (FLASHIda_ProcessScan_test processScan_ms3_commands) already moved here.
+                    Path.Combine(SpectraDir, "ms2_cytc_fresh_scan57.txt"),
                     maxMs2Responses: 1);
 
                 AssertMs3ReturnGolden(harness, "continuity_ms3_mode1_real.json");
@@ -891,6 +895,10 @@ namespace Flash.Tests.AcquisitionLoop
         }
 
         // --- CT36: MS3 Mode 2 MS2 return pipeline ---
+        // Differs from CT35 by characterization.objective = "coverage" (CT35 keeps the default
+        // "ambiguity"). That is the knob deciding WHICH fragments become MS3 targets (ADR-0009), so
+        // the pair covers two dispatch paths. Before this, CT36's config was byte-identical to
+        // CT35's and the two tests asserted the same behaviour twice.
 
         [Test, Category("Tier2")]
         public void P4_AL_CT36_MS3Mode2_MS2ReturnPipeline()
@@ -899,7 +907,11 @@ namespace Flash.Tests.AcquisitionLoop
             {
                 harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, "ms1_cytc.txt"),
-                    Path.Combine(SpectraDir, "ms2_cytc_scan149.txt"),
+                    // scan-57, not scan-149: the scan-149 ladder is too weak for FLASHExtender to
+                    // return a proteoform hit, and without an identification the tracker is never fed
+                    // so ZERO MS3 is emitted (Exploration.cpp:823-825). The green C++ mirror of this
+                    // scenario (FLASHIda_ProcessScan_test processScan_ms3_commands) already moved here.
+                    Path.Combine(SpectraDir, "ms2_cytc_fresh_scan57.txt"),
                     maxMs2Responses: 1);
 
                 AssertMs3ReturnGolden(harness, "continuity_ms3_mode2_real.json");
