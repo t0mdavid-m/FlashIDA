@@ -143,26 +143,16 @@ namespace Flash
                 },
                 tagging = new JsonTaggingConfig
                 {
-                    follow_up_scan = c.Tagging.FollowUpScan.HasValue ? new JsonMs2Config
-                    {
-                        analyzer = c.Tagging.FollowUpScan.Value.Analyzer ?? "",
-                        activation = c.Tagging.FollowUpScan.Value.Activation ?? "",
-                        collision_energy = c.Tagging.FollowUpScan.Value.CollisionEnergy,
-                        resolution = c.Tagging.FollowUpScan.Value.OrbitrapResolution
-                    } : null
+                    follow_up_scan = c.Tagging.FollowUpScan.HasValue
+                        ? ToJsonScanConfig(c.Tagging.FollowUpScan.Value) : null
                 },
                 quantification = new JsonQuantificationConfig
                 {
                     enabled = c.Quantification.Active,
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
                     fold_change_threshold = c.Quantification.FoldChangeThreshold,
-                    follow_up_scan = c.Quantification.FollowUpScan.HasValue ? new JsonMs2Config
-                    {
-                        analyzer = c.Quantification.FollowUpScan.Value.Analyzer ?? "",
-                        activation = c.Quantification.FollowUpScan.Value.Activation ?? "",
-                        collision_energy = c.Quantification.FollowUpScan.Value.CollisionEnergy,
-                        resolution = c.Quantification.FollowUpScan.Value.OrbitrapResolution
-                    } : null
+                    follow_up_scan = c.Quantification.FollowUpScan.HasValue
+                        ? ToJsonScanConfig(c.Quantification.FollowUpScan.Value) : null
                 },
                 faims = new JsonFaimsConfig
                 {
@@ -186,38 +176,8 @@ namespace Flash
                         source_cid_scaling = c.MsSettings.MS1.SourceCIDScaling,
                         data_type = c.MsSettings.MS1.DataType ?? ""
                     },
-                    ms2 = ms2List.Select(m => new JsonMs2Config
-                    {
-                        analyzer = m.Analyzer ?? "",
-                        activation = m.Activation ?? "",
-                        collision_energy = m.CollisionEnergy,
-                        resolution = m.OrbitrapResolution,
-                        agc_target = m.AGCTarget,
-                        max_it = m.MaxIT,
-                        first_mass = m.FirstMass,
-                        last_mass = m.LastMass,
-                        microscans = m.Microscans,
-                        data_type = m.DataType ?? "",
-                        reaction_time = m.ReactionTime,
-                        reagent_max_it = m.ReagentMaxIT,
-                        reagent_agc_target = m.ReagentAGCTarget
-                    }).ToArray(),
-                    ms3 = c.MsSettings.MS3.Select(m => new JsonMs2Config
-                    {
-                        analyzer = m.Analyzer ?? "",
-                        activation = m.Activation ?? "",
-                        collision_energy = m.CollisionEnergy,
-                        resolution = m.OrbitrapResolution,
-                        agc_target = m.AGCTarget,
-                        max_it = m.MaxIT,
-                        first_mass = m.FirstMass,
-                        last_mass = m.LastMass,
-                        microscans = m.Microscans,
-                        data_type = m.DataType ?? "",
-                        reaction_time = m.ReactionTime,
-                        reagent_max_it = m.ReagentMaxIT,
-                        reagent_agc_target = m.ReagentAGCTarget
-                    }).ToArray()
+                    ms2 = ms2List.Select(ToJsonScanConfig).ToArray(),
+                    ms3 = c.MsSettings.MS3.Select(ToJsonScanConfig).ToArray()
                 },
                 scheduling = new JsonSchedulingConfig
                 {
@@ -395,6 +355,57 @@ namespace Flash
         }
 
         // ----------------------------------------------------------------
+        /// <summary>
+        /// Map one scan config to its bridge-JSON form. A scan config means the same thing at every
+        /// site it appears (ms_settings.ms2/ms3, tagging.follow_up_scan, quantification.follow_up_scan)
+        /// and must therefore be emitted identically at all of them — ADR-0009.
+        /// </summary>
+        /// <remarks>
+        /// Two overloads because MS2Parameters and MS3Parameters are distinct structs with identical
+        /// field sets. Emitting a subset here is not a shortcut: a key this method omits never
+        /// crosses the bridge and is unreachable from method.json, which is how follow-up scans
+        /// became unable to carry their own reaction_time.
+        /// </remarks>
+        private static JsonMs2Config ToJsonScanConfig(MS2Parameters m)
+        {
+            return new JsonMs2Config
+            {
+                analyzer = m.Analyzer ?? "",
+                activation = m.Activation ?? "",
+                collision_energy = m.CollisionEnergy,
+                resolution = m.OrbitrapResolution,
+                agc_target = m.AGCTarget,
+                max_it = m.MaxIT,
+                first_mass = m.FirstMass,
+                last_mass = m.LastMass,
+                microscans = m.Microscans,
+                data_type = m.DataType ?? "",
+                reaction_time = m.ReactionTime,
+                reagent_max_it = m.ReagentMaxIT,
+                reagent_agc_target = m.ReagentAGCTarget
+            };
+        }
+
+        private static JsonMs2Config ToJsonScanConfig(MS3Parameters m)
+        {
+            return new JsonMs2Config
+            {
+                analyzer = m.Analyzer ?? "",
+                activation = m.Activation ?? "",
+                collision_energy = m.CollisionEnergy,
+                resolution = m.OrbitrapResolution,
+                agc_target = m.AGCTarget,
+                max_it = m.MaxIT,
+                first_mass = m.FirstMass,
+                last_mass = m.LastMass,
+                microscans = m.Microscans,
+                data_type = m.DataType ?? "",
+                reaction_time = m.ReactionTime,
+                reagent_max_it = m.ReagentMaxIT,
+                reagent_agc_target = m.ReagentAGCTarget
+            };
+        }
+
         // Self-generating full-schema reference
         // ----------------------------------------------------------------
 
@@ -452,9 +463,14 @@ namespace Flash
             c.FlashTnT.MaxModMass = 733;
 
             c.Tagging.ConditionalMS2 = false;
+            // ETD requires its activation-coupled reaction parameters or Config::validate() rejects
+            // this reference (ADR-0009). Every key must also carry a distinct, non-default value so
+            // the parity tests can tell a correctly-bound key from a coincidentally-equal default.
             c.Tagging.FollowUpScan = new MS2Parameters
             {
-                Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002
+                Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002,
+                AGCTarget = 400002, MaxIT = 102, FirstMass = 152, LastMass = 2002, Microscans = 2,
+                DataType = "Centroid", ReactionTime = 12, ReagentMaxIT = 202, ReagentAGCTarget = 700002
             };
 
             c.Quantification.Active = false;
@@ -462,7 +478,9 @@ namespace Flash
             c.Quantification.FoldChangeThreshold = 1.7;
             c.Quantification.FollowUpScan = new MS2Parameters
             {
-                Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003
+                Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003,
+                AGCTarget = 400003, MaxIT = 103, FirstMass = 153, LastMass = 2003, Microscans = 3,
+                DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0
             };
 
             c.Faims.CVValues = new double[] { -41, -52, -63 };

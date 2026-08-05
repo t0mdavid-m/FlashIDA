@@ -50,6 +50,8 @@
       "resolution": 120000,
       "agc_target": 500000,
       "max_it": 100,
+      "microscans": 4,
+      "data_type": "Centroid",
       "activation": "HCD",
       "collision_energy": 30
     }
