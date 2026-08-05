@@ -151,7 +151,9 @@ namespace Flash.Tests
                     MS1 = new MS1Parameters { Analyzer = "Orbitrap", FirstMass = 500, LastMass = 2000, OrbitrapResolution = 120000, AGCTarget = 800000, MaxIT = 246 },
                     MS2 = new List<MS2Parameters>
                     {
-                        new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0 }
+                        // ETD requires its activation-coupled reaction time (ADR-0009); without it
+                        // Config::validate() rejects the config and CreateFLASHIda returns null.
+                        new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0, ReactionTime = 10.0 }
                     }
                 },
                 SelectionStrategy = new SelectionStrategyConfig
