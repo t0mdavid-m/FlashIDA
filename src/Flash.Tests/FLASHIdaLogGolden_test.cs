@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Flash;
@@ -928,6 +929,222 @@ namespace Flash.Tests
             }
             Assert.That(comparedTsv, Is.GreaterThan(0),
                 "fail-closed: at least one descriptor must be cross-checked against scan_commands.tsv col[28]");
+        }
+
+        // ---- stage-parameter three-way equivalence (log == what was actually sent) -----------
+
+        /// <summary>
+        /// Generalises the E6 scan_description equivalence above from ONE field to every stage-bound
+        /// instrument parameter: for each dequeued command, the value in scan_commands.tsv must equal
+        /// the value in the IFusionCustomScan the ScanFactory actually built for the instrument.
+        ///
+        /// This is the invariant whose absence let a defect live in 522 committed golden rows.
+        /// hcd_energy is a log-only mirror of stages[0].collision_energy; buildMS3 refreshed the stage
+        /// from the tracker's per-ion stage0_params but kept the mirror from the MS2 context, so
+        /// exploration MS3 rows logged e.g. collision_energy "40;35" beside hcd_energy "30;35". The
+        /// instrument had the right energy all along -- only the record was wrong, and nothing
+        /// compared the two.
+        ///
+        /// Driving exploration_ms3 is MANDATORY, not illustrative: the stage-0 override happens
+        /// nowhere else, so a run without it would assert nothing about that defect.
+        /// </summary>
+        [Test, Category("Tier2")]
+        public void Equivalence_StageParameters_StructVsBuiltScanVsTsv()
+        {
+            // Single-stage baseline: proves the comparison itself is meaningful on the simple path.
+            AssertLogMatchesSentRequest("equiv_stageparams_dda", "method_dda_hcd.json",
+                "ms1_standard.txt", "ms2_hcd_fragment.txt", null, null, requireTwoStage: false);
+
+            // Two-stage path with the per-ion stage-0 override.
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            Assert.That(ms3Map.Count, Is.GreaterThan(0),
+                "the ms3_cytc_*_scan*.txt fixtures are required — without a real MS3 fixture this test " +
+                "cannot exercise the two-stage path and would silently stop guarding the stage-0 mirror");
+            var ms2CeMap = BuildMs2CeMap(SpectraDir);
+            Assert.That(ms2CeMap.Count, Is.EqualTo(6),
+                "requires the CE-0 baseline fixture + all 5 CE-resolved cytC MS2 fixtures");
+
+            AssertLogMatchesSentRequest("equiv_stageparams_expl_ms3", "method_exploration_ms3.json",
+                "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", ms3Map, ms2CeMap, requireTwoStage: true);
+        }
+
+        /// <summary>
+        /// Drive one config through the ground-truth interleaved harness, then assert that every
+        /// stage-bound column of scan_commands.tsv agrees with the built instrument request, joined by
+        /// tracking id (the first 3 chars of the descriptor, exactly as the E6 test joins them).
+        /// </summary>
+        private void AssertLogMatchesSentRequest(string caseName, string configFile, string ms1File,
+            string ms2File, Dictionary<string, string> ms3Map, Dictionary<int, string> ms2CeMap,
+            bool requireTwoStage)
+        {
+            string caseDir = Path.Combine(OutputDir, caseName);
+            Directory.CreateDirectory(caseDir);
+            foreach (var f in LogGoldenComparer.FileNames)
+            {
+                string p = Path.Combine(caseDir, f);
+                if (File.Exists(p)) File.Delete(p);
+            }
+
+            List<IFusionCustomScan> builtScans;
+            using (var harness = MakeHarness(configFile, caseDir))
+            {
+                Func<ScanCommand, string> ms3Sel = null;
+                if (ms3Map != null)
+                {
+                    ms3Sel = c =>
+                    {
+                        string ion = DecodeIonFromScanDescription(c.ScanDescription);
+                        return ion != null && ms3Map.TryGetValue(ion, out var p) ? p : null;
+                    };
+                }
+                harness.PushScanAndDrainFull(
+                    Path.Combine(SpectraDir, ms1File),
+                    Path.Combine(SpectraDir, ms2File),
+                    ms3Sel,
+                    ms2CeMap: ms2CeMap);
+                builtScans = new List<IFusionCustomScan>(harness.Factory.CreatedScans);
+            } // Dispose() flushes and closes the log streams
+
+            string commandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
+            Assert.That(File.Exists(commandsPath), Is.True,
+                $"Case '{caseName}': engine must have written scan_commands.tsv");
+            var rows = ParseTsv(commandsPath, out var header);
+
+            // Join surface: the descriptor the ScanFactory copied into the request carries the same
+            // 3-char engine-minted tracking id that heads every scan_commands row.
+            var sentById = new Dictionary<string, IDictionary<string, string>>();
+            foreach (var s in builtScans)
+            {
+                string desc;
+                if (!s.Values.TryGetValue("ScanDescription", out desc) || desc.Length < 3) continue;
+                sentById[desc.Substring(0, 3)] = s.Values;
+            }
+
+            int idCol = Array.IndexOf(header, "tracking_id");
+            int lvlCol = Array.IndexOf(header, "ms_level");
+            Assert.That(idCol, Is.GreaterThanOrEqualTo(0));
+            Assert.That(lvlCol, Is.GreaterThanOrEqualTo(0));
+
+            int comparedMsn = 0, comparedTwoStage = 0;
+            foreach (var row in rows)
+            {
+                if (lvlCol >= row.Length || idCol >= row.Length) continue;
+                int level = ParseIntSafe(row[lvlCol]);
+                if (level < 2) continue;                      // MS1/AGC rows are stage-less placeholders
+
+                IDictionary<string, string> sent;
+                if (!sentById.TryGetValue(row[idCol], out sent)) continue;
+
+                int n = level == 3 ? 2 : 1;
+                string where = $"Case '{caseName}', command '{row[idCol]}' (MS{level})";
+
+                // Structural: always present in the request, one element per stage.
+                CompareStages(sent, "PrecursorMass", row, header, "precursor_mz", n, where, Cmp.Approx);
+                CompareStages(sent, "IsolationWidth", row, header, "isolation_width", n, where, Cmp.Approx);
+                CompareStages(sent, "ActivationType", row, header, "activation", n, where, Cmp.Text);
+                CompareStages(sent, "CollisionEnergy", row, header, "collision_energy", n, where, Cmp.Rounded);
+                CompareStages(sent, "ChargeStates", row, header, "charge", n, where, Cmp.ChargeClamped);
+
+                // Optional: zero-filled positionally, key absent when NO stage uses the parameter.
+                CompareStages(sent, "ReactionTime", row, header, "reaction_time", n, where, Cmp.Approx);
+                CompareStages(sent, "ReagentMaxIT", row, header, "reagent_max_it", n, where, Cmp.Approx);
+                CompareStages(sent, "ReagentAGCTarget", row, header, "reagent_agc_target", n, where, Cmp.Rounded);
+
+                // The defect-1 assertion: the logged energy mirror must equal the energy actually sent,
+                // for BOTH stages. This is what fails on 258 exploration_ms3 rows without the fix.
+                var hcd = Cell(row, header, "hcd_energy").Split(';');
+                Assert.That(hcd.Length, Is.EqualTo(n), $"{where}: hcd_energy must carry one token per stage");
+                string sentCe;
+                Assert.That(sent.TryGetValue("CollisionEnergy", out sentCe), Is.True,
+                    $"{where}: the request must carry a collision energy");
+                var ceTok = sentCe.Split(';');
+                Assert.That(ceTok.Length, Is.EqualTo(n), $"{where}: CollisionEnergy must carry one element per stage");
+                for (int i = 0; i < n; i++)
+                {
+                    Assert.That(ParseLog(hcd[i]), Is.EqualTo(ParseSent(ceTok[i])).Within(0.5),
+                        $"{where}: logged hcd_energy stage {i} must equal the collision energy actually " +
+                        "sent to the instrument for that stage");
+                }
+
+                comparedMsn++;
+                if (n == 2) comparedTwoStage++;
+            }
+
+            Assert.That(comparedMsn, Is.GreaterThan(0),
+                $"Case '{caseName}': fail-closed — no MSn command was cross-checked against its built request");
+            if (requireTwoStage)
+            {
+                Assert.That(comparedTwoStage, Is.GreaterThan(0),
+                    $"Case '{caseName}': fail-closed — no two-stage (MS3) command was cross-checked, so the " +
+                    "stage-0 override path this case exists to cover was never exercised");
+            }
+        }
+
+        private enum Cmp { Approx, Rounded, Text, ChargeClamped }
+
+        /// <summary>Cell lookup by header name, so column order stays irrelevant.</summary>
+        private static string Cell(string[] row, string[] header, string col)
+        {
+            int i = Array.IndexOf(header, col);
+            return (i >= 0 && i < row.Length) ? row[i] : "";
+        }
+
+        // The TSV is written by C++ (invariant "C" locale); the Values dictionary by C# ToString()
+        // (current culture). Parse each with the culture that produced it.
+        private static double ParseLog(string s) { return double.Parse(s, CultureInfo.InvariantCulture); }
+        private static double ParseSent(string s) { return double.Parse(s, CultureInfo.CurrentCulture); }
+
+        /// <summary>
+        /// Compare one ';'-joined per-stage column against the corresponding request key. An absent key
+        /// is only legal for the optional parameters and only when every stage logged zero.
+        /// </summary>
+        private static void CompareStages(IDictionary<string, string> sent, string key, string[] row,
+            string[] header, string col, int n, string where, Cmp mode)
+        {
+            var logTok = Cell(row, header, col).Split(';');
+            Assert.That(logTok.Length, Is.EqualTo(n),
+                $"{where}: logged '{col}' must carry one token per stage");
+
+            string sentRaw;
+            if (!sent.TryGetValue(key, out sentRaw))
+            {
+                // Key omitted => the instrument applies its method default, which is only correct when
+                // no stage used the parameter at all.
+                for (int i = 0; i < n; i++)
+                {
+                    Assert.That(ParseLog(logTok[i]), Is.EqualTo(0.0).Within(1e-9),
+                        $"{where}: '{key}' is absent from the request, so every stage's logged '{col}' " +
+                        "must be 0 — otherwise a value the engine chose was silently dropped");
+                }
+                return;
+            }
+
+            var sentTok = sentRaw.Split(';');
+            Assert.That(sentTok.Length, Is.EqualTo(n),
+                $"{where}: request key '{key}' must carry exactly one element per stage " +
+                $"(got '{sentRaw}' for {n} stage(s)) — otherwise position no longer identifies the stage");
+
+            for (int i = 0; i < n; i++)
+            {
+                string ctx = $"{where}: '{col}' stage {i} (logged '{logTok[i]}', sent '{sentTok[i]}')";
+                if (mode == Cmp.Text)
+                {
+                    Assert.That(sentTok[i], Is.EqualTo(logTok[i]), ctx);
+                    continue;
+                }
+                double logged = ParseLog(logTok[i]);
+                double actual = ParseSent(sentTok[i]);
+                if (mode == Cmp.ChargeClamped) logged = Math.Min(logged, 25);   // ScanFactory clamps
+                if (mode == Cmp.Rounded)
+                {
+                    Assert.That(actual, Is.EqualTo(Math.Round(logged)).Within(0.5), ctx);
+                }
+                else
+                {
+                    // The TSV carries C++ ostringstream's 6 significant digits, so compare relatively.
+                    Assert.That(actual, Is.EqualTo(logged).Within(Math.Max(1e-9, Math.Abs(logged) * 1e-5)), ctx);
+                }
+            }
         }
 
         // ---- shared harness + TSV plumbing --------------------------------------------------
