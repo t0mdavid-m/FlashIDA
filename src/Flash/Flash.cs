@@ -496,7 +496,19 @@ namespace Flash
                 var cmd = new ScanCommand();
                 if (wrapper.GetNextScanCommand(ref cmd) == 1)
                 {
-                    SendCustomScan(scanFactory.BuildFromCommand(cmd));
+                    //BuildFromCommand refuses a command whose stage geometry is incomplete rather
+                    //than emitting a request the instrument would bind to the wrong stage. Caught
+                    //HERE, not around the whole `if (inCustom)` block, so the Dispose below is still
+                    //reached -- an escape would both leak the scan and surface as an unhandled
+                    //exception on the instrument event thread (see the ProcessSpectrum remarks).
+                    try
+                    {
+                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        log.Fatal(String.Format("Refused to send scan {0}: {1}", cmd.ScanId, ex.Message));
+                    }
                 }
             }
 

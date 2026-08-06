@@ -205,27 +205,52 @@ namespace Flash
                 var reagentMaxIts = new List<double>();
                 var reagentAgcTargets = new List<int>();
 
+                // Array POSITION is the only thing binding a value to a stage: element i -> stage i.
+                // A stage must therefore contribute an element to EVERY array it appears in, or each
+                // later stage shifts one slot forward onto the wrong stage. These predicates used to
+                // read `if (value > 0)`, inherited verbatim from the single-stage version of this
+                // block where they could only mean "set the field or leave it null" -- see the note
+                // in Config.cpp:508-510, which names this exact failure.
+                //
+                // STRUCTURAL (mz, width, CE, activation, charge) describe THAT a stage exists. Always
+                // one element per stage; a zero is malformed rather than "unused", so a stage missing
+                // them is refused outright instead of being zero-filled.
+                // OPTIONAL (reaction_time, reagent_max_it, reagent_agc_target) are activation-coupled
+                // and 0 is their documented "not used" sentinel (ScanCommand.h:53-55). Zero-filled
+                // positionally, but the key is omitted entirely when NO stage uses one, so a wholly
+                // unused parameter still defers to the instrument method default (ADR-0009).
                 for (int i = 0; i < n; i++)
                 {
                     var stage = cmd.Stages[i];
-                    if (stage.PrecursorMz > 0) precursorMasses.Add(stage.PrecursorMz);
-                    if (stage.IsolationWidth > 0) isolationWidths.Add(stage.IsolationWidth);
-                    if (stage.CollisionEnergy >= 0) collisionEnergies.Add((int)Math.Round(stage.CollisionEnergy));
-                    if (!string.IsNullOrEmpty(stage.ActivationType)) activationTypes.Add(stage.ActivationType);
-                    if (stage.ChargeState > 0) chargeStates.Add(Math.Min(stage.ChargeState, 25));
-                    if (stage.ReactionTime > 0) reactionTimes.Add(stage.ReactionTime);
-                    if (stage.ReagentMaxIt > 0) reagentMaxIts.Add(stage.ReagentMaxIt);
-                    if (stage.ReagentAgcTarget > 0) reagentAgcTargets.Add(stage.ReagentAgcTarget);
+                    if (stage.PrecursorMz <= 0 || stage.IsolationWidth <= 0 || stage.ChargeState <= 0
+                        || string.IsNullOrEmpty(stage.ActivationType))
+                    {
+                        throw new InvalidOperationException(String.Format(
+                            "ScanCommand {0} stage {1} is missing isolation geometry " +
+                            "(mz={2}, width={3}, z={4}, activation='{5}') - refusing to build a " +
+                            "malformed MSn request.",
+                            cmd.ScanId, i, stage.PrecursorMz, stage.IsolationWidth,
+                            stage.ChargeState, stage.ActivationType));
+                    }
+
+                    precursorMasses.Add(stage.PrecursorMz);
+                    isolationWidths.Add(stage.IsolationWidth);
+                    collisionEnergies.Add((int)Math.Round(stage.CollisionEnergy));
+                    activationTypes.Add(stage.ActivationType);
+                    chargeStates.Add(Math.Min(stage.ChargeState, 25));
+                    reactionTimes.Add(stage.ReactionTime);
+                    reagentMaxIts.Add(stage.ReagentMaxIt);
+                    reagentAgcTargets.Add(stage.ReagentAgcTarget);
                 }
 
-                if (precursorMasses.Count > 0) p.PrecursorMass = precursorMasses.ToArray();
-                if (isolationWidths.Count > 0) p.IsolationWidth = isolationWidths.ToArray();
-                if (collisionEnergies.Count > 0) p.CollisionEnergy = collisionEnergies.ToArray();
-                if (activationTypes.Count > 0) p.ActivationType = activationTypes.ToArray();
-                if (chargeStates.Count > 0) p.ChargeStates = chargeStates.ToArray();
-                if (reactionTimes.Count > 0) p.ReactionTime = reactionTimes.ToArray();
-                if (reagentMaxIts.Count > 0) p.ReagentMaxIT = reagentMaxIts.ToArray();
-                if (reagentAgcTargets.Count > 0) p.ReagentAGCTarget = reagentAgcTargets.ToArray();
+                p.PrecursorMass = precursorMasses.ToArray();
+                p.IsolationWidth = isolationWidths.ToArray();
+                p.CollisionEnergy = collisionEnergies.ToArray();
+                p.ActivationType = activationTypes.ToArray();
+                p.ChargeStates = chargeStates.ToArray();
+                if (reactionTimes.Any(v => v > 0)) p.ReactionTime = reactionTimes.ToArray();
+                if (reagentMaxIts.Any(v => v > 0)) p.ReagentMaxIT = reagentMaxIts.ToArray();
+                if (reagentAgcTargets.Any(v => v > 0)) p.ReagentAGCTarget = reagentAgcTargets.ToArray();
             }
 
             // Scan description
