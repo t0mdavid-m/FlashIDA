@@ -172,6 +172,121 @@ namespace Flash.Tests
                 "CollisionEnergy 29.5 should round to 30, not truncate to 29");
         }
 
+        /// <summary>
+        /// Two-stage (MS3) requests must be POSITIONAL: element i of every emitted per-stage array
+        /// belongs to stage i. BuildFromCommand used to append a stage only if its value passed a
+        /// `> 0` filter, so a stage whose value was 0 was SKIPPED rather than zero-filled and every
+        /// later stage shifted one slot forward onto the wrong stage.
+        ///
+        /// The trigger is one config value away and legal today: Config.cpp forces reaction_time > 0
+        /// for an ETD/EThcD scan config and applies that at every level, while an HCD MS2 legally has
+        /// reaction_time 0. That yields stage0 = 0 / stage1 = 10, which the old filter emitted as the
+        /// single-element "10" -- binding the MS3's reaction time to the MS2 replay stage.
+        /// No committed fixture produces the mixed pattern, so it is built by hand here.
+        /// </summary>
+        [Test, Category("Tier2")]
+        public void BuildFromCommand_TwoStage_ArraysArePositional()
+        {
+            var factory = new MockScanFactory();
+            var cmd = new ScanCommand();
+            cmd.MsnLevel = 3;
+            cmd.NumStages = 2;
+            cmd.Analyzer = "Orbitrap";
+            var stages = new IsolationStage[10];
+            // stage 0 -- the MS2 replay: HCD, so no reaction/reagent parameters apply
+            stages[0].PrecursorMz = 824.97; stages[0].IsolationWidth = 1.86;
+            stages[0].ChargeState = 15; stages[0].CollisionEnergy = 30;
+            stages[0].ActivationType = "HCD";
+            stages[0].ReactionTime = 0; stages[0].ReagentMaxIt = 0; stages[0].ReagentAgcTarget = 0;
+            // stage 1 -- the MS3 fragment step: ETD, so it DOES carry them
+            stages[1].PrecursorMz = 1050.9; stages[1].IsolationWidth = 2.0;
+            stages[1].ChargeState = 9; stages[1].CollisionEnergy = 25;
+            stages[1].ActivationType = "ETD";
+            stages[1].ReactionTime = 10; stages[1].ReagentMaxIt = 150; stages[1].ReagentAgcTarget = 500000;
+            cmd.Stages = stages;
+
+            var scan = factory.BuildFromCommand(cmd);
+
+            Assert.That(scan.Values["ActivationType"], Is.EqualTo("HCD;ETD"),
+                "activation is positional -- stage 0 HCD, stage 1 ETD");
+            Assert.That(scan.Values["CollisionEnergy"], Is.EqualTo("30;25"));
+            Assert.That(scan.Values["ChargeStates"], Is.EqualTo("15;9"));
+            Assert.That(scan.Values["ReagentAGCTarget"], Is.EqualTo("0;500000"),
+                "stage 0 does not use a reagent AGC target, but must still occupy slot 0");
+
+            // Doubles are compared after parsing so the assertion is culture-independent
+            // (the Values dictionary is built with the same culture via ToString()).
+            AssertStageDoubles(scan.Values["PrecursorMass"], 824.97, 1050.9);
+            AssertStageDoubles(scan.Values["IsolationWidth"], 1.86, 2.0);
+            AssertStageDoubles(scan.Values["ReactionTime"], 0.0, 10.0);   // was "10" -> bound to stage 0
+            AssertStageDoubles(scan.Values["ReagentMaxIT"], 0.0, 150.0);  // was "150" -> bound to stage 0
+
+            // Arity invariant: an emitted per-stage array is either absent or exactly NumStages long.
+            // This is what fails if the loop is ever widened past Math.Min(NumStages, 10).
+            foreach (var key in new[] { "PrecursorMass", "IsolationWidth", "CollisionEnergy",
+                                        "ActivationType", "ChargeStates", "ReactionTime",
+                                        "ReagentMaxIT", "ReagentAGCTarget" })
+            {
+                string raw;
+                if (!scan.Values.TryGetValue(key, out raw)) continue;
+                Assert.That(raw.Split(';').Length, Is.EqualTo(cmd.NumStages),
+                    "per-stage array '" + key + "' must carry exactly one element per stage");
+            }
+
+            // All-or-nothing half of the rule: when NO stage uses an optional parameter the key stays
+            // ABSENT, so the instrument applies its own method default rather than a literal 0. This
+            // is the shape every committed MS3 fixture has (HCD MS2 + CID MS3, reaction_time "0;0"),
+            // which is why this change moves no golden.
+            stages[1].ActivationType = "CID";
+            stages[1].ReactionTime = 0; stages[1].ReagentMaxIt = 0; stages[1].ReagentAgcTarget = 0;
+            cmd.Stages = stages;
+            var shipped = factory.BuildFromCommand(cmd);
+
+            Assert.That(shipped.Values.ContainsKey("ReactionTime"), Is.False,
+                "no stage uses a reaction time -> key omitted, not sent as \"0;0\"");
+            Assert.That(shipped.Values.ContainsKey("ReagentMaxIT"), Is.False);
+            Assert.That(shipped.Values.ContainsKey("ReagentAGCTarget"), Is.False);
+            Assert.That(shipped.Values["ActivationType"], Is.EqualTo("HCD;CID"),
+                "structural fields are still emitted for every stage");
+        }
+
+        /// <summary>
+        /// A stage without isolation geometry is not a stage. Zero-filling it would command an
+        /// isolation at m/z 0; the old filter instead collapsed the arrays to one element and
+        /// produced a RAGGED request -- PrecursorMass with one element beside CollisionEnergy with
+        /// two, because CollisionEnergy alone is filtered on `>= 0` -- while ScanType stayed "MSn".
+        /// Neither is a meaningful instruction, so BuildFromCommand refuses to build it.
+        /// </summary>
+        [Test, Category("Tier2")]
+        public void BuildFromCommand_StageMissingGeometry_Throws()
+        {
+            var factory = new MockScanFactory();
+            var cmd = new ScanCommand();
+            cmd.MsnLevel = 3;
+            cmd.NumStages = 2;
+            cmd.Analyzer = "Orbitrap";
+            var stages = new IsolationStage[10];
+            // stage 0 left entirely zeroed; stage 1 fully populated
+            stages[1].PrecursorMz = 1050.9; stages[1].IsolationWidth = 2.0;
+            stages[1].ChargeState = 9; stages[1].CollisionEnergy = 25;
+            stages[1].ActivationType = "CID";
+            cmd.Stages = stages;
+
+            var ex = Assert.Throws<InvalidOperationException>(() => factory.BuildFromCommand(cmd));
+            Assert.That(ex.Message, Does.Contain("stage 0"),
+                "the refusal must name the offending stage");
+            Assert.That(ex.Message, Does.Contain("isolation geometry"));
+        }
+
+        /// <summary>Parse a ';'-joined two-stage numeric cell and assert both stages' values.</summary>
+        private static void AssertStageDoubles(string raw, double stage0, double stage1)
+        {
+            var parts = raw.Split(';');
+            Assert.That(parts.Length, Is.EqualTo(2), "expected one element per stage, got '" + raw + "'");
+            Assert.That(double.Parse(parts[0]), Is.EqualTo(stage0).Within(1e-9), "stage 0 of '" + raw + "'");
+            Assert.That(double.Parse(parts[1]), Is.EqualTo(stage1).Within(1e-9), "stage 1 of '" + raw + "'");
+        }
+
         // P4-I04: ScanCommandRecord scoring fields round-trip through JSON
         [Test, Category("Tier1")]
         public void P4_I04_ScanCommandRecord_ScoringFieldsRoundTrip()
