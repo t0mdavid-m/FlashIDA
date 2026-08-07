@@ -115,6 +115,24 @@ namespace Flash.Tests
             RunCase("faims", "method_faims_3cv.json", "ms1_standard.txt", "ms2_hcd_fragment.txt",
                     forceFaims: true);
 
+        /// <summary>
+        /// FAIMS at a single fixed CV — a case that could not be acquired until ADR-0012.
+        ///
+        /// faims_.enabled was `cv_values.size() > 1`, so one CV meant "no FAIMS" and the run
+        /// silently used the instrument method's own FAIMS state. method_faims_single_cv.json is
+        /// byte-identical to method_faims_3cv.json except for the CV list, so diffing this golden
+        /// against the faims one isolates CYCLING from ENABLEMENT: both carry a configured CV on
+        /// every command, only the 3cv run transitions between them.
+        ///
+        /// New mode, so its five streams are captured fresh rather than recaptured. Until the
+        /// golden is committed this fails "golden missing" by design — promote the .normalized
+        /// files from the CI log-golden-capture artifact after reviewing the diff.
+        /// </summary>
+        [Test, Category("Tier2")]
+        public void Golden_FaimsSingleCv() =>
+            RunCase("faims_single_cv", "method_faims_single_cv.json", "ms1_standard.txt",
+                    "ms2_hcd_fragment.txt", forceFaims: true);
+
         // MS3 cytC golden. Feeds the REAL MS3 fragment spectrum for each MS3 command the engine
         // issues, selecting the fixture PER COMMAND by the precursor ion decoded from the command's
         // scan_description (see DecodeIonFromScanDescription / BuildMs3IonMap) — the C# golden-locked

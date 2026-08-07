@@ -84,6 +84,120 @@ namespace Flash.Tests
                 + string.Join("\n  ", problems));
         }
 
+        /// <summary>
+        /// Every scan-config site must emit the source-region keys and scan_rate.
+        ///
+        /// A key absent from JsonMs2Config never crosses the bridge and is unreachable from
+        /// method.json, no matter how completely C++ supports it -- which is exactly what happened:
+        /// commit 45c2cf9 trimmed rf_lens/source_cid/source_cid_scaling/scan_rate as "always-default
+        /// emit-only keys" while C++ kScanKeys admitted all four and every ScanCommand builder
+        /// copied them. Nothing failed, because nothing asserted the emitted key SET.
+        ///
+        /// ms_settings.ms2[], ms_settings.ms3[] and both follow_up_scan blocks share one DTO, so
+        /// all four are checked -- a regression in any one of them is a regression in all four.
+        /// The C++ side asserts the mirror image against kScanKeys (ConfigSchemaParity_test), so
+        /// neither side can drop a key the other still expects.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void Emit_SourceRegion_AtEveryScanLevel()
+        {
+            var serializer = new JavaScriptSerializer();
+            var mp = MethodParameters.Load(ReferencePath);
+            var emitted = serializer.Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+
+            var leaves = new Dictionary<string, object>();
+            Flatten(emitted, "", leaves);
+
+            string[] sourceRegion = { "rf_lens", "source_cid", "source_cid_scaling" };
+            string[] msnSites =
+            {
+                "ms_settings.ms2[0]",
+                "ms_settings.ms3[0]",
+                "tagging.follow_up_scan",
+                "quantification.follow_up_scan",
+            };
+
+            var missing = new List<string>();
+            foreach (string site in msnSites)
+                foreach (string key in sourceRegion)
+                    if (!leaves.ContainsKey(site + "." + key)) missing.Add(site + "." + key);
+
+            // scan_rate is analyzer-side rather than source-region, but it had the same defect at
+            // EVERY level including ms1 -- no [JsonKey] anywhere in C# at all.
+            foreach (string site in msnSites)
+                if (!leaves.ContainsKey(site + ".scan_rate")) missing.Add(site + ".scan_rate");
+            if (!leaves.ContainsKey("ms_settings.ms1.scan_rate")) missing.Add("ms_settings.ms1.scan_rate");
+
+            Assert.IsEmpty(missing,
+                "ToCppJson omitted scan keys that C++ parses and ScanFactory sends, so they are "
+                + "unreachable from method.json:\n  " + string.Join("\n  ", missing));
+
+            // ms1 must NOT gain the five stage-carried keys. kScanKeys is a lenient union that
+            // would accept them under ms1, but makeMS1 sets num_stages = 0, so they could never
+            // reach an MS1 scan; the C# schema stays deliberately stricter.
+            foreach (string key in new[] { "activation", "collision_energy", "reaction_time",
+                                           "reagent_max_it", "reagent_agc_target" })
+                Assert.IsFalse(leaves.ContainsKey("ms_settings.ms1." + key),
+                    "ms_settings.ms1 must not emit the stage-carried key '" + key
+                    + "' -- an MS1 command has no isolation stage to carry it.");
+        }
+
+        /// <summary>
+        /// Source-region parameters inherit from the survey when an MSn scan does not state its own
+        /// (ADR-0011), and only then.
+        ///
+        /// This is the rule most at risk of being "fixed" back out: ADR-0009 says a scan config
+        /// fully determines its scan and never inherits, so a future reader who finds
+        /// ToJsonScanConfig copying ms1.source_cid into ms2 has an ADR to cite. The reconciliation
+        /// is that inheritance is resolved HERE, at emit time -- by the time the JSON crosses the
+        /// bridge every ScanConfig carries a concrete value and ADR-0009 holds verbatim. Deleting
+        /// this behaviour would put MSn scans back on the instrument method's source settings while
+        /// the MS1 that selected the precursor ran on FLASHIda's.
+        ///
+        /// Zero means inherit: ToCppJson emits every key unconditionally, so there is no "absent"
+        /// state on the wire for C++ or anyone else to distinguish.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void SourceRegion_InheritsFromMs1_UnlessOverridden()
+        {
+            var mp = MethodParameters.Load(ReferencePath);
+
+            var ms1 = mp.Config.MsSettings.MS1;
+            ms1.RFLens = 60; ms1.SourceCID = 15; ms1.SourceCIDScaling = 0.5; ms1.ScanRate = "Turbo";
+            mp.Config.MsSettings.MS1 = ms1;
+
+            // ms2: states nothing -> inherits all three.
+            var ms2 = mp.Config.MsSettings.MS2[0];
+            ms2.RFLens = 0; ms2.SourceCID = 0; ms2.SourceCIDScaling = 0; ms2.ScanRate = "";
+            mp.Config.MsSettings.MS2[0] = ms2;
+
+            // ms3: states its own source_cid -> keeps it, inherits the rest.
+            var ms3 = mp.Config.MsSettings.MS3[0];
+            ms3.RFLens = 0; ms3.SourceCID = 25; ms3.SourceCIDScaling = 0; ms3.ScanRate = "";
+            mp.Config.MsSettings.MS3[0] = ms3;
+
+            var leaves = new Dictionary<string, object>();
+            Flatten(new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson()),
+                    "", leaves);
+
+            Assert.IsTrue(ValuesEqual(60, leaves["ms_settings.ms2[0].rf_lens"]),
+                "ms2 stated no rf_lens, so it must run at the survey's 60");
+            Assert.IsTrue(ValuesEqual(15, leaves["ms_settings.ms2[0].source_cid"]),
+                "ms2 stated no source_cid, so it must run at the survey's 15");
+            Assert.IsTrue(ValuesEqual(0.5, leaves["ms_settings.ms2[0].source_cid_scaling"]),
+                "ms2 stated no source_cid_scaling, so it must run at the survey's 0.5");
+
+            Assert.IsTrue(ValuesEqual(25, leaves["ms_settings.ms3[0].source_cid"]),
+                "ms3 stated its own source_cid, which must win over the survey's");
+            Assert.IsTrue(ValuesEqual(60, leaves["ms_settings.ms3[0].rf_lens"]),
+                "stating one source-region key must not suppress inheritance of the others");
+
+            // scan_rate is analyzer-side: it describes how this scan measures, not which ions
+            // arrive, so it must NOT inherit even though it sits in the same struct.
+            Assert.AreEqual("", leaves["ms_settings.ms2[0].scan_rate"],
+                "scan_rate is analyzer-side and must not inherit from ms1");
+        }
+
         [Test, Category("Tier1")]
         public void Reject_UnknownKey_Throws()
         {

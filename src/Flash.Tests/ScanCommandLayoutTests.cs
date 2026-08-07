@@ -145,11 +145,13 @@ namespace Flash.Tests
             Assert.IsNotNull(parentScanIdAttr, "ParentScanId should have MarshalAs attribute");
             Assert.AreEqual(4, parentScanIdAttr.SizeConst, "ParentScanId SizeConst");
 
-            // ScanCommand.Reserved should be SizeConst=600 (after carving 84 B stage-1 scoring + 8 B window_snr)
+            // ScanCommand.Reserved should be SizeConst=596 (after carving 84 B stage-1 scoring
+            // + 8 B window_snr + 4 B faims_enabled). Every carve shrinks Reserved by exactly the
+            // bytes it takes, which is what keeps the struct at 2048 and every prior offset fixed.
             var reservedAttr = typeof(ScanCommand).GetField("Reserved")
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
-            Assert.AreEqual(600, reservedAttr.SizeConst, "Reserved SizeConst");
+            Assert.AreEqual(596, reservedAttr.SizeConst, "Reserved SizeConst");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)
