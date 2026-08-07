@@ -268,14 +268,27 @@ namespace Flash
             if (cmd.Microscans > 0)
                 p.Microscans = cmd.Microscans;
 
-            if (cmd.RfLens > 0)
-                p.SrcRFLens = new double[] { cmd.RfLens };
-
-            if (cmd.SourceCid > 0)
-                p.SourceCIDEnergy = cmd.SourceCid;
-
-            if (cmd.SourceCidScaling > 0)
-                p.SourceCIDScalingFactor = cmd.SourceCidScaling;
+            // SOURCE-REGION GROUP (ADR-0011) -- emitted unconditionally, unlike every analyzer-side
+            // scalar above, and travelling together as one unit.
+            //
+            // These three describe the ion source rather than this scan's analyzer, so 0 is a real
+            // setting and not the "leave it to the method" sentinel that ScanCommand.h documents for
+            // the analyzer-side scalars. source_cid_scaling makes the point: 0 is its DOCUMENTED
+            // correct value (MethodParameters.cs, etc/method.json), so a `> 0` guard meant
+            // SourceCIDScalingFactor was never sent on any scan at any level, and the instrument
+            // silently applied whatever scaling its own method carried.
+            //
+            // Restores the pre-port behaviour of IDAScanProcessor.cs@cd0d086:116-118, which set all
+            // three unguarded from MS1 -- in deliberate contrast to the guarded CollisionEnergy /
+            // ReactionTime / Reagent* lines immediately above it there. The engine now supplies the
+            // inherited value (MethodParameters.ToJsonScanConfig), so every command already carries
+            // the survey's source region and there is nothing left to defer.
+            //
+            // This makes makeAGC's source region load-bearing: an AGC command that left these at 0
+            // would now actively command RF lens 0 rather than omitting the key.
+            p.SrcRFLens              = new double[] { cmd.RfLens };
+            p.SourceCIDEnergy        = cmd.SourceCid;
+            p.SourceCIDScalingFactor = cmd.SourceCidScaling;
 
             if (!string.IsNullOrEmpty(cmd.DataType))
                 p.DataType = cmd.DataType;
