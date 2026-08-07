@@ -51,6 +51,10 @@
       "last_mass": 2002,
       "microscans": 2,
       "data_type": "Centroid",
+      "scan_rate": "Zoom",
+      "rf_lens": 34,
+      "source_cid": 19,
+      "source_cid_scaling": 0.14,
       "reaction_time": 12,
       "reagent_max_it": 202,
       "reagent_agc_target": 700002
@@ -71,6 +75,10 @@
       "last_mass": 2003,
       "microscans": 3,
       "data_type": "Profile",
+      "scan_rate": "Enhanced",
+      "rf_lens": 35,
+      "source_cid": 20,
+      "source_cid_scaling": 0.15,
       "reaction_time": 0,
       "reagent_max_it": 0,
       "reagent_agc_target": 0
@@ -96,8 +104,9 @@
       "microscans": 2,
       "rf_lens": 31,
       "source_cid": 16,
-      "source_cid_scaling": 0,
-      "data_type": "Centroid"
+      "source_cid_scaling": 0.11,
+      "data_type": "Centroid",
+      "scan_rate": "Turbo"
     },
     "ms2": [
       {
@@ -111,6 +120,10 @@
         "last_mass": 2002,
         "microscans": 3,
         "data_type": "Centroid",
+        "scan_rate": "Rapid",
+        "rf_lens": 32,
+        "source_cid": 17,
+        "source_cid_scaling": 0.12,
         "reaction_time": 0,
         "reagent_max_it": 0,
         "reagent_agc_target": 0
@@ -128,6 +141,10 @@
         "last_mass": 2003,
         "microscans": 8,
         "data_type": "Centroid",
+        "scan_rate": "Normal",
+        "rf_lens": 33,
+        "source_cid": 18,
+        "source_cid_scaling": 0.13,
         "reaction_time": 0,
         "reagent_max_it": 0,
         "reagent_agc_target": 0

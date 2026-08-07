@@ -530,10 +530,17 @@ namespace Flash
         public double source_cid { get; set; }
         public double source_cid_scaling { get; set; }
         public string data_type { get; set; }
+        public string scan_rate { get; set; }
     }
 
-    // Emitted keys mirror the MS2Parameters/MS3Parameters struct fields exactly.
-    // (rf_lens/source_cid/source_cid_scaling/scan_rate are MS1-only or unused; not emitted here.)
+    // Emitted keys mirror the MS2Parameters/MS3Parameters struct fields exactly, which in turn cover
+    // every C++ kScanKeys entry (Config.cpp:65-68) that can reach an MSn scan. A key omitted here can
+    // never cross the bridge and is unreachable from method.json -- that is how follow-up scans lost
+    // their reaction_time, and how ms2/ms3 lost rf_lens/source_cid/source_cid_scaling/scan_rate
+    // (commit 45c2cf9, reversed by ADR-0011). ConfigSchemaParity_test pins the set mechanically.
+    //
+    // This one class serves FOUR emit sites: ms_settings.ms2[], ms_settings.ms3[],
+    // tagging.follow_up_scan and quantification.follow_up_scan.
     public class JsonMs2Config
     {
         public string analyzer { get; set; }
@@ -546,6 +553,10 @@ namespace Flash
         public double last_mass { get; set; }
         public int microscans { get; set; }
         public string data_type { get; set; }
+        public string scan_rate { get; set; }
+        public double rf_lens { get; set; }
+        public double source_cid { get; set; }
+        public double source_cid_scaling { get; set; }
         public double reaction_time { get; set; }
         public double reagent_max_it { get; set; }
         public int reagent_agc_target { get; set; }

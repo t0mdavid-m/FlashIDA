@@ -24,9 +24,13 @@ namespace Flash
         [JsonKey("max_it")] public double MaxIT;
         [JsonKey("microscans")] public int Microscans;
         [JsonKey("data_type")] public string DataType;
+        [JsonKey("scan_rate")] public string ScanRate;
+        // Source-region parameters (ADR-0011): upstream of the analyzer, so they determine WHICH
+        // ions arrive rather than how they are measured. Shared by every scan in the cycle -- MSn
+        // inherits these from the survey when it does not state its own. Emitted unconditionally,
+        // including 0, because 0 is a meaningful setting for source_cid_scaling rather than "unset".
         [JsonKey("rf_lens")] public double RFLens;
         [JsonKey("source_cid")] public double SourceCID;
-        // Should be zero
         [JsonKey("source_cid_scaling")] public double SourceCIDScaling;
     }
 
@@ -46,11 +50,18 @@ namespace Flash
         [JsonKey("max_it")] public double MaxIT;
         [JsonKey("microscans")] public int Microscans;
         [JsonKey("data_type")] public string DataType;
+        [JsonKey("scan_rate")] public string ScanRate;
         [JsonKey("activation")] public string Activation;
         [JsonKey("reaction_time")] public double ReactionTime;
         [JsonKey("reagent_max_it")] public double ReagentMaxIT;
         [JsonKey("reagent_agc_target")] public int ReagentAGCTarget;
         [JsonKey("collision_energy")] public int CollisionEnergy;
+        // Source-region parameters (ADR-0011). 0 means "inherit the survey's value", resolved in
+        // ToJsonScanConfig before the config crosses the bridge -- so the ScanConfig C++ receives is
+        // still fully determined and ADR-0009 holds unchanged.
+        [JsonKey("rf_lens")] public double RFLens;
+        [JsonKey("source_cid")] public double SourceCID;
+        [JsonKey("source_cid_scaling")] public double SourceCIDScaling;
     }
 
     /// <summary>
@@ -69,11 +80,17 @@ namespace Flash
         [JsonKey("max_it")] public double MaxIT;
         [JsonKey("microscans")] public int Microscans;
         [JsonKey("data_type")] public string DataType;
+        [JsonKey("scan_rate")] public string ScanRate;
         [JsonKey("activation")] public string Activation;
         [JsonKey("reaction_time")] public double ReactionTime;
         [JsonKey("reagent_max_it")] public double ReagentMaxIT;
         [JsonKey("reagent_agc_target")] public int ReagentAGCTarget;
         [JsonKey("collision_energy")] public int CollisionEnergy;
+        // Source-region parameters (ADR-0011) -- identical to MS2Parameters by construction; both
+        // structs funnel through the same JsonMs2Config, so they must not be allowed to drift.
+        [JsonKey("rf_lens")] public double RFLens;
+        [JsonKey("source_cid")] public double SourceCID;
+        [JsonKey("source_cid_scaling")] public double SourceCIDScaling;
     }
 
     /// <summary>
@@ -144,7 +161,7 @@ namespace Flash
                 tagging = new JsonTaggingConfig
                 {
                     follow_up_scan = c.Tagging.FollowUpScan.HasValue
-                        ? ToJsonScanConfig(c.Tagging.FollowUpScan.Value) : null
+                        ? ToJsonScanConfig(c.Tagging.FollowUpScan.Value, c.MsSettings.MS1) : null
                 },
                 quantification = new JsonQuantificationConfig
                 {
@@ -152,7 +169,7 @@ namespace Flash
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
                     fold_change_threshold = c.Quantification.FoldChangeThreshold,
                     follow_up_scan = c.Quantification.FollowUpScan.HasValue
-                        ? ToJsonScanConfig(c.Quantification.FollowUpScan.Value) : null
+                        ? ToJsonScanConfig(c.Quantification.FollowUpScan.Value, c.MsSettings.MS1) : null
                 },
                 faims = new JsonFaimsConfig
                 {
@@ -174,10 +191,11 @@ namespace Flash
                         rf_lens = c.MsSettings.MS1.RFLens,
                         source_cid = c.MsSettings.MS1.SourceCID,
                         source_cid_scaling = c.MsSettings.MS1.SourceCIDScaling,
-                        data_type = c.MsSettings.MS1.DataType ?? ""
+                        data_type = c.MsSettings.MS1.DataType ?? "",
+                        scan_rate = c.MsSettings.MS1.ScanRate ?? ""
                     },
-                    ms2 = ms2List.Select(ToJsonScanConfig).ToArray(),
-                    ms3 = c.MsSettings.MS3.Select(ToJsonScanConfig).ToArray()
+                    ms2 = ms2List.Select(m => ToJsonScanConfig(m, c.MsSettings.MS1)).ToArray(),
+                    ms3 = c.MsSettings.MS3.Select(m => ToJsonScanConfig(m, c.MsSettings.MS1)).ToArray()
                 },
                 scheduling = new JsonSchedulingConfig
                 {
@@ -364,9 +382,22 @@ namespace Flash
         /// Two overloads because MS2Parameters and MS3Parameters are distinct structs with identical
         /// field sets. Emitting a subset here is not a shortcut: a key this method omits never
         /// crosses the bridge and is unreachable from method.json, which is how follow-up scans
-        /// became unable to carry their own reaction_time.
+        /// became unable to carry their own reaction_time, and how every MSn scan lost
+        /// rf_lens/source_cid/source_cid_scaling/scan_rate.
+        ///
+        /// <para><b>Source-region inheritance (ADR-0011).</b> rf_lens, source_cid and
+        /// source_cid_scaling describe the ion source, not this scan's analyzer, so an MSn scan that
+        /// does not state its own runs at the survey's — otherwise the MS1 that picked the precursor
+        /// and the MSn that fragments it sample different ion populations. Zero means "inherit"
+        /// (there is no separate absent state: ToCppJson emits every key unconditionally, so C++
+        /// cannot distinguish absent from 0 and the resolution has to happen here).</para>
+        ///
+        /// <para>Resolving it at emit time is what keeps ADR-0009 intact: by the time the JSON
+        /// crosses the bridge every ScanConfig carries a concrete value, so a scan config still
+        /// fully determines its scan's instrument parameters and nothing downstream performs a
+        /// cross-scan lookup. scan_rate is analyzer-side and deliberately does NOT inherit.</para>
         /// </remarks>
-        private static JsonMs2Config ToJsonScanConfig(MS2Parameters m)
+        private static JsonMs2Config ToJsonScanConfig(MS2Parameters m, MS1Parameters ms1)
         {
             return new JsonMs2Config
             {
@@ -380,13 +411,17 @@ namespace Flash
                 last_mass = m.LastMass,
                 microscans = m.Microscans,
                 data_type = m.DataType ?? "",
+                scan_rate = m.ScanRate ?? "",
+                rf_lens = m.RFLens != 0 ? m.RFLens : ms1.RFLens,
+                source_cid = m.SourceCID != 0 ? m.SourceCID : ms1.SourceCID,
+                source_cid_scaling = m.SourceCIDScaling != 0 ? m.SourceCIDScaling : ms1.SourceCIDScaling,
                 reaction_time = m.ReactionTime,
                 reagent_max_it = m.ReagentMaxIT,
                 reagent_agc_target = m.ReagentAGCTarget
             };
         }
 
-        private static JsonMs2Config ToJsonScanConfig(MS3Parameters m)
+        private static JsonMs2Config ToJsonScanConfig(MS3Parameters m, MS1Parameters ms1)
         {
             return new JsonMs2Config
             {
@@ -400,6 +435,10 @@ namespace Flash
                 last_mass = m.LastMass,
                 microscans = m.Microscans,
                 data_type = m.DataType ?? "",
+                scan_rate = m.ScanRate ?? "",
+                rf_lens = m.RFLens != 0 ? m.RFLens : ms1.RFLens,
+                source_cid = m.SourceCID != 0 ? m.SourceCID : ms1.SourceCID,
+                source_cid_scaling = m.SourceCIDScaling != 0 ? m.SourceCIDScaling : ms1.SourceCIDScaling,
                 reaction_time = m.ReactionTime,
                 reagent_max_it = m.ReagentMaxIT,
                 reagent_agc_target = m.ReagentAGCTarget
@@ -470,7 +509,8 @@ namespace Flash
             {
                 Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002,
                 AGCTarget = 400002, MaxIT = 102, FirstMass = 152, LastMass = 2002, Microscans = 2,
-                DataType = "Centroid", ReactionTime = 12, ReagentMaxIT = 202, ReagentAGCTarget = 700002
+                DataType = "Centroid", ReactionTime = 12, ReagentMaxIT = 202, ReagentAGCTarget = 700002,
+                ScanRate = "Zoom", RFLens = 34, SourceCID = 19, SourceCIDScaling = 0.14
             };
 
             c.Quantification.Active = false;
@@ -480,7 +520,8 @@ namespace Flash
             {
                 Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003,
                 AGCTarget = 400003, MaxIT = 103, FirstMass = 153, LastMass = 2003, Microscans = 3,
-                DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0
+                DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                ScanRate = "Enhanced", RFLens = 35, SourceCID = 20, SourceCIDScaling = 0.15
             };
 
             c.Faims.CVValues = new double[] { -41, -52, -63 };
@@ -491,7 +532,7 @@ namespace Flash
             {
                 Analyzer = "Orbitrap", FirstMass = 501, LastMass = 2001, OrbitrapResolution = 120001,
                 AGCTarget = 800001, MaxIT = 247, Microscans = 2, DataType = "Centroid",
-                RFLens = 31, SourceCID = 16, SourceCIDScaling = 0
+                ScanRate = "Turbo", RFLens = 31, SourceCID = 16, SourceCIDScaling = 0.11
             };
             c.MsSettings.MS2 = new List<MS2Parameters>
             {
@@ -499,7 +540,8 @@ namespace Flash
                 {
                     Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 29, OrbitrapResolution = 120002,
                     AGCTarget = 500001, MaxIT = 101, FirstMass = 101, LastMass = 2002, Microscans = 3,
-                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0
+                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                    ScanRate = "Rapid", RFLens = 32, SourceCID = 17, SourceCIDScaling = 0.12
                 }
             };
             c.MsSettings.MS3 = new List<MS3Parameters>
@@ -508,7 +550,8 @@ namespace Flash
                 {
                     Analyzer = "Orbitrap", Activation = "CID", CollisionEnergy = 26, OrbitrapResolution = 240001,
                     AGCTarget = 5000001, MaxIT = 501, FirstMass = 201, LastMass = 2003, Microscans = 8,
-                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0
+                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                    ScanRate = "Normal", RFLens = 33, SourceCID = 18, SourceCIDScaling = 0.13
                 }
             };
 
