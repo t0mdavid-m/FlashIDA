@@ -45,9 +45,7 @@
     "fold_change_threshold": 2
   },
   "faims": {
-    "cv_values": [
-      0
-    ],
+    "cv_values": [],
     "max_cv_skip": 2,
     "cv_precursor_threshold": 20
   },

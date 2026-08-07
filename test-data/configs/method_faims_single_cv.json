@@ -1,7 +1,7 @@
 {
   "global": {
-    "method_name": "ExplorationMethodETD",
-    "method_description": "MS2 ETD reaction-time exploration enabled",
+    "method_name": "MethodName",
+    "method_description": "Description",
     "duration": 120
   },
   "deconvolution": {
@@ -45,7 +45,9 @@
     "fold_change_threshold": 1.4
   },
   "faims": {
-    "cv_values": [],
+    "cv_values": [
+      -45
+    ],
     "max_cv_skip": 0,
     "cv_precursor_threshold": 15
   },
@@ -106,7 +108,7 @@
     "agc_interval_seconds": 30
   },
   "characterization": {
-    "protein_sequence": "GDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFSYTDANKNKGITWGEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
+    "protein_sequence": "SEQUENCE"
   },
   "files": {
     "target_logs": [],
@@ -117,23 +119,13 @@
   "selection_strategy": {
     "ms1": {
       "selection": "qscore",
-      "max_targets": 1
+      "max_targets": 3
     },
     "ms2": {
-      "selection": "intensity",
-      "max_targets": 3,
-      "exploration": {
-        "metric": "mass_count",
-        "rt_min": 3,
-        "rt_max": 11,
-        "rt_step": 2,
-        "activations": [
-          "ETD"
-        ]
-      }
+      "selection": "intensity"
     },
     "ms3": {
-      "selection": "intensity"
+      "selection": "none"
     }
   }
 }
