@@ -71,7 +71,7 @@ Four things this diagram exists to correct:
 
 The engine recognizes a returning scan by the **first 3 characters of the `Scan Description`
 trailer** — a base-94 tracking id it minted itself. `ScanFactory` copies `cmd.ScanDescription`
-into the scan parameters (`ScanFactory.cs:232-233`), the instrument echoes it back, and
+into the scan parameters (`ScanFactory.cs:257-258`), the instrument echoes it back, and
 `UnifiedScanProcessor` passes `msScan.Trailer["Scan Description"]` across the bridge as the only
 identity token (`UnifiedScanProcessor.cs:21-28`).
 
