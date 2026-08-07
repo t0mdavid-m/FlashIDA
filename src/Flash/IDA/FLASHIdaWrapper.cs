@@ -32,7 +32,8 @@ namespace Flash.IDA
     /// Blittable struct matching C++ ScanCommand (2048 bytes).
     /// Layout: 1248 (existing) + 8 (dequeue_timestamp_ms) + 8 (microscans+pad3)
     ///       + 24 (rf_lens+source_cid+source_cid_scaling) + 64 (data_type+scan_rate)
-    ///       + 4 (parent_scan_id) + 84 (stage-1 scoring) + 8 (window_snr) + 600 (reserved) = 2048.
+    ///       + 4 (parent_scan_id) + 84 (stage-1 scoring) + 8 (window_snr) + 4 (faims_enabled)
+    ///       + 596 (reserved) = 2048.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
@@ -97,7 +98,11 @@ namespace Flash.IDA
         public double PrecursorIntensityS1;
         public double PeakgroupIntensityS1;
         public double WindowSnr;   // @1440 mirrors C++ ScanCommand.window_snr (isolation-window SNR; -1.0 = unset). C# does not consume it.
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 600)]
+        public int FaimsEnabled;   // @1448 mirrors C++ ScanCommand.faims_enabled. 1 = FAIMS in use for this run.
+                                   // Consumed by ScanFactory: FaimsCv alone cannot distinguish "no FAIMS"
+                                   // from a compensation voltage of 0, and "FAIMS off" is an instruction
+                                   // the instrument must actually be given (ADR-0012).
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 596)]
         public byte[] Reserved;
     }
 

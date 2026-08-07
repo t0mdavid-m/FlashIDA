@@ -257,11 +257,19 @@ namespace Flash
             if (!string.IsNullOrEmpty(cmd.ScanDescription))
                 p.ScanDescription = cmd.ScanDescription;
 
-            // FAIMS CV from C++ engine
-            if (Math.Abs(cmd.FaimsCv) > 0.001)
+            // FAIMS from the C++ engine (ADR-0012). Branch on the explicit flag, never on the CV
+            // magnitude: |cv| > 0.001 could not tell "FAIMS is not in use" from "the compensation
+            // voltage is 0", and it had no else branch at all -- so FLASHIda could say "on" and
+            // never "off". "off" is an instruction the instrument has to be given; without it a
+            // non-FAIMS run inherits whatever FAIMS state the instrument method carried.
+            if (cmd.FaimsEnabled != 0)
             {
                 p.FAIMS_CV = cmd.FaimsCv;
                 p.FAIMS_Voltages = "on";
+            }
+            else
+            {
+                p.FAIMS_Voltages = "off";
             }
 
             // New scan parameters from C++ engine

@@ -88,7 +88,11 @@ namespace Flash.Tests
             Assert.AreEqual(1424, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensityS1"), "PrecursorIntensityS1 offset");
             Assert.AreEqual(1432, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensityS1"), "PeakgroupIntensityS1 offset");
             Assert.AreEqual(1440, (int)Marshal.OffsetOf<ScanCommand>("WindowSnr"), "WindowSnr offset");
-            Assert.AreEqual(1448, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            // Carved out of Reserved, which moved 1448 -> 1452 and shrank 600 -> 596. Every offset
+            // above is unchanged and the struct stays 2048 bytes -- that is why new bridge fields
+            // are consumed from the tail rather than appended.
+            Assert.AreEqual(1448, (int)Marshal.OffsetOf<ScanCommand>("FaimsEnabled"), "FaimsEnabled offset");
+            Assert.AreEqual(1452, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
