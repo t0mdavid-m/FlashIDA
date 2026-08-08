@@ -135,44 +135,51 @@ exception was caught, never "queue empty".
 
 ## Config (C# side)
 
-The 13 top-level sections are the `[JsonKey]`-annotated **properties of the `MethodConfig` class**
-(`MethodConfig.cs:394-434`), plus the special-cased root bool `conditional_ms2`:
+The 12 top-level sections are the `[JsonKey]`-annotated **properties of the `MethodConfig` class**,
+plus the special-cased root bool `conditional_ms2`:
 `global`, `deconvolution`, `precursor_selection`, `tagging`, `flashtnt`, `quantification`,
-`faims`, `ms_settings`, `scheduling`, `selection_strategy`, `characterization`, `files`, `runtime`.
+`faims`, `ms_settings`, `scheduling`, `characterization`, `files`, `runtime`.
+`selection_strategy` was the thirteenth and is **deleted** (ADR-0014); both loaders throw a
+migration message on it.
 
 > **Do not enumerate sections by grepping for class-level `[JsonKey]`.** Nested classes carry one
 > too (`ms1`/`ms2`/`ms3`/`cycle_time`/`scan_timeout`/`exploration`), which is exactly how a phantom
 > top-level `ms3` entered the old version of this file. C++ now throws on a top-level `ms3` with a
 > migration message.
 
-`ms1`/`ms2`/`ms3` appear under **both** `ms_settings` and `selection_strategy` meaning different
-things, and are validated differently:
+`ms1`/`ms2`/`ms3` now appear **only** under `ms_settings`, and all three are bare **structs**
+(`MS1Parameters` / `MS2Parameters` / `MS3Parameters`) — `ms2` and `ms3` used to be `List<>`.
+Extra MS2 configs live in `ms_settings.additional_ms2`, a
+`Dictionary<string, MS2Parameters>` whose keys are user-authored.
 
-| | `ms_settings.msN` | `selection_strategy.msN` |
-|---|---|---|
-| Meaning | instrument scan parameters | per-level selection policy |
-| Type | **structs** `MS1Parameters` / `List<MS2Parameters>` / `List<MS3Parameters>` | **classes** `MS{1,2,3}SelectionConfig` |
-| Validated against | struct **fields** | class **properties** |
-| Adding a key | `[JsonKey]` on a struct field | `[JsonKey]` on a class property |
+`BuildAllowedKeyMap` dispatches on struct-vs-class at runtime (structs validate against **fields**,
+classes against **properties**), so adding a scan key means a `[JsonKey]` on a struct field and
+adding a decision key means one on a class property.
 
-`BuildAllowedKeyMap` dispatches on struct-vs-class at runtime (`MethodConfigSerializer.cs:218-244`).
+> **A `Dictionary<,>` is validated key-free but value-checked.** `CollectUnknownKeys` used to return
+> outright for any dictionary ("keys are dynamic, allow anything"), which is right for
+> `exploration.overrides` (string values) and wrong for `additional_ms2` (full scan objects) — it
+> would let `{"etd": {"IsolationMode": "Quad"}}` load clean and silently drop the key. Keys stay
+> free; values recurse.
 
 ### Config gotchas that cost real debugging time
 
-- **`deconvolution.tol` needs ≥ 3 entries, always.** `BuildSelectionStrategy` unconditionally
-  emits ms1+ms2+ms3, so C++ always materializes levels {1,2,3} and requires `tol.size() >= 3`.
-  The C# model default is `{10,10}` — two entries — which produces an **unloadable config**. All
-  31 committed test configs carry exactly 3.
+- **`deconvolution.tol` needs ≥ 3 entries, always.** C++ materializes levels {1,2,3}
+  unconditionally and requires `tol.size() >= 3`. The C# model default is `{10,10}` — two entries —
+  which produces an **unloadable config**. Every committed test config carries exactly 3.
 - **The C++ `.value(key, default)` fallbacks are dead in production.** `ToCppJson` emits every key
   unconditionally, so the *effective* defaults are the C# property initializers — and several
-  disagree with the C++ literal a reader would find: `score_threshold` −1 vs 0.0, `HCDEnergy` 29
-  vs −1, `reporter_mz_tol` 0.0 vs 0.002, `fold_change_threshold` 0.0 vs 1.4.
-- **`selection_strategy.ms1.exploration` is discarded on both sides.** It is modelled only so the
-  generated reference JSON round-trips through the strict loader; C++ ignores exploration for
-  `level_num <= 1`.
+  disagree with the C++ literal a reader would find: `score_threshold` −1 vs 0.0,
+  `reporter_mz_tol` 0.0 vs 0.002, `fold_change_threshold` 0.0 vs 1.4.
+  **This bites hardest in hand-written C++ test fixtures**, which bypass the emitter entirely and so
+  DO get the C++ literals: the MS3 budget defaulted to 10 there and to 3 here, so a fixture that
+  omits `characterization.max_targets` silently changes budget.
+- **There is no level-1 exploration.** It was modelled and emitted but discarded on both sides; only
+  `precursor_selection.exploration` (MS2) and `characterization.exploration` (MS3) exist now.
 - **An exploration block with `metric: "none"` has its sweep values silently rewritten** to
   ce 20/40/5. The forwarding guard is an ordinal, case-sensitive `!= "none"`, so `"None"` takes
-  the *other* branch. All three levels share one `defaultExpl` **instance**.
+  the *other* branch. Each block now gets a **fresh** instance — the old code shared one
+  `defaultExpl` object by reference across all three levels.
 
 Unknown keys are hard-rejected here and again in C++. `test-data/config_schema_reference.json` is
 generated from the schema — regenerate it, never hand-edit.
