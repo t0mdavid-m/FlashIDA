@@ -27,9 +27,7 @@
     "rank_by": "qscore",
     "max_precursors": 3,
     "min_precursor_charge": 2,
-    "additional_scans": [
-      "ms2_reference"
-    ],
+    "additional_scans": [],
     "exploration": {
       "metric": "mass_count",
       "ce_min": 21,
@@ -129,25 +127,6 @@
       "reagent_agc_target": 0
     },
     "additional_ms2": {
-      "ms2_reference": {
-        "analyzer": "Orbitrap",
-        "activation": "ETD",
-        "collision_energy": 0,
-        "resolution": 60001,
-        "agc_target": 300001,
-        "max_it": 104,
-        "first_mass": 104,
-        "last_mass": 2004,
-        "microscans": 4,
-        "data_type": "Centroid",
-        "scan_rate": "Turbo",
-        "rf_lens": 36,
-        "source_cid": 21,
-        "source_cid_scaling": 0.16,
-        "reaction_time": 11,
-        "reagent_max_it": 201,
-        "reagent_agc_target": 700001
-      },
       "tagging_reference": {
         "analyzer": "Orbitrap",
         "activation": "ETD",
