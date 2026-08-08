@@ -191,7 +191,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var ms2 = harness.CapturedRecords.Where(r => r.MsnLevel == 2).ToList();
                 Assert.That(ms2, Is.Not.Empty, "ETD standard DDA must produce at least one MS2 command");
 
-                double expectedReactionTime = harness.MethodParams.Config.MsSettings.MS2[0].ReactionTime;
+                double expectedReactionTime = harness.MethodParams.Config.MsSettings.MS2.ReactionTime;
                 Assert.That(expectedReactionTime, Is.GreaterThan(0), "ETD fixture must configure a reaction time");
 
                 foreach (var r in ms2)
@@ -216,7 +216,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var ms2 = harness.CapturedRecords.Where(r => r.MsnLevel == 2).ToList();
                 Assert.That(ms2, Is.Not.Empty, "HCD standard DDA must produce at least one MS2 command");
 
-                int expectedCe = harness.MethodParams.Config.MsSettings.MS2[0].CollisionEnergy;
+                int expectedCe = harness.MethodParams.Config.MsSettings.MS2.CollisionEnergy;
                 Assert.That(expectedCe, Is.GreaterThan(0), "HCD fixture must configure a non-zero collision energy");
 
                 foreach (var r in ms2)
@@ -304,8 +304,8 @@ namespace Flash.Tests.AcquisitionLoop
                 Assert.That(results.Count, Is.GreaterThan(0),
                     "TopN=5 must produce at least one MS2 command from smoke spectrum");
 
-                int maxPerMs1 = harness.MethodParams.Config.SelectionStrategy.MS1.MaxTargets;
-                int ms2Types = harness.MethodParams.Config.MsSettings.MS2.Count;
+                int maxPerMs1 = harness.MethodParams.Config.PrecursorSelection.MaxPrecursors;
+                int ms2Types = 1 + (harness.MethodParams.Config.PrecursorSelection.AdditionalScans?.Count ?? 0);
 
                 Assert.AreEqual(5, maxPerMs1,
                     "Config should have MaxTargets=5");
@@ -575,7 +575,7 @@ namespace Flash.Tests.AcquisitionLoop
                 Assert.That(harness.MethodParams.Config.Tagging.ConditionalMS2, Is.True,
                     "Config must have ConditionalMS2 enabled for this test");
 
-                int maxPrecursors = harness.MethodParams.Config.SelectionStrategy.MS1.MaxTargets;
+                int maxPrecursors = harness.MethodParams.Config.PrecursorSelection.MaxPrecursors;
                 Assert.That(ms2Commands.Count, Is.LessThanOrEqualTo(maxPrecursors),
                     "Conditional MS2: initial batch should have at most 1 scan per precursor");
             }
@@ -601,8 +601,11 @@ namespace Flash.Tests.AcquisitionLoop
                 {
                     Assert.IsNotNull(harness.Processor,
                         "Quant processor should be created successfully");
-                    Assert.AreEqual(1, harness.MethodParams.Config.MsSettings.MS2.Count,
-                        "Quant config should have exactly 1 MS2 parameter set (follow-up is in quantification.follow_up_scan)");
+                    // The quant follow-up is a NAME into ms_settings.additional_ms2 and is
+                    // deliberately absent from the dispatch roster, so it never fires per precursor.
+                    Assert.AreEqual(0,
+                        harness.MethodParams.Config.PrecursorSelection.AdditionalScans?.Count ?? 0,
+                        "Quant config should dispatch only ms_settings.ms2 (the follow-up is referenced, not rostered)");
                 }
             }, "Quant mode construction should not throw");
         }
@@ -1005,7 +1008,7 @@ namespace Flash.Tests.AcquisitionLoop
                     "Strict inclusion should find at least one matching target in ms1_standard");
 
                 Assert.That(results.Count, Is.LessThanOrEqualTo(
-                    5 * harness.MethodParams.Config.MsSettings.MS2.Count), // at most 5 targets * MS2 types
+                    5 * (1 + (harness.MethodParams.Config.PrecursorSelection.AdditionalScans?.Count ?? 0))), // at most 5 targets * MS2 types
                     "Strict inclusion should produce at most target_count * MS2_types results");
 
                 Assert.IsTrue(results.All(r => r.PrecursorMz > 0),

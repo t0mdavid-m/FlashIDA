@@ -143,25 +143,20 @@ namespace Flash.Tests
                 },
                 PrecursorSelection = new PrecursorSelectionConfig
                 {
-                    RTWindow = 180, HCDEnergy = 29
+                    RTWindow = 180, RankBy = "qscore", MaxPrecursors = 1
                 },
                 Faims = new FaimsConfig { CVValues = new double[] { -50 } },
                 MsSettings = new MsSettingsConfig
                 {
                     MS1 = new MS1Parameters { Analyzer = "Orbitrap", FirstMass = 500, LastMass = 2000, OrbitrapResolution = 120000, AGCTarget = 800000, MaxIT = 246 },
-                    MS2 = new List<MS2Parameters>
-                    {
-                        // ETD requires its activation-coupled reaction time (ADR-0009); without it
-                        // Config::validate() rejects the config and CreateFLASHIda returns null.
-                        new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0, ReactionTime = 10.0 }
-                    }
+                    // ETD requires its activation-coupled reaction time (ADR-0009); without it
+                    // Config::validate() rejects the config and CreateFLASHIda returns null.
+                    MS2 = new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0, ReactionTime = 10.0 }
                 },
-                SelectionStrategy = new SelectionStrategyConfig
-                {
-                    MS1 = new MS1SelectionConfig { Selection = "qscore", MaxTargets = 1 },
-                    MS2 = new MS2SelectionConfig { Selection = "none" },
-                    MS3 = new MS3SelectionConfig { Selection = "none" }
-                }
+                // MS3 off. This used to take three keys across two sections to say; it is now one.
+                // No ms_settings.ms3 is needed because mode is off -- and if mode were NOT off,
+                // Config::validate() would now require one rather than OOB-reading scans[0].
+                Characterization = new CharacterizationConfig { Mode = "off" }
             };
             return mp.ToCppJson();
         }

@@ -44,7 +44,7 @@ namespace Flash.Tests
             string[] requiredKeys = new[] {
                 "global", "deconvolution", "precursor_selection", "flashtnt", "tagging",
                 "quantification", "faims", "ms_settings",
-                "scheduling", "selection_strategy", "characterization", "files", "runtime"
+                "scheduling", "characterization", "files", "runtime"
             };
             foreach (var key in requiredKeys)
                 Assert.IsTrue(parsed.ContainsKey(key), "Missing key: " + key);
@@ -111,7 +111,8 @@ namespace Flash.Tests
         public void Deserialize_DeveloperRouting()
         {
             var mp = LoadJsonMethod("method_json_roundtrip.json");
-            Assert.AreEqual(35, mp.Config.PrecursorSelection.HCDEnergy);
+            // HCDEnergy was the other [Developer]-routed probe here; it is deleted (no reachable
+            // consumer), so MaxCVSkip now carries this test on its own.
             Assert.AreEqual(2, mp.Config.Faims.MaxCVSkip);
         }
 
@@ -128,8 +129,11 @@ namespace Flash.Tests
 
             // ToCppJson surfaces the flag on the wire-JSON.
             var cpp = mp.ToCppJson();
-            Assert.IsTrue(cpp.Contains("\"ChargeBasedExclusion\":true") ||
-                          cpp.Contains("\"ChargeBasedExclusion\": true"));
+            // Matches the RAW emitted text, so it breaks on the emit-DTO field rename alone --
+            // independently of the [JsonKey]. That is deliberate: it is the tripwire for a
+            // half-rename, where the loader accepts the new key and the emitter writes the old one.
+            Assert.IsTrue(cpp.Contains("\"charge_based_exclusion\":true") ||
+                          cpp.Contains("\"charge_based_exclusion\": true"));
         }
 
         [Test, Category("Tier1")]
@@ -139,8 +143,8 @@ namespace Flash.Tests
             Assert.IsFalse(mp.Config.PrecursorSelection.ChargeBasedExclusion);
 
             var cpp = mp.ToCppJson();
-            Assert.IsTrue(cpp.Contains("\"ChargeBasedExclusion\":false") ||
-                          cpp.Contains("\"ChargeBasedExclusion\": false"));
+            Assert.IsTrue(cpp.Contains("\"charge_based_exclusion\":false") ||
+                          cpp.Contains("\"charge_based_exclusion\": false"));
         }
 
         [Test, Category("Tier1")]
@@ -159,7 +163,12 @@ namespace Flash.Tests
             Assert.AreEqual(mp.Config.Deconvolution.MinCharge, config2.Deconvolution.MinCharge);
             Assert.AreEqual(mp.Config.Deconvolution.MaxCharge, config2.Deconvolution.MaxCharge);
             Assert.AreEqual(mp.Config.PrecursorSelection.RTWindow, config2.PrecursorSelection.RTWindow);
-            Assert.AreEqual(mp.Config.PrecursorSelection.HCDEnergy, config2.PrecursorSelection.HCDEnergy);
+            // HCDEnergy deleted; round-trip the keys that moved here out of selection_strategy.ms1
+            // instead, which exercises the same path and covers the new surface.
+            Assert.AreEqual(mp.Config.PrecursorSelection.RankBy, config2.PrecursorSelection.RankBy);
+            Assert.AreEqual(mp.Config.PrecursorSelection.MaxPrecursors, config2.PrecursorSelection.MaxPrecursors);
+            Assert.AreEqual(mp.Config.Characterization.Mode, config2.Characterization.Mode);
+            Assert.AreEqual(mp.Config.Characterization.MaxTargets, config2.Characterization.MaxTargets);
             Assert.AreEqual(mp.Config.Faims.CVValues.Length, config2.Faims.CVValues.Length);
         }
 

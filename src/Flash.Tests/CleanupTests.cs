@@ -43,8 +43,10 @@ namespace Flash.Tests
                 "Output should contain score_threshold");
             Assert.That(output, Does.Contain("min_charge"),
                 "Output should contain min_charge");
-            Assert.That(output, Does.Contain("HCDEnergy"),
-                "Output should contain HCDEnergy (bridge key)");
+            // HCDEnergy is gone (no reachable consumer). rt_window is the replacement probe: a
+            // snake_case precursor_selection key that the doc generator must still surface.
+            Assert.That(output, Does.Contain("rt_window"),
+                "Output should contain rt_window (bridge key)");
         }
     }
 }
