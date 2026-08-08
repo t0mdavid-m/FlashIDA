@@ -163,16 +163,18 @@ namespace Flash
                 },
                 tagging = new JsonTaggingConfig
                 {
-                    follow_up_scan = c.Tagging.FollowUpScan.HasValue
-                        ? ToJsonScanConfig(c.Tagging.FollowUpScan.Value, c.MsSettings.MS1) : null
+                    // A name, not a block. Empty means "no conditional follow-up configured", which
+                    // is what Config::validate() now checks conditional_ms2 against.
+                    follow_up_scan = string.IsNullOrEmpty(c.Tagging.FollowUpScan)
+                        ? null : c.Tagging.FollowUpScan
                 },
                 quantification = new JsonQuantificationConfig
                 {
                     enabled = c.Quantification.Active,
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
                     fold_change_threshold = c.Quantification.FoldChangeThreshold,
-                    follow_up_scan = c.Quantification.FollowUpScan.HasValue
-                        ? ToJsonScanConfig(c.Quantification.FollowUpScan.Value, c.MsSettings.MS1) : null
+                    follow_up_scan = string.IsNullOrEmpty(c.Quantification.FollowUpScan)
+                        ? null : c.Quantification.FollowUpScan
                 },
                 faims = new JsonFaimsConfig
                 {
@@ -485,28 +487,18 @@ namespace Flash
             c.FlashTnT.MaxBlindModCount = 1;
             c.FlashTnT.MaxModMass = 733;
 
-            c.Tagging.ConditionalMS2 = false;
+            // The two follow-up scan BLOCKS now live in ms_settings.additional_ms2 (assigned below);
+            // these sections carry only the NAME that references them.
             // ETD requires its activation-coupled reaction parameters or Config::validate() rejects
             // this reference (ADR-0009). Every key must also carry a distinct, non-default value so
             // the parity tests can tell a correctly-bound key from a coincidentally-equal default.
-            c.Tagging.FollowUpScan = new MS2Parameters
-            {
-                Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002,
-                AGCTarget = 400002, MaxIT = 102, FirstMass = 152, LastMass = 2002, Microscans = 2,
-                DataType = "Centroid", ReactionTime = 12, ReagentMaxIT = 202, ReagentAGCTarget = 700002,
-                ScanRate = "Zoom", RFLens = 34, SourceCID = 19, SourceCIDScaling = 0.14
-            };
+            c.Tagging.ConditionalMS2 = false;
+            c.Tagging.FollowUpScan = "tagging_reference";
 
             c.Quantification.Active = false;
             c.Quantification.ReporterMZTol = 0.0031;
             c.Quantification.FoldChangeThreshold = 1.7;
-            c.Quantification.FollowUpScan = new MS2Parameters
-            {
-                Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003,
-                AGCTarget = 400003, MaxIT = 103, FirstMass = 153, LastMass = 2003, Microscans = 3,
-                DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
-                ScanRate = "Enhanced", RFLens = 35, SourceCID = 20, SourceCIDScaling = 0.15
-            };
+            c.Quantification.FollowUpScan = "quant_reference";
 
             c.Faims.CVValues = new double[] { -41, -52, -63 };
             c.Faims.MaxCVSkip = 2;
@@ -543,8 +535,20 @@ namespace Flash
                         DataType = "Centroid", ReactionTime = 11, ReagentMaxIT = 201, ReagentAGCTarget = 700001,
                         ScanRate = "Turbo", RFLens = 36, SourceCID = 21, SourceCIDScaling = 0.16
                     } },
-                { "tagging_reference", c.Tagging.FollowUpScan.Value },
-                { "quant_reference", c.Quantification.FollowUpScan.Value }
+                { "tagging_reference", new MS2Parameters
+                    {
+                        Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002,
+                        AGCTarget = 400002, MaxIT = 102, FirstMass = 152, LastMass = 2002, Microscans = 2,
+                        DataType = "Centroid", ReactionTime = 12, ReagentMaxIT = 202, ReagentAGCTarget = 700002,
+                        ScanRate = "Zoom", RFLens = 34, SourceCID = 19, SourceCIDScaling = 0.14
+                    } },
+                { "quant_reference", new MS2Parameters
+                    {
+                        Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003,
+                        AGCTarget = 400003, MaxIT = 103, FirstMass = 153, LastMass = 2003, Microscans = 3,
+                        DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                        ScanRate = "Enhanced", RFLens = 35, SourceCID = 20, SourceCIDScaling = 0.15
+                    } }
             };
 
             c.Scheduling.CycleTime.Enabled = true;

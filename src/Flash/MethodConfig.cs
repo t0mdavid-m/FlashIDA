@@ -133,9 +133,11 @@ namespace Flash
         [Description("Use conditional MS2 based on tag results")]
         public bool ConditionalMS2 { get; set; }
 
+        // A follow-up is just another MS2, so it no longer carries its own inline 17-key block --
+        // it NAMES one in ms_settings.additional_ms2. A name that does not resolve is a load error.
         [JsonKey("follow_up_scan")]
-        [Description("Follow-up scan config for conditional MS2")]
-        public MS2Parameters? FollowUpScan { get; set; }
+        [Description("Name of an ms_settings.additional_ms2 entry to acquire as the conditional ('C') follow-up MS2")]
+        public string FollowUpScan { get; set; } = "";
     }
 
     [JsonKey("flashtnt")]
@@ -198,8 +200,8 @@ namespace Flash
         public bool OnlyOneCondition { get; set; }
 
         [JsonKey("follow_up_scan")]
-        [Description("Follow-up scan config for quantification")]
-        public MS2Parameters? FollowUpScan { get; set; }
+        [Description("Name of an ms_settings.additional_ms2 entry to acquire as the quantification ('F') follow-up MS2")]
+        public string FollowUpScan { get; set; } = "";
     }
 
     [JsonKey("faims")]
@@ -520,9 +522,11 @@ namespace Flash
         public JsonExplorationBlockConfig exploration { get; set; }
     }
 
+    // The wire now carries the NAME; C++ resolves it against ms_settings.additional_ms2 at parse
+    // time, so no downstream consumer ever learns that names exist.
     public class JsonTaggingConfig
     {
-        public JsonMs2Config follow_up_scan { get; set; }
+        public string follow_up_scan { get; set; }
     }
 
     public class JsonFlashTnTConfig
@@ -550,7 +554,7 @@ namespace Flash
         public bool enabled { get; set; }
         public double reporter_mz_tol { get; set; }
         public double fold_change_threshold { get; set; }
-        public JsonMs2Config follow_up_scan { get; set; }
+        public string follow_up_scan { get; set; }
     }
 
     public class JsonFaimsConfig

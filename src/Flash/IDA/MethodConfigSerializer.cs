@@ -195,9 +195,22 @@ namespace Flash
             if (dict == null)
                 return;   // primitive leaf
 
-            // Dynamic string->string dictionaries (exploration.overrides): any key allowed.
+            // Dictionaries have user-authored KEYS, so the keys cannot be allowlisted -- but their
+            // VALUES still can be, and must be. Returning outright here (the old behaviour) is right
+            // for exploration.overrides, whose values are plain strings, and wrong for
+            // ms_settings.additional_ms2, whose values are full 17-key scan objects: it would let
+            // `{"etd": {"IsolationMode": "Quad"}}` load clean and then silently drop the key.
+            //
+            // So: keys stay free, values recurse. A Dictionary<string,string> recursion bottoms out
+            // immediately at the "primitive leaf" return above, which reproduces the old behaviour
+            // for overrides exactly.
             if (modelType.IsGenericType && modelType.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+            {
+                Type valueType = modelType.GetGenericArguments()[1];
+                foreach (var entry in dict)
+                    CollectUnknownKeys(entry.Value, valueType, path + "." + entry.Key, problems);
                 return;
+            }
 
             var allowed = BuildAllowedKeyMap(modelType);
             foreach (var kv in dict)
@@ -525,24 +538,19 @@ namespace Flash
             if (valueType == typeof(List<string>))
                 return ((List<string>)value).ToArray();
 
-            // List<MS2Parameters> → array of dictionaries
-            if (valueType == typeof(List<MS2Parameters>))
+            // Dictionary<string, T> -> name-keyed object. Needed for ms_settings.additional_ms2.
+            // Without this branch a Dictionary falls through to `return value` at the bottom and
+            // JavaScriptSerializer reflects the raw CLR struct, emitting PascalCase FIELD names
+            // instead of the [JsonKey] wire names -- a config C++ would hard-reject.
+            if (valueType.IsGenericType
+                && valueType.GetGenericTypeDefinition() == typeof(Dictionary<,>)
+                && valueType.GetGenericArguments()[0] == typeof(string))
             {
-                var list = (List<MS2Parameters>)value;
-                var arr = new Dictionary<string, object>[list.Count];
-                for (int i = 0; i < list.Count; i++)
-                    arr[i] = SerializeStruct(list[i], typeof(MS2Parameters));
-                return arr;
-            }
-
-            // List<MS3Parameters> → array of dictionaries
-            if (valueType == typeof(List<MS3Parameters>))
-            {
-                var list = (List<MS3Parameters>)value;
-                var arr = new Dictionary<string, object>[list.Count];
-                for (int i = 0; i < list.Count; i++)
-                    arr[i] = SerializeStruct(list[i], typeof(MS3Parameters));
-                return arr;
+                Type vt = valueType.GetGenericArguments()[1];
+                var outDict = new Dictionary<string, object>();
+                foreach (DictionaryEntry e in (IDictionary)value)
+                    outDict[(string)e.Key] = SerializeValue(e.Value, vt);
+                return outDict;
             }
 
             // Value-type structs (MS1Parameters, etc.)
