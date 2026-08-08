@@ -17,6 +17,33 @@
       13
     ]
   },
+  "precursor_selection": {
+    "rt_window": 181,
+    "targeting": "inclusion",
+    "consider_all_charges": true,
+    "strict_inclusion": true,
+    "tie_threshold": 0.13,
+    "charge_based_exclusion": true,
+    "rank_by": "qscore",
+    "max_precursors": 3,
+    "min_precursor_charge": 2,
+    "additional_scans": [
+      "ms2_reference"
+    ],
+    "exploration": {
+      "metric": "mass_count",
+      "ce_min": 21,
+      "ce_max": 39,
+      "ce_step": 5,
+      "overrides": null,
+      "remaining_precursor_target": 0.12,
+      "reaction_time_min": 0,
+      "reaction_time_max": 0,
+      "reaction_time_step": 1,
+      "activations": null,
+      "tolerance_ppm": 14
+    }
+  },
   "flashtnt": {
     "min_length": 4,
     "max_length": 9,
@@ -30,6 +57,15 @@
     "max_blind_mod_count": 1,
     "max_mod_mass": 733
   },
+  "tagging": {
+    "follow_up_scan": "tagging_reference"
+  },
+  "quantification": {
+    "enabled": false,
+    "reporter_mz_tol": 0.0031,
+    "fold_change_threshold": 1.7,
+    "follow_up_scan": "quant_reference"
+  },
   "faims": {
     "cv_values": [
       -41,
@@ -38,60 +74,6 @@
     ],
     "max_cv_skip": 2,
     "cv_precursor_threshold": 17
-  },
-  "scheduling": {
-    "cycle_time": {
-      "enabled": true,
-      "value_ms": 60001
-    },
-    "scan_timeout": {
-      "enabled": true,
-      "value_ms": 30001
-    },
-    "agc_interval_seconds": 29
-  },
-  "files": {
-    "target_logs": [],
-    "fasta": "",
-    "inclusion_list": "",
-    "ptm_list": ""
-  },
-  "conditional_ms2": false,
-  "runtime": {
-    "ida_log_path": "",
-    "scan_commands_path": "",
-    "scan_results_path": "",
-    "identification_log_path": "",
-    "pooled_identification_log_path": ""
-  },
-  "precursor_selection": {
-    "rt_window": 181,
-    "targeting": "inclusion",
-    "consider_all_charges": true,
-    "charge_based_exclusion": true,
-    "strict_inclusion": true,
-    "tie_threshold": 0.13,
-    "rank_by": "qscore",
-    "max_precursors": 3,
-    "min_precursor_charge": 2,
-    "exploration": {
-      "metric": "mass_count",
-      "ce_min": 21,
-      "ce_max": 39,
-      "ce_step": 5,
-      "reaction_time_min": 0,
-      "reaction_time_max": 0,
-      "reaction_time_step": 1,
-      "activations": null,
-      "remaining_precursor_target": 0.12
-    }
-  },
-  "characterization": {
-    "mode": "off",
-    "protein_sequence": "MSENTINELPEPTIDESEQ",
-    "max_targets": 4,
-    "min_fragment_charge": 1,
-    "ms3_all_charges": true
   },
   "ms_settings": {
     "ms1": {
@@ -147,7 +129,26 @@
       "reagent_agc_target": 0
     },
     "additional_ms2": {
-      "tagging_follow_up": {
+      "ms2_reference": {
+        "analyzer": "Orbitrap",
+        "activation": "ETD",
+        "collision_energy": 0,
+        "resolution": 60001,
+        "agc_target": 300001,
+        "max_it": 104,
+        "first_mass": 104,
+        "last_mass": 2004,
+        "microscans": 4,
+        "data_type": "Centroid",
+        "scan_rate": "Turbo",
+        "rf_lens": 36,
+        "source_cid": 21,
+        "source_cid_scaling": 0.16,
+        "reaction_time": 11,
+        "reagent_max_it": 201,
+        "reagent_agc_target": 700001
+      },
+      "tagging_reference": {
         "analyzer": "Orbitrap",
         "activation": "ETD",
         "collision_energy": 24,
@@ -166,7 +167,7 @@
         "reagent_max_it": 202,
         "reagent_agc_target": 700002
       },
-      "quant_follow_up": {
+      "quant_reference": {
         "analyzer": "Orbitrap",
         "activation": "HCD",
         "collision_energy": 28,
@@ -187,13 +188,49 @@
       }
     }
   },
-  "tagging": {
-    "follow_up_scan": "tagging_follow_up"
+  "scheduling": {
+    "cycle_time": {
+      "enabled": true,
+      "value_ms": 60001
+    },
+    "scan_timeout": {
+      "enabled": true,
+      "value_ms": 30001
+    },
+    "agc_interval_seconds": 29
   },
-  "quantification": {
-    "enabled": false,
-    "reporter_mz_tol": 0.0031,
-    "fold_change_threshold": 1.7,
-    "follow_up_scan": "quant_follow_up"
+  "files": {
+    "target_logs": [],
+    "fasta": "",
+    "inclusion_list": "",
+    "ptm_list": ""
+  },
+  "characterization": {
+    "mode": "coverage",
+    "protein_sequence": "MSENTINELPEPTIDESEQ",
+    "max_targets": 4,
+    "min_fragment_charge": 1,
+    "ms3_all_charges": true,
+    "exploration": {
+      "metric": "fragment_count",
+      "ce_min": 16,
+      "ce_max": 34,
+      "ce_step": 2,
+      "overrides": null,
+      "remaining_precursor_target": 0.13,
+      "reaction_time_min": 0,
+      "reaction_time_max": 0,
+      "reaction_time_step": 1,
+      "activations": null,
+      "tolerance_ppm": 15
+    }
+  },
+  "conditional_ms2": false,
+  "runtime": {
+    "ida_log_path": "",
+    "scan_commands_path": "",
+    "scan_results_path": "",
+    "identification_log_path": "",
+    "pooled_identification_log_path": ""
   }
 }
