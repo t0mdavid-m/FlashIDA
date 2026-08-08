@@ -524,17 +524,23 @@ namespace Flash
                 DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
                 ScanRate = "Normal", RFLens = 33, SourceCID = 18, SourceCIDScaling = 0.13
             };
-            // Three distinct named entries so the parity tests exercise every additional_ms2 role:
-            // one dispatched extra, and one backing each of the two follow-up references.
+            // Two named entries, one backing each follow-up reference, and BOTH referenced.
+            //
+            // There is deliberately no third "dispatched extra" here. It would have to be listed in
+            // precursor_selection.additional_scans, and that is mutually exclusive with the live
+            // precursor_selection.exploration below: a CE/RT sweep varies ONE base scan config, so
+            // Config::validate() throws when an exploring level dispatches more than one. The
+            // reference carried both for a while and was therefore an invalid config -- it emitted
+            // fine and then failed to load in C++.
+            //
+            // The exploration keeps its distinctive values and additional_scans stays empty, rather
+            // than the reverse, because the reference exists so a DROPPED key is detectable. With
+            // metric "none" the emitter substitutes its own defaults, so an exploration block that
+            // vanished entirely would re-emit byte-identical and Emit_And_Reload_PreserveEveryKey
+            // would not notice. Populated additional_scans and roster order are covered instead by
+            // Config_SchemaProjection_test::scan_name_resolution.
             c.MsSettings.AdditionalMS2 = new Dictionary<string, MS2Parameters>
             {
-                { "ms2_reference", new MS2Parameters
-                    {
-                        Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 0, OrbitrapResolution = 60001,
-                        AGCTarget = 300001, MaxIT = 104, FirstMass = 104, LastMass = 2004, Microscans = 4,
-                        DataType = "Centroid", ReactionTime = 11, ReagentMaxIT = 201, ReagentAGCTarget = 700001,
-                        ScanRate = "Turbo", RFLens = 36, SourceCID = 21, SourceCIDScaling = 0.16
-                    } },
                 { "tagging_reference", new MS2Parameters
                     {
                         Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002,
@@ -560,7 +566,7 @@ namespace Flash
             c.PrecursorSelection.RankBy = "qscore";
             c.PrecursorSelection.MaxPrecursors = 3;
             c.PrecursorSelection.MinPrecursorCharge = 2;
-            c.PrecursorSelection.AdditionalScans = new List<string> { "ms2_reference" };
+            c.PrecursorSelection.AdditionalScans = new List<string>();   // see AdditionalMS2 above
             c.PrecursorSelection.Exploration = new ExplorationBlockConfig
             {
                 Metric = "mass_count", CEMin = 21, CEMax = 39, CEStep = 5,
