@@ -110,6 +110,7 @@
     <Compile Include="DataPipeTests.cs" />
     <Compile Include="AcquisitionLoop\ContinuityTests.cs" />
     <Compile Include="CleanupTests.cs" />
+    <Compile Include="EclipseMethodAcquisitionTests.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
