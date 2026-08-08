@@ -57,16 +57,31 @@ namespace Flash
         public double[] Tolerances { get; set; } = new double[] { 10, 10 };
     }
 
+    /// <summary>
+    /// Decision section 1: WHICH intact species do we fragment?
+    ///
+    /// Holds the MS1 selection policy that used to live in selection_strategy.ms1. The keys are named
+    /// for what they PRODUCE, not for the level they are read at: selection_strategy.ms1.max_targets
+    /// was the MS2 count, which is the misreading that put max_targets:200 into four committed
+    /// configs believing it was the MS3 budget. See the characterization section for that.
+    ///
+    /// C# property names are deliberately unchanged where only the wire key moved (ADR-0006 froze the
+    /// POCO names so the test suite does not ripple), so e.g. the key is rt_window and the property
+    /// stays RTWindow. TargetMode is the one exception: its TYPE changed int -> string enum.
+    /// </summary>
     [JsonKey("precursor_selection")]
     public class PrecursorSelectionConfig
     {
-        [JsonKey("RT_window")]
+        [JsonKey("rt_window")]
         [Description("Retention time window in seconds for precursor tracking")]
         public double RTWindow { get; set; } = 180;
 
-        [JsonKey("target_mode")]
-        [Description("Targeting mode: 0=none, 1=inclusion, 2=exclusion, 3=deep")]
-        public int TargetMode { get; set; } = 0;
+        // Values taken from the CODE, not the doc comments: PrecursorSelection.cpp:138-141 logs
+        // mode 2 as "in-depth" and mode 3 as "exclusion". MethodConfig.cs, Config.h:155 and
+        // PrecursorSelection.cpp:564 all had 2 and 3 the wrong way round for the old int form.
+        [JsonKey("targeting")]
+        [Description("Targeting mode: none, inclusion, in_depth, or exclusion_masses")]
+        public string Targeting { get; set; } = "none";
 
         [JsonKey("strict_inclusion")]
         [Description("If true, only acquire targets from the inclusion list")]
@@ -76,17 +91,35 @@ namespace Flash
         [Description("Tie-breaking threshold for precursor ranking")]
         public double TieThreshold { get; set; } = 0.1;
 
-        [JsonKey("AllCharges")]
+        [JsonKey("consider_all_charges")]
         [Description("Consider all charge states for precursor selection")]
         public bool ConsiderAllChargeStates { get; set; }
 
-        [JsonKey("HCDEnergy")]
-        [Description("HCD collision energy for charge-state determination")]
-        public int HCDEnergy { get; set; } = 29;
-
-        [JsonKey("ChargeBasedExclusion")]
+        [JsonKey("charge_based_exclusion")]
         [Description("Treat each (mass, charge) as an independent acquisition target; the mass itself is never globally excluded.")]
         public bool ChargeBasedExclusion { get; set; }
+
+        // --- moved here from selection_strategy.ms1 ---
+
+        [JsonKey("rank_by")]
+        [Description("How MS1 precursors are ranked: qscore or intensity. 'none' disables MS1 selection entirely.")]
+        public string RankBy { get; set; } = "qscore";
+
+        [JsonKey("max_precursors")]
+        [Description("Maximum MS2 scans triggered per survey (was selection_strategy.ms1.max_targets)")]
+        public int MaxPrecursors { get; set; } = 10;
+
+        [JsonKey("min_precursor_charge")]
+        [Description("Minimum precursor charge state for selection (0 = no filter)")]
+        public int MinPrecursorCharge { get; set; } = 0;
+
+        [JsonKey("additional_scans")]
+        [Description("Names from ms_settings.additional_ms2 to acquire for every selected precursor, in addition to ms_settings.ms2")]
+        public List<string> AdditionalScans { get; set; } = new List<string>();
+
+        // The MS2 CE/RT sweep. Lives here because precursor_selection is what dispatches MS2.
+        [JsonKey("exploration")]
+        public ExplorationBlockConfig Exploration { get; set; }
     }
 
     [JsonKey("tagging")]
@@ -185,6 +218,24 @@ namespace Flash
         public int MassThreshold { get; set; } = 15;
     }
 
+    /// <summary>
+    /// Instrument scan parameters, and nothing else. No key in here decides WHETHER a scan happens —
+    /// that is what the two decision sections are for.
+    ///
+    /// All three levels are bare objects, so the common case (31 of 33 committed configs have exactly
+    /// one MS2; all 33 have exactly one MS3) needs no naming at all. Extra MS2 configs — a second
+    /// unconditional MS2, or a block backing a tagging/quantification follow-up — go in
+    /// additional_ms2 under a name, and are reached by reference:
+    ///
+    ///     precursor_selection.additional_scans : fire per precursor, after ms_settings.ms2
+    ///     tagging.follow_up_scan               : the conditional ('C') follow-up
+    ///     quantification.follow_up_scan        : the quant ('F') follow-up
+    ///
+    /// A block that is defined but referenced by nobody never fires — Config resolves the references
+    /// into the dispatch roster at parse time, so an unreferenced definition simply is not in it.
+    /// There is no additional_ms3: every level-3 consumer reads scans[0] (Exploration.cpp:799), so a
+    /// second MS3 config would be unreachable.
+    /// </summary>
     [JsonKey("ms_settings")]
     public class MsSettingsConfig
     {
@@ -192,10 +243,17 @@ namespace Flash
         public MS1Parameters MS1 { get; set; }
 
         [JsonKey("ms2")]
-        public List<MS2Parameters> MS2 { get; set; } = new List<MS2Parameters>();
+        public MS2Parameters MS2 { get; set; }
 
         [JsonKey("ms3")]
-        public List<MS3Parameters> MS3 { get; set; } = new List<MS3Parameters>();
+        public MS3Parameters MS3 { get; set; }
+
+        // Absent in 30 of 33 committed configs. Keys are user-authored, so they cannot be
+        // allowlisted the way a fixed schema is; they are validated as identifiers instead
+        // (^[a-z][a-z0-9_]{0,31}$, reserved words rejected) and their VALUES are validated against
+        // the normal 17-key scan allowlist.
+        [JsonKey("additional_ms2")]
+        public Dictionary<string, MS2Parameters> AdditionalMS2 { get; set; }
     }
 
     [JsonKey("cycle_time")]
@@ -236,20 +294,45 @@ namespace Flash
         public double AgcIntervalSeconds { get; set; } = 30;
     }
 
+    /// <summary>
+    /// Decision section 2: HOW do we pin that proteoform down?
+    ///
+    /// This section holds decisions only -- no scan plumbing. The MS3 scan's instrument parameters
+    /// stay in ms_settings.ms3 like every other scan config.
+    ///
+    /// `mode` is THE MS3 switch and it is the only one. It replaces three scattered gates
+    /// (selection_strategy.ms2.selection, selection_strategy.ms3.selection, and the presence of
+    /// ms_settings.ms3) plus the old `objective` key, whose absence silently meant "ambiguity".
+    /// Supersedes ADR-0004, which decided there would be no enable flag.
+    /// </summary>
     [JsonKey("characterization")]
     public class CharacterizationConfig
     {
-        [JsonKey("objective")]
-        [Description("Characterization objective: ambiguity (resolve PTM site ambiguity) or coverage (extend sequence coverage)")]
-        public string Objective { get; set; } = "ambiguity";
+        [JsonKey("mode")]
+        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), or coverage (extend sequence coverage). Unknown values are rejected, not defaulted.")]
+        public string Mode { get; set; } = "off";
 
         [JsonKey("protein_sequence")]
-        [Description("Protein sequence for targeted MS3 characterization")]
+        [Description("Protein sequence fragments are matched against. Required when mode is not off.")]
         public string ProteinSequence { get; set; } = "";
 
+        [JsonKey("max_targets")]
+        [Description("Maximum MS3 scans planned per identified precursor. This is the MS3 budget (was selection_strategy.ms2.max_targets).")]
+        public int MaxTargets { get; set; } = 3;
+
+        [JsonKey("min_fragment_charge")]
+        [Description("Minimum charge of an MS2 FRAGMENT for it to become an MS3 target (0 = no filter). Distinct from precursor_selection.min_precursor_charge.")]
+        public int MinFragmentCharge { get; set; } = 0;
+
         [JsonKey("ms3_all_charges")]
-        [Description("MS3AllCharges: dispatch one MS3 per observed charge state of a target fragment (default: single best charge)")]
+        [Description("Dispatch one MS3 per observed charge state of a target fragment (default: single best charge). Deliberately NOT named all_charges -- that would collide with precursor_selection.consider_all_charges, which means something else.")]
         public bool MS3AllCharges { get; set; } = false;
+
+        // The MS3 CE/RT sweep. Must stay separate from precursor_selection.exploration: a single
+        // config legitimately sweeps different ranges at MS2 and MS3 (method_exploration_ms3_followup
+        // sweeps HCD 20-40 at MS2 and CID 15-35 at MS3).
+        [JsonKey("exploration")]
+        public ExplorationBlockConfig Exploration { get; set; }
     }
 
     [JsonKey("files")]
@@ -299,94 +382,50 @@ namespace Flash
         [Description("Target remaining precursor ratio for exploration (0.1 = 10%)")]
         public double RemainingPrecursorTarget { get; set; } = 0.1;
 
-        [JsonKey("rt_min")]
-        [Description("Minimum reaction time for ETD exploration sweep (ms)")]
-        public double RTMin { get; set; }
+        // Renamed from rt_min/rt_max/rt_step. These are ion-ion REACTION time in ms; "rt" elsewhere
+        // in this codebase means RETENTION time (precursor_selection.rt_window, in seconds, and the
+        // rt_min argument of the ProcessScan bridge export). Two unrelated quantities under the same
+        // prefix, now adjacent in one document, is a 1000x misread waiting to happen.
+        [JsonKey("reaction_time_min")]
+        [Description("Minimum ion-ion reaction time for an ETD-family exploration sweep (ms)")]
+        public double ReactionTimeMin { get; set; }
 
-        [JsonKey("rt_max")]
-        [Description("Maximum reaction time for ETD exploration sweep (ms)")]
-        public double RTMax { get; set; }
+        [JsonKey("reaction_time_max")]
+        [Description("Maximum ion-ion reaction time for an ETD-family exploration sweep (ms)")]
+        public double ReactionTimeMax { get; set; }
 
-        [JsonKey("rt_step")]
-        [Description("Reaction time step size (ms)")]
-        public double RTStep { get; set; } = 1;
+        [JsonKey("reaction_time_step")]
+        [Description("Ion-ion reaction time step size (ms). Must be > 0 — a zero or negative step is an infinite loop.")]
+        public double ReactionTimeStep { get; set; } = 1;
+
+        // Promoted out of the overrides map. It was the one key applyOverrides had no branch for:
+        // Config.cpp:473-481 extracted it and then ERASED it from the map, before Exploration.cpp:605
+        // tested that same map for emptiness to decide whether to acquire the production scan. So an
+        // overrides block containing only tolerance_ppm silently suppressed a scan.
+        [JsonKey("tolerance_ppm")]
+        [Description("Mass tolerance for scoring exploration variants (ppm). 0 = use deconvolution.tol for this level.")]
+        public double TolerancePpm { get; set; } = 0;
 
         [JsonKey("activations")]
         [Description("Activation types to sweep (e.g. HCD, ETD, CID, EThcD)")]
         public List<string> Activations { get; set; }
     }
 
-    [JsonKey("ms1")]
-    public class MS1SelectionConfig
-    {
-        [JsonKey("selection")]
-        [Description("MS1 precursor selection metric: qscore, intensity, or none")]
-        public string Selection { get; set; } = "qscore";
-
-        [JsonKey("max_targets")]
-        [Description("Maximum number of targets to select per MS1 scan")]
-        public int MaxTargets { get; set; } = 10;
-
-        [JsonKey("min_charge")]
-        [Description("Minimum charge state for target selection (0 = no filter)")]
-        public int MinCharge { get; set; } = 0;
-
-        // ToCppJson emits an (inert at MS1) exploration block for every level; model it so the
-        // generated reference round-trips through the strict loader. C++ ignores exploration at MS1.
-        [JsonKey("exploration")]
-        public ExplorationBlockConfig Exploration { get; set; }
-    }
-
-    [JsonKey("ms2")]
-    public class MS2SelectionConfig
-    {
-        [JsonKey("selection")]
-        [Description("MS2 fragment selection metric: qscore, intensity, or none")]
-        public string Selection { get; set; } = "intensity";
-
-        [JsonKey("max_targets")]
-        [Description("Maximum number of targets to select per MS2 scan")]
-        public int MaxTargets { get; set; } = 3;
-
-        [JsonKey("min_charge")]
-        [Description("Minimum charge state for target selection (0 = no filter)")]
-        public int MinCharge { get; set; } = 0;
-
-        [JsonKey("exploration")]
-        public ExplorationBlockConfig Exploration { get; set; }
-    }
-
-    [JsonKey("ms3")]
-    public class MS3SelectionConfig
-    {
-        [JsonKey("selection")]
-        [Description("MS3 fragment selection metric: qscore, intensity, or none")]
-        public string Selection { get; set; } = "none";
-
-        [JsonKey("max_targets")]
-        [Description("Maximum number of targets to select per MS3 scan")]
-        public int MaxTargets { get; set; } = 3;
-
-        [JsonKey("min_charge")]
-        [Description("Minimum charge state for target selection (0 = no filter)")]
-        public int MinCharge { get; set; } = 0;
-
-        [JsonKey("exploration")]
-        public ExplorationBlockConfig Exploration { get; set; }
-    }
-
-    [JsonKey("selection_strategy")]
-    public class SelectionStrategyConfig
-    {
-        [JsonKey("ms1")]
-        public MS1SelectionConfig MS1 { get; set; } = new MS1SelectionConfig();
-
-        [JsonKey("ms2")]
-        public MS2SelectionConfig MS2 { get; set; } = new MS2SelectionConfig();
-
-        [JsonKey("ms3")]
-        public MS3SelectionConfig MS3 { get; set; } = new MS3SelectionConfig();
-    }
+    // selection_strategy and its ms1/ms2/ms3 sub-blocks are DELETED.
+    //
+    // The section named each key for the level it was READ at, while the value governed the level
+    // BELOW -- a shift-by-one that made every key read exactly one level off its effect:
+    //     ms1.max_targets = the MS2 count      -> precursor_selection.max_precursors
+    //     ms2.max_targets = the MS3 budget     -> characterization.max_targets
+    //     ms3.max_targets = an MS4 budget      -> deleted, zero read sites
+    // Four committed configs set ms3.max_targets:200 believing it was the MS3 budget and silently
+    // ran 3. Same story for min_charge.
+    //
+    // ms2.selection and ms3.selection were booleans in disguise -- only None-vs-non-None was ever
+    // read (FLASHIda.cpp:366, Exploration.cpp:728/:730) -- and are now derived from
+    // characterization.mode. ms1.selection is the ONE value-sensitive selection metric
+    // (PrecursorSelection.cpp:246) and survives as precursor_selection.rank_by.
+    // ms1.exploration was discarded on both sides and is simply gone.
 
     /// <summary>
     /// Root method configuration — user-facing JSON schema.
@@ -419,9 +458,6 @@ namespace Flash
 
         [JsonKey("scheduling")]
         public SchedulingConfig Scheduling { get; set; } = new SchedulingConfig();
-
-        [JsonKey("selection_strategy")]
-        public SelectionStrategyConfig SelectionStrategy { get; set; } = new SelectionStrategyConfig();
 
         [JsonKey("characterization")]
         public CharacterizationConfig Characterization { get; set; } = new CharacterizationConfig();
@@ -465,15 +501,23 @@ namespace Flash
         public double[] tol { get; set; }
     }
 
+    // These FIELD NAMES are the wire format -- JavaScriptSerializer emits them verbatim and there is
+    // no [JsonKey] indirection here. Renaming the loader's [JsonKey] without renaming these produces
+    // a config the C# loader accepts and the emitter writes in the OLD spelling, which C++ then
+    // hard-rejects. Both halves must always move together.
     public class JsonPrecursorSelectionConfig
     {
-        public double RT_window { get; set; }
-        public int target_mode { get; set; }
-        public bool AllCharges { get; set; }
-        public int HCDEnergy { get; set; }
+        public double rt_window { get; set; }
+        public string targeting { get; set; }
+        public bool consider_all_charges { get; set; }
         public bool strict_inclusion { get; set; }
         public double tie_threshold { get; set; }
-        public bool ChargeBasedExclusion { get; set; }
+        public bool charge_based_exclusion { get; set; }
+        public string rank_by { get; set; }
+        public int max_precursors { get; set; }
+        public int min_precursor_charge { get; set; }
+        public string[] additional_scans { get; set; }
+        public JsonExplorationBlockConfig exploration { get; set; }
     }
 
     public class JsonTaggingConfig
@@ -565,8 +609,11 @@ namespace Flash
     public class JsonMsSettingsConfig
     {
         public JsonMs1Config ms1 { get; set; }
-        public JsonMs2Config[] ms2 { get; set; }
-        public JsonMs2Config[] ms3 { get; set; }
+        public JsonMs2Config ms2 { get; set; }
+        public JsonMs2Config ms3 { get; set; }
+        // Omitted from the emitted JSON when there are no extras (SerializeValue skips nulls), so the
+        // 30 configs with none stay exactly as short as they are today.
+        public Dictionary<string, JsonMs2Config> additional_ms2 { get; set; }
     }
 
     public class JsonCycleTimeConfig
@@ -605,26 +652,18 @@ namespace Flash
         public double ce_step { get; set; }
         public Dictionary<string, string> overrides { get; set; }
         public double remaining_precursor_target { get; set; }
-        public double rt_min { get; set; }
-        public double rt_max { get; set; }
-        public double rt_step { get; set; }
+        public double reaction_time_min { get; set; }
+        public double reaction_time_max { get; set; }
+        public double reaction_time_step { get; set; }
         public List<string> activations { get; set; }
+        public double tolerance_ppm { get; set; }
     }
 
-    public class JsonMsLevelConfig
-    {
-        public string selection { get; set; }
-        public int max_targets { get; set; }
-        public int min_charge { get; set; }
-        public JsonExplorationBlockConfig exploration { get; set; }
-    }
-
-    public class JsonSelectionStrategyConfig
-    {
-        public JsonMsLevelConfig ms1 { get; set; }
-        public JsonMsLevelConfig ms2 { get; set; }
-        public JsonMsLevelConfig ms3 { get; set; }
-    }
+    // JsonMsLevelConfig / JsonSelectionStrategyConfig are DELETED along with the section they emitted.
+    // BuildSelectionStrategy() went with them -- it was the largest remaining non-identity transform
+    // in ToCppJson, synthesizing a whole section and sharing one defaultExpl instance across three
+    // levels. precursor_selection and characterization are now authored, emitted and parsed in the
+    // same shape, which is a step ADR-0006 no longer has to take.
 
     public class JsonFilesConfig
     {
@@ -636,9 +675,12 @@ namespace Flash
 
     public class JsonCharacterizationConfig
     {
-        public string objective { get; set; }
+        public string mode { get; set; }
         public string protein_sequence { get; set; }
+        public int max_targets { get; set; }
+        public int min_fragment_charge { get; set; }
         public bool ms3_all_charges { get; set; }
+        public JsonExplorationBlockConfig exploration { get; set; }
     }
 
     public class JsonRuntimeConfig
@@ -664,7 +706,6 @@ namespace Flash
         public JsonFilesConfig files { get; set; }
         public JsonCharacterizationConfig characterization { get; set; }
         public bool conditional_ms2 { get; set; }
-        public JsonSelectionStrategyConfig selection_strategy { get; set; }
         public JsonRuntimeConfig runtime { get; set; }
     }
 }

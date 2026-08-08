@@ -116,7 +116,6 @@ namespace Flash
         public string ToCppJson()
         {
             var c = Config;
-            var ms2List = c.MsSettings.MS2 ?? new List<MS2Parameters>();
 
             var config = new JsonMethodConfig
             {
@@ -138,13 +137,17 @@ namespace Flash
                 },
                 precursor_selection = new JsonPrecursorSelectionConfig
                 {
-                    RT_window = c.PrecursorSelection.RTWindow,
-                    target_mode = c.PrecursorSelection.TargetMode,
-                    AllCharges = c.PrecursorSelection.ConsiderAllChargeStates,
-                    HCDEnergy = c.PrecursorSelection.HCDEnergy,
+                    rt_window = c.PrecursorSelection.RTWindow,
+                    targeting = (c.PrecursorSelection.Targeting ?? "none").ToLower(),
+                    consider_all_charges = c.PrecursorSelection.ConsiderAllChargeStates,
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
                     tie_threshold = c.PrecursorSelection.TieThreshold,
-                    ChargeBasedExclusion = c.PrecursorSelection.ChargeBasedExclusion
+                    charge_based_exclusion = c.PrecursorSelection.ChargeBasedExclusion,
+                    rank_by = (c.PrecursorSelection.RankBy ?? "qscore").ToLower(),
+                    max_precursors = c.PrecursorSelection.MaxPrecursors,
+                    min_precursor_charge = c.PrecursorSelection.MinPrecursorCharge,
+                    additional_scans = (c.PrecursorSelection.AdditionalScans ?? new List<string>()).ToArray(),
+                    exploration = ToJsonExploration(c.PrecursorSelection.Exploration)
                 },
                 flashtnt = new JsonFlashTnTConfig
                 {
@@ -194,8 +197,15 @@ namespace Flash
                         data_type = c.MsSettings.MS1.DataType ?? "",
                         scan_rate = c.MsSettings.MS1.ScanRate ?? ""
                     },
-                    ms2 = ms2List.Select(m => ToJsonScanConfig(m, c.MsSettings.MS1)).ToArray(),
-                    ms3 = c.MsSettings.MS3.Select(m => ToJsonScanConfig(m, c.MsSettings.MS1)).ToArray()
+                    ms2 = ToJsonScanConfig(c.MsSettings.MS2, c.MsSettings.MS1),
+                    ms3 = ToJsonScanConfig(c.MsSettings.MS3, c.MsSettings.MS1),
+                    // Emit nothing at all when there are no extras, so the 30 configs without any
+                    // stay byte-for-byte the length they are today.
+                    additional_ms2 = (c.MsSettings.AdditionalMS2 == null || c.MsSettings.AdditionalMS2.Count == 0)
+                        ? null
+                        : c.MsSettings.AdditionalMS2.ToDictionary(
+                              kv => kv.Key,
+                              kv => ToJsonScanConfig(kv.Value, c.MsSettings.MS1))
                 },
                 scheduling = new JsonSchedulingConfig
                 {
@@ -211,12 +221,14 @@ namespace Flash
                     },
                     agc_interval_seconds = c.Scheduling.AgcIntervalSeconds
                 },
-                selection_strategy = BuildSelectionStrategy(),
                 characterization = new JsonCharacterizationConfig
                 {
-                    objective = (c.Characterization.Objective ?? "ambiguity").ToLower(),
+                    mode = (c.Characterization.Mode ?? "off").ToLower(),
                     protein_sequence = c.Characterization.ProteinSequence ?? "",
-                    ms3_all_charges = c.Characterization.MS3AllCharges
+                    max_targets = c.Characterization.MaxTargets,
+                    min_fragment_charge = c.Characterization.MinFragmentCharge,
+                    ms3_all_charges = c.Characterization.MS3AllCharges,
+                    exploration = ToJsonExploration(c.Characterization.Exploration)
                 },
                 conditional_ms2 = c.Tagging.ConditionalMS2,
                 files = new JsonFilesConfig
@@ -239,84 +251,50 @@ namespace Flash
             return new JavaScriptSerializer().Serialize(config);
         }
 
-        private JsonSelectionStrategyConfig BuildSelectionStrategy()
+        /// <summary>
+        /// Convert one exploration block for the wire. Replaces BuildSelectionStrategy(), which
+        /// synthesized a whole section; each of the two surviving blocks now converts itself.
+        ///
+        /// Value-preserving by construction, including the quirk that an absent block and a block
+        /// with metric "none" both emit the same 20/40/5 placeholder — that is what the engine has
+        /// always received, and C++ ignores every field of it once metric is None.
+        ///
+        /// Fixes one latent defect while preserving behaviour: the old code built ONE defaultExpl
+        /// object and assigned the same reference to all three levels. Benign only because nothing
+        /// mutated it; any future per-level fixup would have silently hit all three. This returns a
+        /// fresh instance per call.
+        /// </summary>
+        private static JsonExplorationBlockConfig ToJsonExploration(ExplorationBlockConfig e)
         {
-            var ss = Config.SelectionStrategy;
-            if (ss == null)
-                throw new InvalidOperationException(
-                    "Method config must contain selection_strategy block.");
-
-            int ms1Max = ss.MS1?.MaxTargets ?? 10;
-            int ms2Max = ss.MS2?.MaxTargets ?? 3;
-            int ms3Max = ss.MS3?.MaxTargets ?? 3;
-
-            var result = new JsonSelectionStrategyConfig
+            // NOTE the comparison is deliberately ordinal, matching the old behaviour exactly:
+            // "None" with a capital N took the OTHER branch and forwarded the user's sweep values.
+            // Rejecting bad casing is the C++ validator's job now (it throws rather than guessing),
+            // so this stays a pure value-preserving transform.
+            if (e == null || e.Metric == null || e.Metric == "none")
             {
-                ms1 = new JsonMsLevelConfig
+                return new JsonExplorationBlockConfig
                 {
-                    selection = (ss.MS1?.Selection ?? "qscore").ToLower(),
-                    max_targets = ms1Max,
-                    min_charge = ss.MS1?.MinCharge ?? 0
-                },
-                ms2 = new JsonMsLevelConfig
-                {
-                    selection = (ss.MS2?.Selection ?? "intensity").ToLower(),
-                    max_targets = ms2Max,
-                    min_charge = ss.MS2?.MinCharge ?? 0
-                },
-                ms3 = new JsonMsLevelConfig
-                {
-                    selection = (ss.MS3?.Selection ?? "none").ToLower(),
-                    max_targets = ms3Max,
-                    min_charge = ss.MS3?.MinCharge ?? 0
-                }
-            };
-
-            var defaultExpl = new JsonExplorationBlockConfig
-            {
-                metric = "none", ce_min = 20, ce_max = 40, ce_step = 5,
-                overrides = null, remaining_precursor_target = 0.1,
-                rt_min = 0, rt_max = 0, rt_step = 1, activations = null
-            };
-            result.ms1.exploration = defaultExpl;
-            result.ms2.exploration = defaultExpl;
-            result.ms3.exploration = defaultExpl;
-
-            if (ss.MS2?.Exploration != null && ss.MS2.Exploration.Metric != "none")
-            {
-                result.ms2.exploration = new JsonExplorationBlockConfig
-                {
-                    metric = ss.MS2.Exploration.Metric.ToLower(),
-                    ce_min = ss.MS2.Exploration.CEMin,
-                    ce_max = ss.MS2.Exploration.CEMax,
-                    ce_step = ss.MS2.Exploration.CEStep,
-                    overrides = ss.MS2.Exploration.Overrides,
-                    remaining_precursor_target = ss.MS2.Exploration.RemainingPrecursorTarget,
-                    rt_min = ss.MS2.Exploration.RTMin,
-                    rt_max = ss.MS2.Exploration.RTMax,
-                    rt_step = ss.MS2.Exploration.RTStep,
-                    activations = ss.MS2.Exploration.Activations
+                    metric = "none", ce_min = 20, ce_max = 40, ce_step = 5,
+                    overrides = null, remaining_precursor_target = 0.1,
+                    reaction_time_min = 0, reaction_time_max = 0, reaction_time_step = 1,
+                    activations = null, tolerance_ppm = 0
                 };
             }
 
-            if (ss.MS3?.Exploration != null && ss.MS3.Exploration.Metric != "none")
+            return new JsonExplorationBlockConfig
             {
-                result.ms3.exploration = new JsonExplorationBlockConfig
-                {
-                    metric = ss.MS3.Exploration.Metric.ToLower(),
-                    ce_min = ss.MS3.Exploration.CEMin,
-                    ce_max = ss.MS3.Exploration.CEMax,
-                    ce_step = ss.MS3.Exploration.CEStep,
-                    overrides = ss.MS3.Exploration.Overrides,
-                    remaining_precursor_target = ss.MS3.Exploration.RemainingPrecursorTarget,
-                    rt_min = ss.MS3.Exploration.RTMin,
-                    rt_max = ss.MS3.Exploration.RTMax,
-                    rt_step = ss.MS3.Exploration.RTStep,
-                    activations = ss.MS3.Exploration.Activations
-                };
-            }
-
-            return result;
+                metric = e.Metric.ToLower(),
+                ce_min = e.CEMin,
+                ce_max = e.CEMax,
+                ce_step = e.CEStep,
+                overrides = e.Overrides,
+                remaining_precursor_target = e.RemainingPrecursorTarget,
+                reaction_time_min = e.ReactionTimeMin,
+                reaction_time_max = e.ReactionTimeMax,
+                reaction_time_step = e.ReactionTimeStep,
+                activations = e.Activations,
+                tolerance_ppm = e.TolerancePpm
+            };
         }
 
         public string ToLogString()
@@ -330,8 +308,9 @@ namespace Flash
                 c.Deconvolution.MinCharge, c.Deconvolution.MaxCharge,
                 c.Deconvolution.MinMass, c.Deconvolution.MaxMass,
                 String.Join(",", c.Deconvolution.Tolerances));
-            sb.AppendFormat("Precursor: RTWindow={0}s, TargetMode={1}\n",
-                c.PrecursorSelection.RTWindow, c.PrecursorSelection.TargetMode);
+            sb.AppendFormat("Precursor: RTWindow={0}s, Targeting={1}, MaxPrecursors={2}, RankBy={3}\n",
+                c.PrecursorSelection.RTWindow, c.PrecursorSelection.Targeting,
+                c.PrecursorSelection.MaxPrecursors, c.PrecursorSelection.RankBy);
             sb.AppendFormat("Inclusion: Strict={0}, TieThreshold={1}\n",
                 c.PrecursorSelection.StrictInclusion, c.PrecursorSelection.TieThreshold);
             if (c.Tagging.Active)
@@ -344,32 +323,38 @@ namespace Flash
                     c.Quantification.ReporterMZTol, c.Quantification.FoldChangeThreshold);
             else
                 sb.AppendLine("Quant: Off");
-            if (!string.IsNullOrEmpty(c.Characterization.ProteinSequence))
-                sb.AppendFormat("MS3: ProteinSequence={0}\n",
-                    c.Characterization.ProteinSequence.Substring(0, Math.Min(20, c.Characterization.ProteinSequence.Length)) + "...");
+            if (string.Equals(c.Characterization.Mode, "off", StringComparison.OrdinalIgnoreCase))
+                sb.AppendLine("MS3: Off");
             else
-                sb.AppendLine("MS3: No protein sequence");
-            sb.AppendFormat("Developer: AllCharges={0}, HCDEnergy={1}, MaxCVSkip={2}\n",
-                c.PrecursorSelection.ConsiderAllChargeStates,
-                c.PrecursorSelection.HCDEnergy, c.Faims.MaxCVSkip);
+                sb.AppendFormat("MS3: mode={0}, budget={1}, ProteinSequence={2}\n",
+                    c.Characterization.Mode, c.Characterization.MaxTargets,
+                    string.IsNullOrEmpty(c.Characterization.ProteinSequence)
+                        ? "(none)"
+                        : c.Characterization.ProteinSequence.Substring(
+                              0, Math.Min(20, c.Characterization.ProteinSequence.Length)) + "...");
+            sb.AppendFormat("Developer: AllCharges={0}, MaxCVSkip={1}\n",
+                c.PrecursorSelection.ConsiderAllChargeStates, c.Faims.MaxCVSkip);
             sb.AppendFormat("FAIMS: CV=[{0}]\n", String.Join(",", c.Faims.CVValues));
             var ms1 = c.MsSettings.MS1;
             sb.AppendFormat("MS1: {0} {1}k, mz=[{2},{3}], AGC={4}, MaxIT={5}ms\n",
                 ms1.Analyzer, ms1.OrbitrapResolution / 1000, ms1.FirstMass, ms1.LastMass,
                 ms1.AGCTarget, ms1.MaxIT);
-            var ms2List = c.MsSettings.MS2 ?? new List<MS2Parameters>();
-            for (int i = 0; i < ms2List.Count; i++)
-            {
-                var m = ms2List[i];
-                var activation = m.Activation ?? "";
-                if (activation.Equals("ETD", StringComparison.OrdinalIgnoreCase))
-                    sb.AppendFormat("MS2[{0}]: {1} {2}k, {3} RT={4}ms\n",
-                        i, m.Analyzer, m.OrbitrapResolution / 1000, activation, m.ReactionTime);
-                else
-                    sb.AppendFormat("MS2[{0}]: {1} {2}k, {3} CE={4}\n",
-                        i, m.Analyzer, m.OrbitrapResolution / 1000, activation, m.CollisionEnergy);
-            }
+            AppendMs2Line(sb, "MS2", c.MsSettings.MS2);
+            if (c.MsSettings.AdditionalMS2 != null)
+                foreach (var kv in c.MsSettings.AdditionalMS2)
+                    AppendMs2Line(sb, "MS2[" + kv.Key + "]", kv.Value);
             return sb.ToString().TrimEnd();
+        }
+
+        private static void AppendMs2Line(System.Text.StringBuilder sb, string label, MS2Parameters m)
+        {
+            var activation = m.Activation ?? "";
+            if (activation.Equals("ETD", StringComparison.OrdinalIgnoreCase))
+                sb.AppendFormat("{0}: {1} {2}k, {3} RT={4}ms\n",
+                    label, m.Analyzer, m.OrbitrapResolution / 1000, activation, m.ReactionTime);
+            else
+                sb.AppendFormat("{0}: {1} {2}k, {3} CE={4}\n",
+                    label, m.Analyzer, m.OrbitrapResolution / 1000, activation, m.CollisionEnergy);
         }
 
         // ----------------------------------------------------------------
@@ -484,9 +469,8 @@ namespace Flash
             c.Deconvolution.Tolerances = new double[] { 11, 12, 13 };
 
             c.PrecursorSelection.RTWindow = 181;
-            c.PrecursorSelection.TargetMode = 1;
+            c.PrecursorSelection.Targeting = "inclusion";
             c.PrecursorSelection.ConsiderAllChargeStates = true;
-            c.PrecursorSelection.HCDEnergy = 27;
             c.PrecursorSelection.StrictInclusion = true;
             c.PrecursorSelection.TieThreshold = 0.13;
             c.PrecursorSelection.ChargeBasedExclusion = true;
@@ -534,25 +518,33 @@ namespace Flash
                 AGCTarget = 800001, MaxIT = 247, Microscans = 2, DataType = "Centroid",
                 ScanRate = "Turbo", RFLens = 31, SourceCID = 16, SourceCIDScaling = 0.11
             };
-            c.MsSettings.MS2 = new List<MS2Parameters>
+            c.MsSettings.MS2 = new MS2Parameters
             {
-                new MS2Parameters
-                {
-                    Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 29, OrbitrapResolution = 120002,
-                    AGCTarget = 500001, MaxIT = 101, FirstMass = 101, LastMass = 2002, Microscans = 3,
-                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
-                    ScanRate = "Rapid", RFLens = 32, SourceCID = 17, SourceCIDScaling = 0.12
-                }
+                Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 29, OrbitrapResolution = 120002,
+                AGCTarget = 500001, MaxIT = 101, FirstMass = 101, LastMass = 2002, Microscans = 3,
+                DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                ScanRate = "Rapid", RFLens = 32, SourceCID = 17, SourceCIDScaling = 0.12
             };
-            c.MsSettings.MS3 = new List<MS3Parameters>
+            c.MsSettings.MS3 = new MS3Parameters
             {
-                new MS3Parameters
-                {
-                    Analyzer = "Orbitrap", Activation = "CID", CollisionEnergy = 26, OrbitrapResolution = 240001,
-                    AGCTarget = 5000001, MaxIT = 501, FirstMass = 201, LastMass = 2003, Microscans = 8,
-                    DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
-                    ScanRate = "Normal", RFLens = 33, SourceCID = 18, SourceCIDScaling = 0.13
-                }
+                Analyzer = "Orbitrap", Activation = "CID", CollisionEnergy = 26, OrbitrapResolution = 240001,
+                AGCTarget = 5000001, MaxIT = 501, FirstMass = 201, LastMass = 2003, Microscans = 8,
+                DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                ScanRate = "Normal", RFLens = 33, SourceCID = 18, SourceCIDScaling = 0.13
+            };
+            // Three distinct named entries so the parity tests exercise every additional_ms2 role:
+            // one dispatched extra, and one backing each of the two follow-up references.
+            c.MsSettings.AdditionalMS2 = new Dictionary<string, MS2Parameters>
+            {
+                { "ms2_reference", new MS2Parameters
+                    {
+                        Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 0, OrbitrapResolution = 60001,
+                        AGCTarget = 300001, MaxIT = 104, FirstMass = 104, LastMass = 2004, Microscans = 4,
+                        DataType = "Centroid", ReactionTime = 11, ReagentMaxIT = 201, ReagentAGCTarget = 700001,
+                        ScanRate = "Turbo", RFLens = 36, SourceCID = 21, SourceCIDScaling = 0.16
+                    } },
+                { "tagging_reference", c.Tagging.FollowUpScan.Value },
+                { "quant_reference", c.Quantification.FollowUpScan.Value }
             };
 
             c.Scheduling.CycleTime.Enabled = true;
@@ -561,21 +553,30 @@ namespace Flash
             c.Scheduling.ScanTimeout.ValueMs = 30001;
             c.Scheduling.AgcIntervalSeconds = 29;
 
-            c.SelectionStrategy.MS1 = new MS1SelectionConfig { Selection = "qscore", MaxTargets = 3, MinCharge = 2 };
-            c.SelectionStrategy.MS2 = new MS2SelectionConfig
+            c.PrecursorSelection.RankBy = "qscore";
+            c.PrecursorSelection.MaxPrecursors = 3;
+            c.PrecursorSelection.MinPrecursorCharge = 2;
+            c.PrecursorSelection.AdditionalScans = new List<string> { "ms2_reference" };
+            c.PrecursorSelection.Exploration = new ExplorationBlockConfig
             {
-                Selection = "intensity", MaxTargets = 4, MinCharge = 1,
-                Exploration = new ExplorationBlockConfig
-                {
-                    Metric = "mass_count", CEMin = 21, CEMax = 39, CEStep = 5,
-                    RemainingPrecursorTarget = 0.12, RTMin = 0, RTMax = 0, RTStep = 1
-                }
+                Metric = "mass_count", CEMin = 21, CEMax = 39, CEStep = 5,
+                RemainingPrecursorTarget = 0.12,
+                ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
+                TolerancePpm = 14
             };
-            c.SelectionStrategy.MS3 = new MS3SelectionConfig { Selection = "none", MaxTargets = 3, MinCharge = 0 };
 
-            c.Characterization.Objective = "coverage";
+            c.Characterization.Mode = "coverage";
             c.Characterization.ProteinSequence = "MSENTINELPEPTIDESEQ";
+            c.Characterization.MaxTargets = 4;
+            c.Characterization.MinFragmentCharge = 1;
             c.Characterization.MS3AllCharges = true;
+            c.Characterization.Exploration = new ExplorationBlockConfig
+            {
+                Metric = "fragment_count", CEMin = 16, CEMax = 34, CEStep = 2,
+                RemainingPrecursorTarget = 0.13,
+                ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
+                TolerancePpm = 15
+            };
 
             return c;
         }
