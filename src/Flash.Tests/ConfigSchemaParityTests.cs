@@ -93,10 +93,15 @@ namespace Flash.Tests
         /// emit-only keys" while C++ kScanKeys admitted all four and every ScanCommand builder
         /// copied them. Nothing failed, because nothing asserted the emitted key SET.
         ///
-        /// ms_settings.ms2[], ms_settings.ms3[] and both follow_up_scan blocks share one DTO, so
-        /// all four are checked -- a regression in any one of them is a regression in all four.
+        /// ms_settings.ms2, ms_settings.ms3 and every ms_settings.additional_ms2 entry share one
+        /// DTO, so all of them are checked -- a regression in any one is a regression in all.
         /// The C++ side asserts the mirror image against kScanKeys (ConfigSchemaParity_test), so
         /// neither side can drop a key the other still expects.
+        ///
+        /// The additional_ms2 sites are DISCOVERED from the emitted JSON rather than named here.
+        /// Both follow-up blocks live there now (tagging.follow_up_scan is a name string, not an
+        /// object), and hard-coding the generator's chosen names would make this test quietly stop
+        /// covering a site the day someone renames one.
         /// </summary>
         [Test, Category("Tier1")]
         public void Emit_SourceRegion_AtEveryScanLevel()
@@ -109,13 +114,17 @@ namespace Flash.Tests
             Flatten(emitted, "", leaves);
 
             string[] sourceRegion = { "rf_lens", "source_cid", "source_cid_scaling" };
-            string[] msnSites =
-            {
-                "ms_settings.ms2[0]",
-                "ms_settings.ms3[0]",
-                "tagging.follow_up_scan",
-                "quantification.follow_up_scan",
-            };
+            var msnSites = new List<string> { "ms_settings.ms2", "ms_settings.ms3" };
+
+            var msSettings = (Dictionary<string, object>)emitted["ms_settings"];
+            object addObj;
+            if (msSettings.TryGetValue("additional_ms2", out addObj) && addObj != null)
+                foreach (string name in ((Dictionary<string, object>)addObj).Keys)
+                    msnSites.Add("ms_settings.additional_ms2." + name);
+
+            Assert.GreaterOrEqual(msnSites.Count, 3,
+                "the reference config must define at least one additional_ms2 entry, or this test "
+                + "silently stops covering the follow-up scan sites");
 
             var missing = new List<string>();
             foreach (string site in msnSites)
@@ -180,21 +189,21 @@ namespace Flash.Tests
             Flatten(new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson()),
                     "", leaves);
 
-            Assert.IsTrue(ValuesEqual(60, leaves["ms_settings.ms2[0].rf_lens"]),
+            Assert.IsTrue(ValuesEqual(60, leaves["ms_settings.ms2.rf_lens"]),
                 "ms2 stated no rf_lens, so it must run at the survey's 60");
-            Assert.IsTrue(ValuesEqual(15, leaves["ms_settings.ms2[0].source_cid"]),
+            Assert.IsTrue(ValuesEqual(15, leaves["ms_settings.ms2.source_cid"]),
                 "ms2 stated no source_cid, so it must run at the survey's 15");
-            Assert.IsTrue(ValuesEqual(0.5, leaves["ms_settings.ms2[0].source_cid_scaling"]),
+            Assert.IsTrue(ValuesEqual(0.5, leaves["ms_settings.ms2.source_cid_scaling"]),
                 "ms2 stated no source_cid_scaling, so it must run at the survey's 0.5");
 
-            Assert.IsTrue(ValuesEqual(25, leaves["ms_settings.ms3[0].source_cid"]),
+            Assert.IsTrue(ValuesEqual(25, leaves["ms_settings.ms3.source_cid"]),
                 "ms3 stated its own source_cid, which must win over the survey's");
-            Assert.IsTrue(ValuesEqual(60, leaves["ms_settings.ms3[0].rf_lens"]),
+            Assert.IsTrue(ValuesEqual(60, leaves["ms_settings.ms3.rf_lens"]),
                 "stating one source-region key must not suppress inheritance of the others");
 
             // scan_rate is analyzer-side: it describes how this scan measures, not which ions
             // arrive, so it must NOT inherit even though it sits in the same struct.
-            Assert.AreEqual("", leaves["ms_settings.ms2[0].scan_rate"],
+            Assert.AreEqual("", leaves["ms_settings.ms2.scan_rate"],
                 "scan_rate is analyzer-side and must not inherit from ms1");
         }
 
@@ -206,8 +215,8 @@ namespace Flash.Tests
             AssertRejects("{ \"developer\": {} }", "developer");
             AssertRejects("{ \"precursor_selection\": { \"bogus\": 1 } }", "precursor_selection.bogus");
             AssertRejects("{ \"ms_settings\": { \"ms1\": { \"FirstMass\": 1 } } }", "ms_settings.ms1.FirstMass");
-            AssertRejects("{ \"ms_settings\": { \"ms3\": [ { \"IsolationMode\": \"Quadrupole\" } ] } }",
-                "ms_settings.ms3[0].IsolationMode");
+            AssertRejects("{ \"ms_settings\": { \"ms3\": { \"IsolationMode\": \"Quadrupole\" } } }",
+                "ms_settings.ms3.IsolationMode");
             AssertRejects("{ \"flashtnt\": { \"typo\": 1 } }", "flashtnt.typo");
             AssertRejects("{ \"ms3\": { \"active\": true } }", "ms3");   // legacy top-level section
         }
