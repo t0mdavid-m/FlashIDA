@@ -55,7 +55,7 @@
   },
   "precursor_selection": {
     "rt_window": 180,
-    "targeting": "in_depth",
+    "targeting": "exclusion_masses",
     "consider_all_charges": false,
     "charge_based_exclusion": false,
     "strict_inclusion": false,
