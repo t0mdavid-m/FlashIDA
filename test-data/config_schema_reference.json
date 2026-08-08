@@ -17,15 +17,6 @@
       13
     ]
   },
-  "precursor_selection": {
-    "RT_window": 181,
-    "target_mode": 1,
-    "AllCharges": true,
-    "HCDEnergy": 27,
-    "strict_inclusion": true,
-    "tie_threshold": 0.13,
-    "ChargeBasedExclusion": true
-  },
   "flashtnt": {
     "min_length": 4,
     "max_length": 9,
@@ -39,51 +30,6 @@
     "max_blind_mod_count": 1,
     "max_mod_mass": 733
   },
-  "tagging": {
-    "follow_up_scan": {
-      "analyzer": "Orbitrap",
-      "activation": "ETD",
-      "collision_energy": 24,
-      "resolution": 15002,
-      "agc_target": 400002,
-      "max_it": 102,
-      "first_mass": 152,
-      "last_mass": 2002,
-      "microscans": 2,
-      "data_type": "Centroid",
-      "scan_rate": "Zoom",
-      "rf_lens": 34,
-      "source_cid": 19,
-      "source_cid_scaling": 0.14,
-      "reaction_time": 12,
-      "reagent_max_it": 202,
-      "reagent_agc_target": 700002
-    }
-  },
-  "quantification": {
-    "enabled": false,
-    "reporter_mz_tol": 0.0031,
-    "fold_change_threshold": 1.7,
-    "follow_up_scan": {
-      "analyzer": "Orbitrap",
-      "activation": "HCD",
-      "collision_energy": 28,
-      "resolution": 15003,
-      "agc_target": 400003,
-      "max_it": 103,
-      "first_mass": 153,
-      "last_mass": 2003,
-      "microscans": 3,
-      "data_type": "Profile",
-      "scan_rate": "Enhanced",
-      "rf_lens": 35,
-      "source_cid": 20,
-      "source_cid_scaling": 0.15,
-      "reaction_time": 0,
-      "reagent_max_it": 0,
-      "reagent_agc_target": 0
-    }
-  },
   "faims": {
     "cv_values": [
       -41,
@@ -92,64 +38,6 @@
     ],
     "max_cv_skip": 2,
     "cv_precursor_threshold": 17
-  },
-  "ms_settings": {
-    "ms1": {
-      "analyzer": "Orbitrap",
-      "first_mass": 501,
-      "last_mass": 2001,
-      "resolution": 120001,
-      "agc_target": 800001,
-      "max_it": 247,
-      "microscans": 2,
-      "rf_lens": 31,
-      "source_cid": 16,
-      "source_cid_scaling": 0.11,
-      "data_type": "Centroid",
-      "scan_rate": "Turbo"
-    },
-    "ms2": [
-      {
-        "analyzer": "Orbitrap",
-        "activation": "HCD",
-        "collision_energy": 29,
-        "resolution": 120002,
-        "agc_target": 500001,
-        "max_it": 101,
-        "first_mass": 101,
-        "last_mass": 2002,
-        "microscans": 3,
-        "data_type": "Centroid",
-        "scan_rate": "Rapid",
-        "rf_lens": 32,
-        "source_cid": 17,
-        "source_cid_scaling": 0.12,
-        "reaction_time": 0,
-        "reagent_max_it": 0,
-        "reagent_agc_target": 0
-      }
-    ],
-    "ms3": [
-      {
-        "analyzer": "Orbitrap",
-        "activation": "CID",
-        "collision_energy": 26,
-        "resolution": 240001,
-        "agc_target": 5000001,
-        "max_it": 501,
-        "first_mass": 201,
-        "last_mass": 2003,
-        "microscans": 8,
-        "data_type": "Centroid",
-        "scan_rate": "Normal",
-        "rf_lens": 33,
-        "source_cid": 18,
-        "source_cid_scaling": 0.13,
-        "reaction_time": 0,
-        "reagent_max_it": 0,
-        "reagent_agc_target": 0
-      }
-    ]
   },
   "scheduling": {
     "cycle_time": {
@@ -168,70 +56,144 @@
     "inclusion_list": "",
     "ptm_list": ""
   },
-  "characterization": {
-    "objective": "coverage",
-    "protein_sequence": "MSENTINELPEPTIDESEQ",
-    "ms3_all_charges": true
-  },
   "conditional_ms2": false,
-  "selection_strategy": {
-    "ms1": {
-      "selection": "qscore",
-      "max_targets": 3,
-      "min_charge": 2,
-      "exploration": {
-        "metric": "none",
-        "ce_min": 20,
-        "ce_max": 40,
-        "ce_step": 5,
-        "overrides": null,
-        "remaining_precursor_target": 0.1,
-        "rt_min": 0,
-        "rt_max": 0,
-        "rt_step": 1,
-        "activations": null
-      }
-    },
-    "ms2": {
-      "selection": "intensity",
-      "max_targets": 4,
-      "min_charge": 1,
-      "exploration": {
-        "metric": "mass_count",
-        "ce_min": 21,
-        "ce_max": 39,
-        "ce_step": 5,
-        "overrides": null,
-        "remaining_precursor_target": 0.12,
-        "rt_min": 0,
-        "rt_max": 0,
-        "rt_step": 1,
-        "activations": null
-      }
-    },
-    "ms3": {
-      "selection": "none",
-      "max_targets": 3,
-      "min_charge": 0,
-      "exploration": {
-        "metric": "none",
-        "ce_min": 20,
-        "ce_max": 40,
-        "ce_step": 5,
-        "overrides": null,
-        "remaining_precursor_target": 0.1,
-        "rt_min": 0,
-        "rt_max": 0,
-        "rt_step": 1,
-        "activations": null
-      }
-    }
-  },
   "runtime": {
     "ida_log_path": "",
     "scan_commands_path": "",
     "scan_results_path": "",
     "identification_log_path": "",
     "pooled_identification_log_path": ""
+  },
+  "precursor_selection": {
+    "rt_window": 181,
+    "targeting": "inclusion",
+    "consider_all_charges": true,
+    "charge_based_exclusion": true,
+    "strict_inclusion": true,
+    "tie_threshold": 0.13,
+    "rank_by": "qscore",
+    "max_precursors": 3,
+    "min_precursor_charge": 2,
+    "exploration": {
+      "metric": "mass_count",
+      "ce_min": 21,
+      "ce_max": 39,
+      "ce_step": 5,
+      "reaction_time_min": 0,
+      "reaction_time_max": 0,
+      "reaction_time_step": 1,
+      "activations": null,
+      "remaining_precursor_target": 0.12
+    }
+  },
+  "characterization": {
+    "mode": "off",
+    "protein_sequence": "MSENTINELPEPTIDESEQ",
+    "max_targets": 4,
+    "min_fragment_charge": 1,
+    "ms3_all_charges": true
+  },
+  "ms_settings": {
+    "ms1": {
+      "analyzer": "Orbitrap",
+      "first_mass": 501,
+      "last_mass": 2001,
+      "resolution": 120001,
+      "agc_target": 800001,
+      "max_it": 247,
+      "microscans": 2,
+      "rf_lens": 31,
+      "source_cid": 16,
+      "source_cid_scaling": 0.11,
+      "data_type": "Centroid",
+      "scan_rate": "Turbo"
+    },
+    "ms2": {
+      "analyzer": "Orbitrap",
+      "activation": "HCD",
+      "collision_energy": 29,
+      "resolution": 120002,
+      "agc_target": 500001,
+      "max_it": 101,
+      "first_mass": 101,
+      "last_mass": 2002,
+      "microscans": 3,
+      "data_type": "Centroid",
+      "scan_rate": "Rapid",
+      "rf_lens": 32,
+      "source_cid": 17,
+      "source_cid_scaling": 0.12,
+      "reaction_time": 0,
+      "reagent_max_it": 0,
+      "reagent_agc_target": 0
+    },
+    "ms3": {
+      "analyzer": "Orbitrap",
+      "activation": "CID",
+      "collision_energy": 26,
+      "resolution": 240001,
+      "agc_target": 5000001,
+      "max_it": 501,
+      "first_mass": 201,
+      "last_mass": 2003,
+      "microscans": 8,
+      "data_type": "Centroid",
+      "scan_rate": "Normal",
+      "rf_lens": 33,
+      "source_cid": 18,
+      "source_cid_scaling": 0.13,
+      "reaction_time": 0,
+      "reagent_max_it": 0,
+      "reagent_agc_target": 0
+    },
+    "additional_ms2": {
+      "tagging_follow_up": {
+        "analyzer": "Orbitrap",
+        "activation": "ETD",
+        "collision_energy": 24,
+        "resolution": 15002,
+        "agc_target": 400002,
+        "max_it": 102,
+        "first_mass": 152,
+        "last_mass": 2002,
+        "microscans": 2,
+        "data_type": "Centroid",
+        "scan_rate": "Zoom",
+        "rf_lens": 34,
+        "source_cid": 19,
+        "source_cid_scaling": 0.14,
+        "reaction_time": 12,
+        "reagent_max_it": 202,
+        "reagent_agc_target": 700002
+      },
+      "quant_follow_up": {
+        "analyzer": "Orbitrap",
+        "activation": "HCD",
+        "collision_energy": 28,
+        "resolution": 15003,
+        "agc_target": 400003,
+        "max_it": 103,
+        "first_mass": 153,
+        "last_mass": 2003,
+        "microscans": 3,
+        "data_type": "Profile",
+        "scan_rate": "Enhanced",
+        "rf_lens": 35,
+        "source_cid": 20,
+        "source_cid_scaling": 0.15,
+        "reaction_time": 0,
+        "reagent_max_it": 0,
+        "reagent_agc_target": 0
+      }
+    }
+  },
+  "tagging": {
+    "follow_up_scan": "tagging_follow_up"
+  },
+  "quantification": {
+    "enabled": false,
+    "reporter_mz_tol": 0.0031,
+    "fold_change_threshold": 1.7,
+    "follow_up_scan": "quant_follow_up"
   }
 }
