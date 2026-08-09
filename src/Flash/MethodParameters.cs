@@ -245,13 +245,16 @@ namespace Flash
                     inclusion_list = c.Files.InclusionList ?? "",
                     ptm_list = c.Files.PtmList ?? ""
                 },
+                // PURE PASSTHROUGH -- do not resolve here. No Path.GetFullPath, no "" -> ".", no
+                // timestamp. This method is the body of GenerateReferenceConfigJson (see below), so
+                // anything clock- or CWD-derived would make config_schema_reference.json differ on
+                // every run and ConfigSchemaParityTests.Reference_IsNeverStale would fail
+                // permanently -- regenerating it would not help, because the regenerated file goes
+                // stale the moment it is written. Resolution belongs to LogPathResolver, called
+                // from the two Main methods and nowhere else.
                 runtime = new JsonRuntimeConfig
                 {
-                    ida_log_path = c.Runtime.IdaLogPath ?? "",
-                    scan_commands_path = c.Runtime.ScanCommandsPath ?? "",
-                    scan_results_path = c.Runtime.ScanResultsPath ?? "",
-                    identification_log_path = c.Runtime.IdentificationLogPath ?? "",
-                    pooled_identification_log_path = c.Runtime.PooledIdentificationLogPath ?? ""
+                    log_dir = c.Runtime.LogDir ?? ""
                 }
             };
 
@@ -596,6 +599,13 @@ namespace Flash
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
                 TolerancePpm = 15
             };
+
+            // runtime was the ONE section this builder never touched, so the reference carried ""
+            // on both sides -- which an emitter that simply hardcoded "" would have satisfied
+            // vacuously. A fixed RELATIVE literal keeps the generated file byte-deterministic
+            // (no clock, no absolute path, no CWD dependence) while still proving the key is read
+            // from the model. No path separator, no '%', no '${'.
+            c.Runtime.LogDir = "schema_reference_logs";
 
             return c;
         }

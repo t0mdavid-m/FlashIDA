@@ -491,20 +491,24 @@ namespace Flash
     [JsonKey("runtime")]
     public class RuntimeConfig
     {
-        [JsonKey("ida_log_path")]
-        public string IdaLogPath { get; set; } = "";
-
-        [JsonKey("scan_commands_path")]
-        public string ScanCommandsPath { get; set; } = "";
-
-        [JsonKey("scan_results_path")]
-        public string ScanResultsPath { get; set; } = "";
-
-        [JsonKey("identification_log_path")]
-        public string IdentificationLogPath { get; set; } = "";
-
-        [JsonKey("pooled_identification_log_path")]
-        public string PooledIdentificationLogPath { get; set; } = "";
+        // The five per-stream path keys (ida_log_path, scan_commands_path, scan_results_path,
+        // identification_log_path, pooled_identification_log_path) are DELETED. Naming five
+        // absolute paths per method is why no committed config ever set any of them, so the
+        // engine's five streams were dark on the instrument for the whole life of the feature.
+        //
+        // THIS KEY MEANS TWO DIFFERENT THINGS EITHER SIDE OF THE BRIDGE, deliberately (ADR-0015):
+        //   authored (here)  ""  ->  "." , the process working directory
+        //   emitted (C++)    ""  ->  open nothing
+        // Flash.Main / FLASHIdaWrapper.Main resolve the authored value ONCE via LogPathResolver
+        // -- absolutise, append the per-run folder, create it -- and write the result back here
+        // before ToCppJson runs. So an empty value never crosses the bridge while logging is on,
+        // and a C++ fixture with no runtime section still opens nothing.
+        [JsonKey("log_dir")]
+        [Description("Folder that receives ALL log files. Each run gets its own timestamped "
+                   + "subfolder inside it, holding ida.log, scan_commands.tsv, scan_results.tsv, "
+                   + "identification.tsv, pooled_identification.tsv, FlashLog.log and IDALog.log. "
+                   + "Empty means the current working directory.")]
+        public string LogDir { get; set; } = "";
     }
 
     // --- Phase 1: JSON serialization classes for C++ bridge ---
@@ -711,11 +715,9 @@ namespace Flash
 
     public class JsonRuntimeConfig
     {
-        public string ida_log_path { get; set; }
-        public string scan_commands_path { get; set; }
-        public string scan_results_path { get; set; }
-        public string identification_log_path { get; set; }
-        public string pooled_identification_log_path { get; set; }
+        // The RESOLVED absolute run folder, not the authored base directory -- see RuntimeConfig.
+        // Empty here means "open nothing" on the C++ side (Config::RuntimeConfig).
+        public string log_dir { get; set; }
     }
 
     public class JsonMethodConfig
