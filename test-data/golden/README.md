@@ -39,18 +39,18 @@ PR reviewers must verify:
 
 | File | Phase | Source | Notes |
 |------|-------|--------|-------|
-| `baseline_phase0.tsv` | 0 | `ms1_smoke_test.txt` + `method_default.xml` | Initial baseline |
-| `baseline_phase3.tsv` | 3 | `ms1_smoke_test.txt` + `method_default.xml` | Identical to Phase 0 (shadow-only, no behavioral change) |
-| `phase4_standard_dda.tsv` | 4 | `ms1_standard.txt` + `method_default.xml` | Pre-switch baseline: standard DDA (old bridge path) |
-| `phase4_deep_mode.tsv` | 4 | `ms1_standard.txt` + `method_deep.xml` | Pre-switch baseline: deep mode (3 of 6 masses deprioritized via TargetLog) |
-| `phase4_inclusion.tsv` | 4 | `ms1_standard.txt` + `method_inclusion.xml` | Pre-switch baseline: inclusion mode (non-strict, 5 monoisotopic targets) |
-| `phase4_inclusion_strict.tsv` | 4 | `ms1_standard.txt` + `method_inclusion_strict.xml` | Pre-switch baseline: strict inclusion (4 of 6 masses match targets) |
-| `phase4_exclusion.tsv` | 4 | `ms1_standard.txt` + `method_exclusion.xml` | Pre-switch baseline: exclusion mode (3 masses excluded via TargetLog) |
-| `phase4_tag_targeting.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_tag_targeting.xml` | Pre-switch baseline: tag-based targeting |
-| `phase4_quant.tsv` | 4 | `ms1_standard.txt` + `ms2_quant_tmt.txt` + `method_quant.xml` | Pre-switch baseline: isobaric quant |
-| `phase4_ms3_mode1.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode1.xml` | Pre-switch baseline: MS3 Source CID |
-| `phase4_ms3_mode2.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode2.xml` | Pre-switch baseline: MS3 SPS |
-| `phase4_ms3_mode3.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode3.xml` | Pre-switch baseline: MS3 HCD-triggered |
+| `baseline_phase0.tsv` | 0 | `ms1_smoke_test.txt` + `method_default.json` | Initial baseline |
+| `baseline_phase3.tsv` | 3 | `ms1_smoke_test.txt` + `method_default.json` | Identical to Phase 0 (shadow-only, no behavioral change) |
+| `phase4_standard_dda.tsv` | 4 | `ms1_standard.txt` + `method_default.json` | Pre-switch baseline: standard DDA (old bridge path) |
+| `phase4_deep_mode.tsv` | 4 | `ms1_standard.txt` + `method_deep.json` | in-depth mode. **6 rows — row-identical to `phase4_standard_dda`, and that is CORRECT, not a copy-paste error.** `in_depth` is a SOFT iteration-0 de-prioritization whose iteration 1 back-fills whatever it skipped, so it cannot bite while the slot budget is uncontended — this survey yields 6 MS2 across 103 scans against `max_precursors: 5`. Real coverage is in C++: `FLASHIda_LoggingFields_test::exclusion_mode2_tqscore_suppresses_target_mass` (`ms1_ecoli_rich`, ≥9 selectable masses/scan, `max_targets: 1`). |
+| `phase4_inclusion.tsv` | 4 | `ms1_standard.txt` + `method_inclusion.json` | Pre-switch baseline: inclusion mode (non-strict, 5 monoisotopic targets) |
+| `phase4_inclusion_strict.tsv` | 4 | `ms1_standard.txt` + `method_inclusion_strict.json` | Pre-switch baseline: strict inclusion (4 of 6 masses match targets) |
+| `phase4_exclusion.tsv` | 4 | `ms1_standard.txt` + `method_exclusion.json` | exclusion mode. 3 rows: the `AllMass` targets 2063.61 / 2277.25 / 5315.13 are HARD-skipped regardless of budget, leaving 2256.18 / 4297.18 / 2135.71. |
+| `phase4_tag_targeting.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_tag_targeting.json` | Pre-switch baseline: tag-based targeting |
+| `phase4_quant.tsv` | 4 | `ms1_standard.txt` + `ms2_quant_tmt.txt` + `method_quant.json` | Pre-switch baseline: isobaric quant |
+| `phase4_ms3_mode1.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode1.json` | Pre-switch baseline: MS3 Source CID |
+| `phase4_ms3_mode2.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode2.json` | Pre-switch baseline: MS3 SPS |
+| `phase4_ms3_mode3.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode3.json` | Pre-switch baseline: MS3 HCD-triggered |
 
 ### Phase 4 Golden File Provenance
 
