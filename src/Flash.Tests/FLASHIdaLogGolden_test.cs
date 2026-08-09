@@ -258,6 +258,47 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, postDriveAssert: AssertMs3CytcLeafMatchesGroundTruth);
         }
 
+        // Charge-state co-isolation, end to end (ADR-0016). Both cases are byte-identical twins of
+        // method_ms3_cytc_real.json except for ONE key, so diffing their goldens against ms3_cytc's
+        // isolates the notch axis and nothing else -- the same isolate-one-variable construction
+        // method_faims_single_cv.json uses for FAIMS enablement (ADR-0012).
+        //
+        // They run on ms1_cytc.txt deliberately: cytC is present at many charge states, whereas
+        // ms1_standard.txt yields at most one selectable precursor per scan and so would produce ZERO
+        // notches, making the golden prove nothing. Until these two modes existed, the whole engine
+        // path -- peakGroupNotchCandidates -> selectNotches -> writeNotchesForStage -> wire -> log --
+        // had never executed with a real spectrum; only hand-built structs in unit tests.
+
+        [Test, Category("Tier2")]
+        public void Golden_Multiplexed_MS2()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — multiplexed MS2 golden skipped cleanly.");
+                return;
+            }
+            // MS3 stays ON here on purpose: with the MS2 co-isolating a charge set, this is also the
+            // only end-to-end cover for buildMS3 INHERITING stage-0's notches into the MS3 replay.
+            RunCase("multiplexed_ms2", "method_multiplexed_ms2.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map);
+        }
+
+        [Test, Category("Tier2")]
+        public void Golden_Multiplexed_MS3()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — multiplexed MS3 golden skipped cleanly.");
+                return;
+            }
+            // The fragment stage co-isolates its charge states, which is the half with the shared slot
+            // budget and buildMS3's write ordering.
+            RunCase("multiplexed_ms3", "method_multiplexed_ms3.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map);
+        }
+
         // Coverage-objective MS3 targeting on the real cytC example. This is the CONTRAST PARTNER to
         // Golden_MS3_CytC, which runs method_ms3_cytc_real.json with the DEFAULT characterization
         // objective ("ambiguity"). Setting characterization.objective="coverage" makes
