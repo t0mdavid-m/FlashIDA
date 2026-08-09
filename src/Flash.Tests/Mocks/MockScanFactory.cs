@@ -1,8 +1,4 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using Flash;
 using Thermo.Interfaces.FusionAccess_V1.Control.Scans;
 
@@ -30,15 +26,20 @@ namespace Flash.Tests.Mocks
         public MockScanFactory() : base(null) { }
 
         /// <summary>
-        /// Create a MockCustomScan instead of a Thermo FusionCustomScan.
-        /// Populates Values via reflection mirroring ScanFactory.FillParameters.
+        /// Create a MockCustomScan instead of a Thermo FusionCustomScan, populating its Values
+        /// through the base class's own <c>FillParameters</c> — so a test asserting on Values is
+        /// asserting on production behaviour.
         /// </summary>
         public override IFusionCustomScan CreateFusionCustomScan(
             ScanParameters parameters, int id = 0, double delay = 0,
             bool IsAGC = false, int AGCgroup = 1)
         {
             var scan = new MockCustomScan();
-            FillParametersMock(scan, parameters);
+            // The REAL ScanFactory.FillParameters (protected). This used to be a hand-copied
+            // FillParametersMock, so tests asserting on Values were checking the copy, not production —
+            // and the copy formatted numbers with the current culture after production moved to
+            // InvariantCulture. MockCustomScan is an IFusionCustomScan, hence an IScanDefinition.
+            FillParameters(scan, parameters);
             scan.RunningNumber = id;
             scan.SingleProcessingDelay = delay;
             scan.IsPAGCScan = IsAGC;
@@ -48,31 +49,5 @@ namespace Flash.Tests.Mocks
             return scan;
         }
 
-        /// <summary>
-        /// Reimplementation of ScanFactory.FillParameters (private, cannot be called from subclass).
-        /// Uses reflection to populate the scan Values dictionary from ScanParameters fields.
-        /// Field names have underscores replaced with spaces (e.g. FAIMS_CV -> "FAIMS CV").
-        /// Array fields are joined with semicolons (e.g. [100, 2000] -> "100;2000").
-        /// </summary>
-        private static void FillParametersMock(MockCustomScan scan, ScanParameters parameters)
-        {
-            foreach (FieldInfo field in typeof(ScanParameters).GetFields())
-            {
-                object value = field.GetValue(parameters);
-                if (value != null)
-                {
-                    string key = field.Name.Replace("_", " ");
-                    if (field.FieldType.IsArray)
-                    {
-                        scan.Values[key] = String.Join(";",
-                            ((IEnumerable)value).Cast<object>().Select(o => o.ToString()).ToArray());
-                    }
-                    else
-                    {
-                        scan.Values[key] = value.ToString();
-                    }
-                }
-            }
-        }
     }
 }

@@ -1107,10 +1107,13 @@ namespace Flash.Tests
             return (i >= 0 && i < row.Length) ? row[i] : "";
         }
 
-        // The TSV is written by C++ (invariant "C" locale); the Values dictionary by C# ToString()
-        // (current culture). Parse each with the culture that produced it.
+        // Both sides are invariant: the TSV is written by C++ (default "C" locale) and the Values
+        // dictionary by ScanFactory.Fmt, which pins InvariantCulture. ParseSent used to use
+        // CurrentCulture to match a ToString() that followed the machine locale — on a comma-decimal
+        // locale that made a sent "824,97" parse back to 824.97 and the mismatch cancel out, hiding
+        // the fact that the instrument was being handed a two-notch isolation request.
         private static double ParseLog(string s) { return double.Parse(s, CultureInfo.InvariantCulture); }
-        private static double ParseSent(string s) { return double.Parse(s, CultureInfo.CurrentCulture); }
+        private static double ParseSent(string s) { return double.Parse(s, CultureInfo.InvariantCulture); }
 
         /// <summary>
         /// Compare one ';'-joined per-stage column against the corresponding request key. An absent key

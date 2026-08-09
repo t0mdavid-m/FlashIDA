@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Flash.IDA;
@@ -289,8 +290,13 @@ namespace Flash.Tests
         {
             var parts = raw.Split(';');
             Assert.That(parts.Length, Is.EqualTo(2), "expected one element per stage, got '" + raw + "'");
-            Assert.That(double.Parse(parts[0]), Is.EqualTo(stage0).Within(1e-9), "stage 0 of '" + raw + "'");
-            Assert.That(double.Parse(parts[1]), Is.EqualTo(stage1).Within(1e-9), "stage 1 of '" + raw + "'");
+            // InvariantCulture, matching ScanFactory.Fmt. A bare double.Parse follows the machine
+            // locale, so on a comma-decimal one it round-tripped the old CurrentCulture ToString()
+            // and passed either way -- which is what let "824,97" reach the instrument unnoticed.
+            Assert.That(double.Parse(parts[0], CultureInfo.InvariantCulture),
+                Is.EqualTo(stage0).Within(1e-9), "stage 0 of '" + raw + "'");
+            Assert.That(double.Parse(parts[1], CultureInfo.InvariantCulture),
+                Is.EqualTo(stage1).Within(1e-9), "stage 1 of '" + raw + "'");
         }
 
         // P4-I04: ScanCommandRecord scoring fields round-trip through JSON

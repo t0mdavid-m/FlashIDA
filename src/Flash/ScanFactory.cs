@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Flash.IDA;
@@ -126,11 +127,41 @@ namespace Flash
         }
 
         /// <summary>
+        /// Formats one scan-parameter value for the wire, always with InvariantCulture.
+        /// </summary>
+        /// <remarks>
+        /// A plain <c>ToString()</c> uses the CURRENT culture, so on a comma-decimal locale
+        /// (de-DE, fr-FR, ...) a precursor m/z of 1000.5 is rendered "1000,5". That is not merely an
+        /// odd-looking number: in the iAPI scan-parameter grammar a ',' separates parallel
+        /// co-isolation windows within one MS stage (see docs/kb/scan-pipeline/multi-notch-wire-grammar.md),
+        /// so "1000,5" is a well-formed request for TWO isolation windows — at m/z 1000 and m/z 5.
+        /// The instrument has no way to tell that apart from a deliberate multiplexed isolation.
+        ///
+        /// Only values with a fractional part are exposed, which is why this stayed hidden:
+        /// PrecursorMass and IsolationWidth are the live victims, while integral values
+        /// (AGCTarget, FirstMass: 500, SrcRFLens: 30) render identically in either culture.
+        /// GitHub's windows-2022 runners are en-US, so CI structurally cannot observe it —
+        /// ScanFactoryCultureTests imposes the culture rather than inheriting it.
+        /// </remarks>
+        private static string Fmt(object value)
+        {
+            IFormattable formattable = value as IFormattable;
+            return formattable != null ? formattable.ToString(null, CultureInfo.InvariantCulture)
+                                       : value.ToString();
+        }
+
+        /// <summary>
         /// Updates parameters of a scan request template according to the provided <see cref="ScanParameters"/>
         /// </summary>
         /// <param name="scan">Scan template, as received from API</param>
         /// <param name="parameters">Scan parameters</param>
-        private void FillParameters(IScanDefinition scan, ScanParameters parameters)
+        /// <remarks>
+        /// <c>protected</c>, not <c>private</c>, deliberately: <c>MockScanFactory</c> used to carry a
+        /// hand-copied reimplementation of this method because it could not reach it, which meant every
+        /// test asserting on the <c>Values</c> dictionary was validating the copy rather than this
+        /// method — and the two had already drifted on number formatting. One definition, one behaviour.
+        /// </remarks>
+        protected void FillParameters(IScanDefinition scan, ScanParameters parameters)
         {
             foreach (FieldInfo field in typeof(ScanParameters).GetFields())
             {
@@ -138,9 +169,10 @@ namespace Flash
                     if (field.FieldType.IsArray) //arrays has to be provided as "elemnt1;element2;element3..."
                          scan.Values.Add(field.Name.Replace("_", " "),
                              //This casts `object` to `object[]` and joins it into string
-                             String.Join(";", (field.GetValue(parameters) as IEnumerable).Cast<object>().ToArray()));
+                             String.Join(";", (field.GetValue(parameters) as IEnumerable).Cast<object>()
+                                                  .Select(Fmt).ToArray()));
                     else
-                        scan.Values.Add(field.Name.Replace("_", " "), field.GetValue(parameters).ToString());
+                        scan.Values.Add(field.Name.Replace("_", " "), Fmt(field.GetValue(parameters)));
             }
         }
 

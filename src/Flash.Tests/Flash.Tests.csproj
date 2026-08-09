@@ -95,6 +95,7 @@
     <Compile Include="GoldenCaptureTests.cs" />
     <Compile Include="BridgeSmokeTests.cs" />
     <Compile Include="ScanCommandLayoutTests.cs" />
+    <Compile Include="ScanFactoryCultureTests.cs" />
     <Compile Include="ScanFactoryTests.cs" />
     <Compile Include="BridgePhase3Tests.cs" />
     <Compile Include="Mocks\MockTrailer.cs" />
