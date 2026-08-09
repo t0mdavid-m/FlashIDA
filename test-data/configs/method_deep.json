@@ -6,7 +6,7 @@
   },
   "deconvolution": {
     "score_threshold": 0.0,
-    "tqscore_threshold": 0.9,
+    "tqscore_threshold": 0.4,
     "min_charge": 4,
     "max_charge": 50,
     "min_mass": 500,
