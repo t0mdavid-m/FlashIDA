@@ -57,7 +57,7 @@ namespace Flash.Tests
             var mp = LoadJsonMethod("method_default.json");
             Assert.AreEqual(3, mp.Config.FlashTnT.MinLength);
             Assert.AreEqual(8, mp.Config.FlashTnT.MaxLength);
-            Assert.AreEqual(3, mp.Config.FlashTnT.MaxPtmCount);
+            Assert.AreEqual(3, mp.Config.PrecursorSelection.TagExpansion.MaxPtmCount);
             Assert.AreEqual(2, mp.Config.FlashTnT.MaxAaInGap);
             Assert.IsFalse(mp.Config.FlashTnT.AllowGap);
             Assert.AreEqual(2, mp.Config.FlashTnT.MaxBlindModCount);
@@ -72,17 +72,22 @@ namespace Flash.Tests
         public void FlashTnT_Deserialize_ReadsAllParams()
         {
             string json = @"{
+                ""precursor_selection"": {
+                    ""tag_expansion"": {
+                        ""max_ptm_count"": 6, ""max_flanking_mass_diff"": 42000
+                    }
+                },
                 ""flashtnt"": {
-                    ""min_length"": 5, ""max_length"": 12, ""max_ptm_count"": 6,
-                    ""max_flanking_mass_diff"": 42000, ""allow_gap"": true, ""max_aa_in_gap"": 3,
+                    ""min_length"": 5, ""max_length"": 12,
+                    ""allow_gap"": true, ""max_aa_in_gap"": 3,
                     ""fixed_mod"": [""Carbamidomethyl (C)""], ""max_blind_mod_count"": 4, ""max_mod_mass"": 650
                 }
             }";
             var config = MethodConfigSerializer.Deserialize(json);
             Assert.AreEqual(5, config.FlashTnT.MinLength);
             Assert.AreEqual(12, config.FlashTnT.MaxLength);
-            Assert.AreEqual(6, config.FlashTnT.MaxPtmCount);
-            Assert.AreEqual(42000.0, config.FlashTnT.MaxFlankingMassDiff, 0.001);
+            Assert.AreEqual(6, config.PrecursorSelection.TagExpansion.MaxPtmCount);
+            Assert.AreEqual(42000.0, config.PrecursorSelection.TagExpansion.MaxFlankingMassDiff, 0.001);
             Assert.IsTrue(config.FlashTnT.AllowGap);
             Assert.AreEqual(3, config.FlashTnT.MaxAaInGap);
             Assert.AreEqual(1, config.FlashTnT.FixedMod.Count);
