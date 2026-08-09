@@ -147,14 +147,19 @@ namespace Flash
                     max_precursors = c.PrecursorSelection.MaxPrecursors,
                     min_precursor_charge = c.PrecursorSelection.MinPrecursorCharge,
                     additional_scans = (c.PrecursorSelection.AdditionalScans ?? new List<string>()).ToArray(),
-                    exploration = ToJsonExploration(c.PrecursorSelection.Exploration)
+                    exploration = ToJsonExploration(c.PrecursorSelection.Exploration),
+                    // Always emitted: TagExpansion is initialised on the model, so a config that omits
+                    // the block still crosses the bridge carrying the defaults (3 / 50000).
+                    tag_expansion = new JsonTagExpansionConfig
+                    {
+                        max_ptm_count = c.PrecursorSelection.TagExpansion.MaxPtmCount,
+                        max_flanking_mass_diff = c.PrecursorSelection.TagExpansion.MaxFlankingMassDiff
+                    }
                 },
                 flashtnt = new JsonFlashTnTConfig
                 {
                     min_length = c.FlashTnT.MinLength,
                     max_length = c.FlashTnT.MaxLength,
-                    max_ptm_count = c.FlashTnT.MaxPtmCount,
-                    max_flanking_mass_diff = c.FlashTnT.MaxFlankingMassDiff,
                     allow_gap = c.FlashTnT.AllowGap,
                     max_aa_in_gap = c.FlashTnT.MaxAaInGap,
                     fixed_mod = (c.FlashTnT.FixedMod ?? new List<string>()).ToArray(),
@@ -317,7 +322,8 @@ namespace Flash
                 c.PrecursorSelection.StrictInclusion, c.PrecursorSelection.TieThreshold);
             if (c.Tagging.Active)
                 sb.AppendFormat("Tagging: ConditionalMS2={0}, Tags=[{1},{2}], MaxPtm={3}\n",
-                    c.Tagging.ConditionalMS2, c.FlashTnT.MinLength, c.FlashTnT.MaxLength, c.FlashTnT.MaxPtmCount);
+                    c.Tagging.ConditionalMS2, c.FlashTnT.MinLength, c.FlashTnT.MaxLength,
+                    c.PrecursorSelection.TagExpansion.MaxPtmCount);
             else
                 sb.AppendLine("Tagging: Off");
             if (c.Quantification.Active)
@@ -479,8 +485,6 @@ namespace Flash
 
             c.FlashTnT.MinLength = 4;
             c.FlashTnT.MaxLength = 9;
-            c.FlashTnT.MaxPtmCount = 5;
-            c.FlashTnT.MaxFlankingMassDiff = 41001;
             c.FlashTnT.AllowGap = true;
             c.FlashTnT.MaxAaInGap = 3;
             c.FlashTnT.FixedMod = new List<string> { "Carbamidomethyl (C)" };
@@ -574,6 +578,11 @@ namespace Flash
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
                 TolerancePpm = 14
             };
+            // Distinctive, deliberately non-default (defaults are 3 / 50000): the reference exists so
+            // that a DROPPED key is detectable, which a defaulted value would hide. These are the same
+            // two values that used to be asserted on c.FlashTnT.
+            c.PrecursorSelection.TagExpansion.MaxPtmCount = 5;
+            c.PrecursorSelection.TagExpansion.MaxFlankingMassDiff = 41001;
 
             c.Characterization.Mode = "coverage";
             c.Characterization.ProteinSequence = "MSENTINELPEPTIDESEQ";

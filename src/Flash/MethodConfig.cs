@@ -58,6 +58,26 @@ namespace Flash
     }
 
     /// <summary>
+    /// Tag-based target expansion. These two keys used to sit in `flashtnt`, where their names
+    /// implied a reach they never had: neither is a FLASHTagger/FLASHExtender Param.
+    /// max_ptm_count is read only by PrecursorSelection::generatePTMCombinations_, and
+    /// max_flanking_mass_diff is a call argument FLASHIda passes to a static tagger helper at its
+    /// own call site. Both remain stored in the C++ TargetingConfig, so the move is a parse-path
+    /// change only -- no read site changed and no value moved.
+    /// </summary>
+    [JsonKey("tag_expansion")]
+    public class TagExpansionConfig
+    {
+        [JsonKey("max_ptm_count")]
+        [Description("Maximum PTMs per enumerated target mass (tag-based target expansion)")]
+        public int MaxPtmCount { get; set; } = 3;
+
+        [JsonKey("max_flanking_mass_diff")]
+        [Description("Maximum flanking mass difference when matching a tag to a FASTA protein, in Da")]
+        public double MaxFlankingMassDiff { get; set; } = 50000;
+    }
+
+    /// <summary>
     /// Decision section 1: WHICH intact species do we fragment?
     ///
     /// Holds the MS1 selection policy that used to live in selection_strategy.ms1. The keys are named
@@ -120,6 +140,11 @@ namespace Flash
         // The MS2 CE/RT sweep. Lives here because precursor_selection is what dispatches MS2.
         [JsonKey("exploration")]
         public ExplorationBlockConfig Exploration { get; set; }
+
+        // INITIALISED, unlike Exploration: ToCppJson must always emit the block, so a config that
+        // omits it keeps today's values (3 / 50000) instead of emitting zeros.
+        [JsonKey("tag_expansion")]
+        public TagExpansionConfig TagExpansion { get; set; } = new TagExpansionConfig();
     }
 
     [JsonKey("tagging")]
@@ -150,14 +175,6 @@ namespace Flash
         [JsonKey("max_length")]
         [Description("Maximum sequence tag length (FLASHTagger)")]
         public int MaxLength { get; set; } = 8;
-
-        [JsonKey("max_ptm_count")]
-        [Description("Maximum number of PTMs per proteoform during expansion")]
-        public int MaxPtmCount { get; set; } = 3;
-
-        [JsonKey("max_flanking_mass_diff")]
-        [Description("Maximum flanking mass difference in Da (FLASHTagger)")]
-        public double MaxFlankingMassDiff { get; set; } = 50000;
 
         [JsonKey("allow_gap")]
         [Description("Allow mass gaps in sequence tags (FLASHTagger)")]
@@ -520,6 +537,13 @@ namespace Flash
         public int min_precursor_charge { get; set; }
         public string[] additional_scans { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
+        public JsonTagExpansionConfig tag_expansion { get; set; }
+    }
+
+    public class JsonTagExpansionConfig
+    {
+        public int max_ptm_count { get; set; }
+        public double max_flanking_mass_diff { get; set; }
     }
 
     // The wire now carries the NAME; C++ resolves it against ms_settings.additional_ms2 at parse
@@ -533,8 +557,6 @@ namespace Flash
     {
         public int min_length { get; set; }
         public int max_length { get; set; }
-        public int max_ptm_count { get; set; }
-        public double max_flanking_mass_diff { get; set; }
         public bool allow_gap { get; set; }
         public int max_aa_in_gap { get; set; }
         public string[] fixed_mod { get; set; }

@@ -40,13 +40,15 @@
       "reaction_time_step": 1,
       "activations": null,
       "tolerance_ppm": 14
+    },
+    "tag_expansion": {
+      "max_ptm_count": 5,
+      "max_flanking_mass_diff": 41001
     }
   },
   "flashtnt": {
     "min_length": 4,
     "max_length": 9,
-    "max_ptm_count": 5,
-    "max_flanking_mass_diff": 41001,
     "allow_gap": true,
     "max_aa_in_gap": 3,
     "fixed_mod": [
