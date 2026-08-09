@@ -33,7 +33,7 @@ namespace Flash.IDA
     /// Layout: 1248 (existing) + 8 (dequeue_timestamp_ms) + 8 (microscans+pad3)
     ///       + 24 (rf_lens+source_cid+source_cid_scaling) + 64 (data_type+scan_rate)
     ///       + 4 (parent_scan_id) + 84 (stage-1 scoring) + 8 (window_snr) + 4 (faims_enabled)
-    ///       + 596 (reserved) = 2048.
+    ///       + 8 (stage0/stage1_notch_count) + 588 (reserved) = 2048.
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 8, CharSet = CharSet.Ansi)]
     public struct ScanCommand
@@ -102,7 +102,15 @@ namespace Flash.IDA
                                    // Consumed by ScanFactory: FaimsCv alone cannot distinguish "no FAIMS"
                                    // from a compensation voltage of 0, and "FAIMS off" is an instruction
                                    // the instrument must actually be given (ADR-0012).
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 596)]
+        // @1452 / @1456 mirror C++ stage0_notch_count / stage1_notch_count (ADR-0017): the number of
+        // EXTRA co-isolation notches at cascade stage 0 / stage 1. A notch is a parallel isolation
+        // window WITHIN one fragmentation stage, as against a stage, which fragments in sequence.
+        // Descriptors live in Stages[NumStages ...] -- slots the engine never wrote, since NumStages
+        // is only ever 0, 1 or 2 -- packed stage-0's first, then stage-1's. NumStages does NOT count
+        // notches; ScanFactory's Math.Min(NumStages, 10) clamp depends on that.
+        public int Stage0NotchCount;
+        public int Stage1NotchCount;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 588)]
         public byte[] Reserved;
     }
 

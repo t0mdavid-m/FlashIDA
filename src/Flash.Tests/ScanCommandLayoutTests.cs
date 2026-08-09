@@ -89,11 +89,14 @@ namespace Flash.Tests
             Assert.AreEqual(1424, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensityS1"), "PrecursorIntensityS1 offset");
             Assert.AreEqual(1432, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensityS1"), "PeakgroupIntensityS1 offset");
             Assert.AreEqual(1440, (int)Marshal.OffsetOf<ScanCommand>("WindowSnr"), "WindowSnr offset");
-            // Carved out of Reserved, which moved 1448 -> 1452 and shrank 600 -> 596. Every offset
+            // Carved out of Reserved, which has now moved 1448 -> 1460 and shrunk 600 -> 588 across
+            // two changes (FaimsEnabled, ADR-0012; then the two notch counts, ADR-0017). Every offset
             // above is unchanged and the struct stays 2048 bytes -- that is why new bridge fields
             // are consumed from the tail rather than appended.
             Assert.AreEqual(1448, (int)Marshal.OffsetOf<ScanCommand>("FaimsEnabled"), "FaimsEnabled offset");
-            Assert.AreEqual(1452, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            Assert.AreEqual(1452, (int)Marshal.OffsetOf<ScanCommand>("Stage0NotchCount"), "Stage0NotchCount offset");
+            Assert.AreEqual(1456, (int)Marshal.OffsetOf<ScanCommand>("Stage1NotchCount"), "Stage1NotchCount offset");
+            Assert.AreEqual(1460, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
@@ -146,13 +149,14 @@ namespace Flash.Tests
             Assert.IsNotNull(parentScanIdAttr, "ParentScanId should have MarshalAs attribute");
             Assert.AreEqual(4, parentScanIdAttr.SizeConst, "ParentScanId SizeConst");
 
-            // ScanCommand.Reserved should be SizeConst=596 (after carving 84 B stage-1 scoring
-            // + 8 B window_snr + 4 B faims_enabled). Every carve shrinks Reserved by exactly the
-            // bytes it takes, which is what keeps the struct at 2048 and every prior offset fixed.
+            // ScanCommand.Reserved should be SizeConst=588 (after carving 84 B stage-1 scoring
+            // + 8 B window_snr + 4 B faims_enabled + 8 B the two notch counts). Every carve shrinks
+            // Reserved by exactly the bytes it takes, which is what keeps the struct at 2048 and
+            // every prior offset fixed.
             var reservedAttr = typeof(ScanCommand).GetField("Reserved")
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
-            Assert.AreEqual(596, reservedAttr.SizeConst, "Reserved SizeConst");
+            Assert.AreEqual(588, reservedAttr.SizeConst, "Reserved SizeConst");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)
