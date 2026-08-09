@@ -1038,8 +1038,36 @@ namespace Flash.Tests.AcquisitionLoop
         // Uses same TopN=5 for both runs so only the target log causes differences.
         // Target log has masses 2063.606, 2277.254, 5315.129 — deep mode should
         // deprioritize these, producing different precursor selections.
-
+        //
+        // IGNORED: this fixture cannot express the behaviour it asserts. in_depth is a SOFT,
+        // iteration-0-only de-prioritization, not a hard exclusion — PrecursorSelection runs
+        // `for (iteration = mode==2 ? 0 : 1; iteration < 2; ...)`, pass 0 skips tqscore-exceeding
+        // masses and pass 1 has no such guard, so it BACK-FILLS every mass pass 0 skipped whenever
+        // slots remain. Two independent gates must therefore both be satisfied, and ms1_standard
+        // satisfies neither:
+        //
+        //   threshold   skip needs 1 - PRODUCT(1-qscore) > tqscore_threshold. test_target_log.log
+        //               records ONE observation per mass, so the product is just (1-qscore) and
+        //               1-factor peaks at 0.772 — under the 0.9 default. Multiple observations are
+        //               what drive the product down far enough.
+        //   contention  even when a mass IS skipped in pass 0, pass 1 restores it unless the slot
+        //               budget is saturated. ms1_standard yields 6 MS2 across 103 surveys against
+        //               max_precursors 5 — never contended.
+        //
+        // This test was green only because method_deep.json was mis-set to exclusion_masses, which
+        // hard-skips regardless of qscore; it has never once exercised in_depth. Lowering
+        // tqscore_threshold was tried and changed nothing, because it addresses only the first gate.
+        //
+        // in_depth IS properly covered, on the C++ side, by FLASHIda_LoggingFields_test::
+        // exclusion_mode2_tqscore_suppresses_target_mass — which drives ms1_ecoli_rich (>=9
+        // selectable masses/scan) with max_targets==1 so the single slot is genuinely contended.
+        // Reviving this test means mirroring that recipe here, which needs a target log whose
+        // masses match the ecoli survey; none exists yet. Per the division of labour it is also
+        // arguably C++'s job: it asserts a behavioural DIFFERENCE, not an exact golden.
         [Test, Category("Tier2")]
+        [Ignore("in_depth is a soft reorder that pass 1 back-fills; ms1_standard never contends the "
+                + "slot budget, so this assertion cannot hold. Covered in C++ by FLASHIda_LoggingFields_test"
+                + "::exclusion_mode2_tqscore_suppresses_target_mass. See the comment above.")]
         public void P4_AL_CT42_DeepMode_TargetLogEffect()
         {
             // Standard DDA with TopN=5 as baseline (same TopN as deep mode config)
