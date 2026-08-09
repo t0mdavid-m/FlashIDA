@@ -140,5 +140,8 @@
     "enabled": false,
     "reporter_mz_tol": 0.003,
     "fold_change_threshold": 2
+  },
+  "runtime": {
+    "log_dir": "logs"
   }
 }
