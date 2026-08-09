@@ -208,10 +208,6 @@
   },
   "conditional_ms2": false,
   "runtime": {
-    "ida_log_path": "",
-    "scan_commands_path": "",
-    "scan_results_path": "",
-    "identification_log_path": "",
-    "pooled_identification_log_path": ""
+    "log_dir": "schema_reference_logs"
   }
 }
