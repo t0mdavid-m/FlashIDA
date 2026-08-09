@@ -20,8 +20,6 @@
   "flashtnt": {
     "min_length": 4,
     "max_length": 10,
-    "max_ptm_count": 5,
-    "max_flanking_mass_diff": 40000,
     "allow_gap": false,
     "max_aa_in_gap": 2,
     "fixed_mod": [],
@@ -70,6 +68,10 @@
       "reaction_time_step": 1,
       "activations": null,
       "remaining_precursor_target": 0.1
+    },
+    "tag_expansion": {
+      "max_ptm_count": 5,
+      "max_flanking_mass_diff": 40000
     }
   },
   "characterization": {

@@ -20,8 +20,6 @@
   "flashtnt": {
     "min_length": 3,
     "max_length": 8,
-    "max_ptm_count": 3,
-    "max_flanking_mass_diff": 50000,
     "allow_gap": false,
     "max_aa_in_gap": 2,
     "fixed_mod": [],
