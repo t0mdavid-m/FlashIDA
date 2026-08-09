@@ -22,7 +22,7 @@ Two classes define a `Main`, and the csproj picks the offline one:
 | `Main` | Contains | Reachable? |
 |---|---|---|
 | `Flash.IDA.FLASHIdaWrapper.Main` (`IDA/FLASHIdaWrapper.cs:438`) | Offline deconvolution over a text spectrum file | **Yes — this is Flash.exe** |
-| `Flash.Flash.Main` (`Flash.cs:154`) | Thermo instrument connection, log4net renaming, the whole Mono.Options CLI (`-t/--test`, `-m`, `-o`, `-r`, …) | **No — dead code in this build** |
+| `Flash.Flash.Main` (`Flash.cs:154`) | Thermo instrument connection, method load + run-folder composition + log4net wiring, the whole Mono.Options CLI (`-t/--test`, `-m`, `-o`, `-r`, …) | **No — dead code in this build** |
 
 So `Flash.exe` takes **positional args only**: `<input_spectrum> <output.tsv> <method.json> [ms2_spectrum]`.
 There is no `-t/--test` flag — passing `-t` makes it `args[0]` and the run dies with
@@ -246,10 +246,18 @@ freshly built `OpenMS.dll` on every run. Golden locations and recapture paths: s
   copied to `bin/share/OpenMS` and is what every C# process actually reads;
   `OpenMS/share/OpenMS` (254 files) is what `OPENMS_DATA_PATH` points at for ctest.
 - **log4net** (`App.config`) — 2 loggers, 4 appenders. `General` → colored console (threshold INFO)
-  + `FlashLog_<date>.log` (**`appendToFile=false`**, i.e. truncating). `IDA` → `IDALog_<date>.log`
-  (bare `%message`, machine-parseable) + `IDAInfoForward`, whose `LevelRangeFilter` is
+  + `FlashLog.log`. `IDA` → `IDALog.log` (bare `%message`, machine-parseable) + `IDAInfoForward`,
+  whose `LevelRangeFilter` is
   `levelMin=INFO` **and `levelMax=INFO`**, so IDA WARN/ERROR could never reach the console.
   That is inert rather than a defect: `LogManager.GetLogger("IDA")` (`FLASHIdaWrapper.cs:111`) is a
   write-only field — **nothing logs to the IDA logger at all**, and every real warning/error goes to
-  `General`, which passes WARN/ERROR through. Worth knowing only if you ever start using it.
+  `General`, which passes WARN/ERROR through. Worth knowing only if you ever start using it —
+  `IDALog.log` therefore ships as a 0-byte file every run.
+  **Both appender `<file>` values are overwritten at startup** by `Flash.Main` with absolute paths
+  inside the run folder that `LogPathResolver.Compose` built, so these two files sit alongside the
+  engine's five streams under one shared timestamp. Two details that were live defects and are now
+  load-bearing: the `type="log4net.Util.PatternString"` attribute is **gone** (a `%` in an injected
+  literal path is a conversion specifier, dropped silently), and `appendToFile=false` is now
+  **explicit on both** — it was absent on `IDAFile`, i.e. log4net's default of `true`, so IDALog
+  appended while its sibling truncated.
 - **NuGet** — log4net, Mono.Options, System.Threading.Tasks.Dataflow.

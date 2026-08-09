@@ -18,10 +18,19 @@ Options:
   -t, --test                 Run in test mode without connection to the instrument. Default: false
   -m, --method=VALUE         Location of method file. Default: method.xml in
                                the program folder
-  -r, --rawname=VALUE        The name or path to raw file, that will be used to
-                               name the log files. If not specified timestamp
-                               will be used
+  -r, --rawname=VALUE        Name or path of the raw file. Used to prefix the
+                               timestamped run folder that holds every log
+                               file. If not specified the folder is named by
+                               the timestamp alone
 ```
+
+All log files — the two log4net logs and the engine's five TSV/text streams — are written into one
+per-run folder, `<runtime.log_dir>/<rawname>_<timestamp>/`, sharing a single timestamp.
+`runtime.log_dir` is set in the method file and defaults to the working directory.
+
+> **Note:** `Usage.pdf` still describes the older behaviour ("If any of the log files exist, a
+> timestamp will be added to the filename"). Timestamps are now unconditional and live in the
+> folder name, so log files can no longer collide.
 Advanced usage is discussed in [here](Usage.pdf)
 
 ## Installation
