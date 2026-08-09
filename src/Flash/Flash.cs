@@ -105,7 +105,7 @@ namespace Flash
                 { "o|nocc", "Ignore contact closure. Default: false",  _ => args.OverrideCC = true },
                 { "t|test", "Run in test mode without connection to the instrument. Default: false", _ => args.TestMode = true },
                 { "m|method=", "Location of method file. Default: method.json in the program folder", v => args.MethodPath = v },
-                { "r|rawname=", "The name or path to raw file, that will be used to name the log files. If not specified timestamp will be used", v => args.Rename = v }
+                { "r|rawname=", "Name or path of the raw file. Used to prefix the timestamped run folder that holds every log file. If not specified the folder is named by the timestamp alone", v => args.Rename = v }
             };
 
             List<string> positionArgs = new List<string>();
@@ -164,19 +164,74 @@ namespace Flash
         {
             cliArgs = ParseCLI(args);
 
+            // The method file is loaded HERE, not in InstrumentConnected where it used to live.
+            // runtime.log_dir has to reach the log4net appenders below, and XmlConfigurator opens
+            // their files immediately -- roughly one async event and a hundred lines before the old
+            // load site ran. ParseCLI has already resolved and existence-checked MethodPath, and
+            // MethodParameters.Load is a pure static with no instrument dependency, so this is a
+            // reorder rather than a redesign.
+            try
+            {
+                methodParams = MethodParameters.Load(cliArgs.MethodPath);
+            }
+            catch (Exception ex)
+            {
+                // Console.Error, NOT log.Error: `log` is not assigned until after XmlConfigurator
+                // runs, a few lines below. ParseCLI reports its own failures the same way.
+                Console.Error.WriteLine(String.Format("Error loading method file: {0}\n{1}", ex.Message, ex.StackTrace));
+                Environment.Exit(1);
+            }
+
+            // One folder and one timestamp for this run, minted once and shared by all seven files.
+            // -r/--rawname (Xcalibur's %R) prefixes it, so a sequence's logs sit beside the .raw
+            // they describe instead of being appended into each other.
+            string runFolder = LogPathResolver.Compose(
+                methodParams.Config.Runtime.LogDir, cliArgs.Rename, DateTime.Now);
+            try
+            {
+                Directory.CreateDirectory(runFolder);
+            }
+            catch (Exception ex)
+            {
+                // Fail fast, before the instrument container exists, so nothing expensive is lost.
+                // The alternatives both end with an operator who believes they have logs and does
+                // not: the engine's streams fail to open SILENTLY (no header, no rows, no error),
+                // and a warning has nowhere to go because the log file lives in the folder that
+                // just failed. A bad method file is already fatal here; an uncreatable log folder
+                // is the same class of configuration error.
+                Console.Error.WriteLine(String.Format(
+                    "Cannot create log folder {0}: {1}", runFolder, ex.Message));
+                Environment.Exit(1);
+            }
+            // What crosses the bridge is the RESOLVED folder. C++ joins its five fixed basenames
+            // onto it and treats empty as "open nothing", so this assignment is also what switches
+            // the engine's logging on.
+            methodParams.Config.Runtime.LogDir = runFolder;
+
             XmlDocument appConfig = new XmlDocument();
             appConfig.Load(AppDomain.CurrentDomain.SetupInformation.ConfigurationFile); //logger configuration is stored in the {App}.config
 
-            if (cliArgs.Rename != null)//replace appender file names in logger configuration, if the rename key was provided
+            // Unconditional now -- both files always land in the run folder, whether or not -r was
+            // given. Absolute, because log4net resolves a relative <file value> against
+            // AppDomain.BaseDirectory (bin\) rather than the process CWD, which would put these two
+            // files in a different directory from the engine's five.
+            var generalFileNode = appConfig.SelectSingleNode("//log4net/appender[@name='GeneralFile']/file");
+            var idaFileNode = appConfig.SelectSingleNode("//log4net/appender[@name='IDAFile']/file");
+            if (generalFileNode == null || idaFileNode == null)
             {
-                string suffix = CheckLogPath(cliArgs.Rename);
-
-                appConfig.SelectSingleNode("//log4net/appender[@name='GeneralFile']/file").Attributes.GetNamedItem("value").Value = String.Format("FlashLog_{0}.log", suffix);
-                appConfig.SelectSingleNode("//log4net/appender[@name='IDAFile']/file").Attributes.GetNamedItem("value").Value = String.Format("IDALog_{0}.log", suffix);
+                Console.Error.WriteLine("App.config is missing the GeneralFile or IDAFile appender <file> node.");
+                Environment.Exit(1);
             }
+            generalFileNode.Attributes.GetNamedItem("value").Value = Path.Combine(runFolder, "FlashLog.log");
+            idaFileNode.Attributes.GetNamedItem("value").Value = Path.Combine(runFolder, "IDALog.log");
 
             XmlConfigurator.Configure((XmlElement) appConfig.GetElementsByTagName("log4net").Item(0));
             log = LogManager.GetLogger("General");
+
+            // First point at which `log` exists; these two lines used to sit next to the load.
+            log.Info(String.Format("Logging to {0}", runFolder));
+            log.Info("Read method");
+            log.Info(methodParams.ToLogString());
 
             try
             {
@@ -274,18 +329,9 @@ namespace Flash
             //helper to have easier interface for scan creation
             scanFactory = new ScanFactory(scanControl);
 
-            //load method
-            try
-            {
-                methodParams = MethodParameters.Load(cliArgs.MethodPath);
-                log.Info("Read method");
-                log.Info(methodParams.ToLogString());
-            }
-            catch (Exception ex)
-            {
-                log.Error(String.Format("Error loading method file: {0}\n{1}", ex.Message, ex.StackTrace));
-                Environment.Exit(1);
-            }
+            // The method is loaded and its log folder resolved in Main, before log4net is
+            // configured -- see there. `methodParams` is a static field and is already populated by
+            // the time this event handler fires.
 
             // Phase 6: Default/AGC scans and per-CV FAIMS scans are no longer needed.
             // C++ engine provides all scan commands via GetNextScanCommand, including
@@ -553,24 +599,11 @@ namespace Flash
             if (duration != null) duration.Close();
         }
 
-        /// <summary>
-        /// Returns still unused path for log files
-        /// Preserve existing log files from being overwritten
-        /// </summary>
-        /// <remarks>
-        /// Internal use
-        /// </remarks>
-        /// <param name="filepath">RawFile path</param>
-        /// <returns></returns>
-        private static string CheckLogPath(string filepath)
-        {
-            string suffix = Path.GetFileNameWithoutExtension(filepath);
-
-            while (File.Exists(String.Format("FlashLog_{0}.log", suffix)) || File.Exists(String.Format("IDALog_{0}.log", suffix)))
-                suffix = String.Format("{0}_{1}", suffix, DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss"));
-
-            return suffix;
-
-        }
+        // CheckLogPath is DELETED. It appended a timestamp only ON COLLISION, and by concatenation
+        // onto the already-suffixed name, so a third collision produced name_ts1_ts2_ts3. It also
+        // probed File.Exists on RELATIVE names -- resolved against the process CWD -- while log4net
+        // writes relative paths under AppDomain.BaseDirectory, so the guard may never have been
+        // looking at the directory it was protecting. LogPathResolver.Compose now stamps every run
+        // unconditionally and disambiguates with a _2/_3 suffix, so collisions cannot merge runs.
     }
 }

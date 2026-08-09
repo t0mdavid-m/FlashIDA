@@ -117,6 +117,7 @@
     <Compile Include="IDA\JsonKeyAttribute.cs" />
     <Compile Include="IDA\DeveloperAttribute.cs" />
     <Compile Include="IScanProcessor.cs" />
+    <Compile Include="LogPathResolver.cs" />
     <Compile Include="MethodConfig.cs" />
     <Compile Include="MethodParameters.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

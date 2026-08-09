@@ -468,6 +468,23 @@ namespace Flash.IDA
                 Environment.Exit(1);
             }
 
+            // Same run-folder rule as the instrument path -- one implementation, one behaviour.
+            // There is no -r here (this Main takes positional args only), so the folder is named by
+            // the timestamp alone. The engine treats an empty log_dir as "open nothing", so this
+            // assignment is what turns the five streams on for offline runs too.
+            string runFolder = LogPathResolver.Compose(
+                methodParams.Config.Runtime.LogDir, null, DateTime.Now);
+            try
+            {
+                Directory.CreateDirectory(runFolder);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Cannot create log folder {0}: {1}", runFolder, ex.Message);
+                Environment.Exit(1);
+            }
+            methodParams.Config.Runtime.LogDir = runFolder;
+
             // Optional MS2 spectrum file for tag-based targeting
             double[] ms2Mzs = null;
             double[] ms2Ints = null;
