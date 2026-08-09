@@ -143,6 +143,7 @@ namespace Flash
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
                     tie_threshold = c.PrecursorSelection.TieThreshold,
                     charge_based_exclusion = c.PrecursorSelection.ChargeBasedExclusion,
+                    precursor_charges = c.PrecursorSelection.PrecursorCharges,
                     rank_by = (c.PrecursorSelection.RankBy ?? "qscore").ToLower(),
                     max_precursors = c.PrecursorSelection.MaxPrecursors,
                     min_precursor_charge = c.PrecursorSelection.MinPrecursorCharge,
@@ -234,7 +235,7 @@ namespace Flash
                     protein_sequence = c.Characterization.ProteinSequence ?? "",
                     max_targets = c.Characterization.MaxTargets,
                     min_fragment_charge = c.Characterization.MinFragmentCharge,
-                    ms3_all_charges = c.Characterization.MS3AllCharges,
+                    fragment_charges = c.Characterization.FragmentCharges,
                     exploration = ToJsonExploration(c.Characterization.Exploration)
                 },
                 conditional_ms2 = c.Tagging.ConditionalMS2,
@@ -485,6 +486,7 @@ namespace Flash
             c.PrecursorSelection.StrictInclusion = true;
             c.PrecursorSelection.TieThreshold = 0.13;
             c.PrecursorSelection.ChargeBasedExclusion = true;
+            c.PrecursorSelection.PrecursorCharges = "multiplexed";
 
             c.FlashTnT.MinLength = 4;
             c.FlashTnT.MaxLength = 9;
@@ -591,7 +593,7 @@ namespace Flash
             c.Characterization.ProteinSequence = "MSENTINELPEPTIDESEQ";
             c.Characterization.MaxTargets = 4;
             c.Characterization.MinFragmentCharge = 1;
-            c.Characterization.MS3AllCharges = true;
+            c.Characterization.FragmentCharges = "separate";
             c.Characterization.Exploration = new ExplorationBlockConfig
             {
                 Metric = "fragment_count", CEMin = 16, CEMax = 34, CEStep = 2,

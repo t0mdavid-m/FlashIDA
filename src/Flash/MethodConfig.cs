@@ -116,8 +116,12 @@ namespace Flash
         public bool ConsiderAllChargeStates { get; set; }
 
         [JsonKey("charge_based_exclusion")]
-        [Description("Treat each (mass, charge) as an independent acquisition target; the mass itself is never globally excluded.")]
+        [Description("Key dynamic exclusion on (mass, charge) rather than mass alone, so a mass fragmented at one charge stays eligible at another on a LATER survey. A fallback, not a fan-out: one acquisition per detection.")]
         public bool ChargeBasedExclusion { get; set; }
+
+        [JsonKey("precursor_charges")]
+        [Description("How many charge states of a selected precursor ONE MS2 acquires: \"single\" (the representative charge), \"separate\" (one MS2 per charge state, each its own precursor), or \"multiplexed\" (one MS2 co-isolating the whole SNR-positive set as notches). Orthogonal to charge_based_exclusion, which keys exclusion rather than geometry.")]
+        public string PrecursorCharges { get; set; } = "single";
 
         // --- moved here from selection_strategy.ms1 ---
 
@@ -343,9 +347,9 @@ namespace Flash
         [Description("Minimum charge of an MS2 FRAGMENT for it to become an MS3 target (0 = no filter). Distinct from precursor_selection.min_precursor_charge.")]
         public int MinFragmentCharge { get; set; } = 0;
 
-        [JsonKey("ms3_all_charges")]
-        [Description("Dispatch one MS3 per observed charge state of a target fragment (default: single best charge). Deliberately NOT named all_charges -- that would collide with precursor_selection.consider_all_charges, which means something else.")]
-        public bool MS3AllCharges { get; set; } = false;
+        [JsonKey("fragment_charges")]
+        [Description("How many charge states of a target FRAGMENT one MS3 acquires: \"single\" (the fragment's best-MS2 charge), \"separate\" (one MS3 per observed charge state -- the budget then counts (fragment, charge) pairs), or \"multiplexed\" (one MS3 co-isolating them, so the budget counts fragments and the same slots buy more cleavage sites). Replaces the bool ms3_all_charges, whose two states are the first two values.")]
+        public string FragmentCharges { get; set; } = "single";
 
         // The MS3 CE/RT sweep. Must stay separate from precursor_selection.exploration: a single
         // config legitimately sweeps different ranges at MS2 and MS3 (method_exploration_ms3_followup
@@ -536,6 +540,7 @@ namespace Flash
         public bool strict_inclusion { get; set; }
         public double tie_threshold { get; set; }
         public bool charge_based_exclusion { get; set; }
+        public string precursor_charges { get; set; }
         public string rank_by { get; set; }
         public int max_precursors { get; set; }
         public int min_precursor_charge { get; set; }
@@ -709,7 +714,7 @@ namespace Flash
         public string protein_sequence { get; set; }
         public int max_targets { get; set; }
         public int min_fragment_charge { get; set; }
-        public bool ms3_all_charges { get; set; }
+        public string fragment_charges { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
     }
 

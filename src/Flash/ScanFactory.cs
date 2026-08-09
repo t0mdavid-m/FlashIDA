@@ -24,20 +24,32 @@ namespace Flash
         public double[] FirstMass;
         public double[] LastMass;
         public int? OrbitrapResolution;
-        public double[] IsolationWidth;
+        /// <summary>
+        /// One pre-formatted ';'-group per cascade stage, each a ','-joined list of that stage's
+        /// windows (the stage itself, then its co-isolation notches). string[] rather than double[]
+        /// because the element is a GROUP, not a number — see PrecursorMass.
+        /// </summary>
+        public string[] IsolationWidth;
         public string IsolationMode;
         public string[] ActivationType;
         public int? AGCTarget;
         public int? MSXTargets;
         public double? MaxIT;
-        public double[] PrecursorMass;
+        /// <summary>
+        /// The isolation targets, carrying BOTH wire axes: ';' descends an MSn cascade stage, ','
+        /// widens one into parallel co-isolation notches. Element i is stage i's group, already
+        /// ','-joined, so FillParameters' String.Join(";", ...) yields e.g. "524.3;104,271,453" — an
+        /// MS3 whose MS3 stage isolates three windows simultaneously.
+        /// </summary>
+        public string[] PrecursorMass;
         public int[] CollisionEnergy;
         public string ScanType;
         public double? SourceCIDEnergy;
         public double? SourceCIDScalingFactor;
         public int? Microscans;
         public string DataType;
-        public int[] ChargeStates;
+        /// <summary>Same two-axis grouping as <see cref="PrecursorMass"/>: one group per stage.</summary>
+        public string[] ChargeStates;
         public string ScanRate;
         public string Polarity;
         public double[] SrcRFLens;
@@ -143,6 +155,24 @@ namespace Flash
         /// GitHub's windows-2022 runners are en-US, so CI structurally cannot observe it —
         /// ScanFactoryCultureTests imposes the culture rather than inheriting it.
         /// </remarks>
+        /// <summary>
+        /// The co-isolation notches belonging to cascade stage <paramref name="k"/> of a command.
+        /// </summary>
+        /// <remarks>
+        /// C# mirror of C++ <c>notchesForStage</c> (ScanCommand.h) — keep the two in lockstep. Notches
+        /// are packed into <c>Stages[NumStages ...]</c>, stage-0's first then stage-1's, so stage 1's
+        /// offset depends on stage 0's COUNT and not on any fixed slot. Reading them from a fixed slot
+        /// is how stage-1's notches get emitted as stage-0's.
+        /// </remarks>
+        private static IEnumerable<IsolationStage> NotchesForStage(ScanCommand cmd, int k)
+        {
+            int count = (k == 0) ? cmd.Stage0NotchCount : (k == 1) ? cmd.Stage1NotchCount : 0;
+            if (count <= 0) yield break;
+            int begin = cmd.NumStages + ((k == 1) ? cmd.Stage0NotchCount : 0);
+            if (begin < 0 || begin + count > 10) yield break;   // 10 = MAX_ISOLATION_STAGES
+            for (int i = 0; i < count; i++) yield return cmd.Stages[begin + i];
+        }
+
         private static string Fmt(object value)
         {
             IFormattable formattable = value as IFormattable;
@@ -228,11 +258,20 @@ namespace Flash
             if (cmd.NumStages > 0 && cmd.Stages != null)
             {
                 int n = Math.Min(cmd.NumStages, 10);
-                var precursorMasses = new List<double>();
-                var isolationWidths = new List<double>();
+                // Two axes in one string (docs/kb/scan-pipeline/multi-notch-wire-grammar.md): ';'
+                // descends an MSn cascade stage, ',' widens one into parallel co-isolation notches.
+                // The three notch-bearing keys therefore carry one ';'-separated GROUP per stage, each
+                // group a ','-joined list. Groups are pre-formatted here so FillParameters' plain
+                // String.Join(";", ...) produces the whole thing unchanged -- and so every number goes
+                // through Fmt, keeping the ',' axis safe from a decimal comma.
+                var precursorMasses = new List<string>();
+                var isolationWidths = new List<string>();
+                var chargeStates = new List<string>();
+                // Per cascade stage only: all notches of a stage fire into the SAME fragmentation
+                // event, and the wire has no per-notch slot for these (verified against Thermo's own
+                // SPS example, which sends ActivationType "HCD;CID" against a three-notch MS3 stage).
                 var collisionEnergies = new List<int>();
                 var activationTypes = new List<string>();
-                var chargeStates = new List<int>();
                 var reactionTimes = new List<double>();
                 var reagentMaxIts = new List<double>();
                 var reagentAgcTargets = new List<int>();
@@ -265,11 +304,34 @@ namespace Flash
                             stage.ChargeState, stage.ActivationType));
                     }
 
-                    precursorMasses.Add(stage.PrecursorMz);
-                    isolationWidths.Add(stage.IsolationWidth);
+                    // This stage's group starts with the stage itself (the anchor), then its notches.
+                    var mzGroup = new List<string> { Fmt(stage.PrecursorMz) };
+                    var widthGroup = new List<string> { Fmt(stage.IsolationWidth) };
+                    var chargeGroup = new List<string> { Fmt(Math.Min(stage.ChargeState, 25)) };
+
+                    foreach (var notch in NotchesForStage(cmd, i))
+                    {
+                        // A notch is refused on the same structural grounds as a stage: position binds
+                        // a value to a window, so a notch missing geometry would shift every later
+                        // notch onto the wrong one.
+                        if (notch.PrecursorMz <= 0 || notch.IsolationWidth <= 0 || notch.ChargeState <= 0)
+                        {
+                            throw new InvalidOperationException(String.Format(
+                                "ScanCommand {0} stage {1} has a co-isolation notch missing geometry " +
+                                "(mz={2}, width={3}, z={4}) - refusing to build a malformed MSn request.",
+                                cmd.ScanId, i, notch.PrecursorMz, notch.IsolationWidth, notch.ChargeState));
+                        }
+                        mzGroup.Add(Fmt(notch.PrecursorMz));
+                        widthGroup.Add(Fmt(notch.IsolationWidth));
+                        chargeGroup.Add(Fmt(Math.Min(notch.ChargeState, 25)));
+                    }
+
+                    precursorMasses.Add(String.Join(",", mzGroup.ToArray()));
+                    isolationWidths.Add(String.Join(",", widthGroup.ToArray()));
+                    chargeStates.Add(String.Join(",", chargeGroup.ToArray()));
+
                     collisionEnergies.Add((int)Math.Round(stage.CollisionEnergy));
                     activationTypes.Add(stage.ActivationType);
-                    chargeStates.Add(Math.Min(stage.ChargeState, 25));
                     reactionTimes.Add(stage.ReactionTime);
                     reagentMaxIts.Add(stage.ReagentMaxIt);
                     reagentAgcTargets.Add(stage.ReagentAgcTarget);

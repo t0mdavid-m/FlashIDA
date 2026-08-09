@@ -24,6 +24,7 @@
     "strict_inclusion": true,
     "tie_threshold": 0.13,
     "charge_based_exclusion": true,
+    "precursor_charges": "multiplexed",
     "rank_by": "qscore",
     "max_precursors": 3,
     "min_precursor_charge": 2,
@@ -191,7 +192,7 @@
     "protein_sequence": "MSENTINELPEPTIDESEQ",
     "max_targets": 4,
     "min_fragment_charge": 1,
-    "ms3_all_charges": true,
+    "fragment_charges": "separate",
     "exploration": {
       "metric": "fragment_count",
       "ce_min": 16,
