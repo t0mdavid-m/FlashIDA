@@ -111,6 +111,20 @@ exception was caught, never "queue empty".
   dictionary**, not dictionary → API properties: it enumerates `ScanParameters`' *fields*, skips
   nulls, joins arrays with `';'`, and replaces `'_'` with `' '` in the key (`FAIMS_CV` → `"FAIMS CV"`)
   (`ScanFactory.cs:133-145`).
+  - **Every number is formatted with `InvariantCulture`** (`Fmt`, `ScanFactory.cs`). Not cosmetic: a
+    plain `ToString()` follows the machine locale, and on a comma-decimal one (this workspace is
+    `de-DE`) an m/z of 1000.5 became `"1000,5"` — which the iAPI grammar reads as **two** isolation
+    windows, at m/z 1000 and m/z 5. CI runners are `en-US`, so only `ScanFactoryCultureTests`, which
+    *imposes* `de-DE` via `[SetCulture]`, can catch it.
+  - **`PrecursorMass` / `IsolationWidth` / `ChargeStates` are `string[]`, not numeric arrays** — each
+    element is a pre-formatted `','`-joined **group** for one cascade stage, because the wire carries
+    two axes: `';'` descends an MSⁿ stage, `','` widens one into co-isolation notches (ADR‑0016;
+    `docs/kb/scan-pipeline/multi-notch-wire-grammar.md`). `CollisionEnergy` / `ActivationType` /
+    `ReactionTime` / `Reagent*` stay one value per stage — all notches of a stage share one
+    fragmentation event. `NotchesForStage` mirrors the C++ accessor and must stay in lockstep.
+  - **`FillParameters` is `protected`, and `MockScanFactory` calls it.** It used to be `private` with a
+    hand-copied twin in the mock, so every test asserting on `Values` was checking the copy rather
+    than production — and the two had drifted on exactly the number formatting above.
 - **`DataPipe.cs`** — `BufferBlock` → `ActionBlock`, constructed with no execution options, so
   `MaxDegreeOfParallelism` is 1 and `ProcessMS` calls are serialized.
   - **`Push` transfers ownership.** It returns `true` when the pipeline accepted the scan, and the

@@ -290,6 +290,90 @@ namespace Flash.Tests
         }
 
         /// <summary>Parse a ';'-joined two-stage numeric cell and assert both stages' values.</summary>
+        /// <summary>
+        /// The two wire axes: ';' descends an MSn cascade stage, ',' widens one into parallel
+        /// co-isolation notches (ADR-0016, docs/kb/scan-pipeline/multi-notch-wire-grammar.md).
+        /// </summary>
+        /// <remarks>
+        /// Matches Thermo's own tribrid example, which sends PrecursorMass "524.3;104,271,453" with
+        /// ActivationType "HCD;CID" and CollisionEnergy "35;0" -- three simultaneous windows at the MS3
+        /// stage, but ONE activation and ONE energy per stage, because all notches of a stage fire into
+        /// the same fragmentation event.
+        /// </remarks>
+        [Test, Category("Tier2")]
+        public void BuildFromCommand_Notches_AreCommaJoinedWithinTheStageGroup()
+        {
+            var factory = new MockScanFactory();
+            var cmd = new ScanCommand();
+            cmd.MsnLevel = 3;
+            cmd.NumStages = 2;
+            cmd.Analyzer = "Orbitrap";
+            cmd.Stage0NotchCount = 2;
+            cmd.Stage1NotchCount = 1;
+            var stages = new IsolationStage[10];
+            // Cascade stages first.
+            stages[0].PrecursorMz = 1000.5; stages[0].IsolationWidth = 3.2;
+            stages[0].ChargeState = 17; stages[0].CollisionEnergy = 30; stages[0].ActivationType = "HCD";
+            stages[1].PrecursorMz = 1251.3; stages[1].IsolationWidth = 2.0;
+            stages[1].ChargeState = 4; stages[1].CollisionEnergy = 25; stages[1].ActivationType = "CID";
+            // Then stage-0's notches, then stage-1's -- the packing order the accessor depends on.
+            stages[2].PrecursorMz = 938.2; stages[2].IsolationWidth = 3.0; stages[2].ChargeState = 16;
+            stages[2].CollisionEnergy = 30; stages[2].ActivationType = "HCD";
+            stages[3].PrecursorMz = 883.9; stages[3].IsolationWidth = 2.9; stages[3].ChargeState = 15;
+            stages[3].CollisionEnergy = 30; stages[3].ActivationType = "HCD";
+            stages[4].PrecursorMz = 1001.2; stages[4].IsolationWidth = 2.0; stages[4].ChargeState = 5;
+            stages[4].CollisionEnergy = 25; stages[4].ActivationType = "CID";
+            cmd.Stages = stages;
+
+            var scan = factory.BuildFromCommand(cmd);
+
+            Assert.That(scan.Values["PrecursorMass"], Is.EqualTo("1000.5,938.2,883.9;1251.3,1001.2"),
+                "notches join with ',' inside their stage's ';' group");
+            Assert.That(scan.Values["IsolationWidth"], Is.EqualTo("3.2,3,2.9;2,2"));
+            Assert.That(scan.Values["ChargeStates"], Is.EqualTo("17,16,15;4,5"));
+
+            // Per cascade stage only -- one group each, no ',' axis.
+            Assert.That(scan.Values["ActivationType"], Is.EqualTo("HCD;CID"));
+            Assert.That(scan.Values["CollisionEnergy"], Is.EqualTo("30;25"));
+
+            // Group count is the cascade depth, whatever the notch count.
+            foreach (var key in new[] { "PrecursorMass", "IsolationWidth", "ChargeStates",
+                                        "ActivationType", "CollisionEnergy" })
+            {
+                Assert.That(scan.Values[key].Split(';').Length, Is.EqualTo(cmd.NumStages),
+                    "'" + key + "' must carry exactly one ';'-group per cascade stage");
+            }
+        }
+
+        /// <summary>
+        /// With no notches the emitted strings are byte-identical to the pre-notch format: no ',' is
+        /// produced anywhere. This is the acceptance criterion for shipping the feature defaulted off.
+        /// </summary>
+        [Test, Category("Tier2")]
+        public void BuildFromCommand_NoNotches_EmitsNoCommaAxis()
+        {
+            var factory = new MockScanFactory();
+            var cmd = new ScanCommand();
+            cmd.MsnLevel = 2;
+            cmd.NumStages = 1;
+            cmd.Analyzer = "Orbitrap";
+            var stages = new IsolationStage[10];
+            stages[0].PrecursorMz = 1000.5; stages[0].IsolationWidth = 3.2;
+            stages[0].ChargeState = 17; stages[0].CollisionEnergy = 30; stages[0].ActivationType = "HCD";
+            cmd.Stages = stages;
+
+            var scan = factory.BuildFromCommand(cmd);
+
+            Assert.That(scan.Values["PrecursorMass"], Is.EqualTo("1000.5"));
+            Assert.That(scan.Values["ChargeStates"], Is.EqualTo("17"));
+            foreach (var kv in scan.Values)
+            {
+                Assert.That(kv.Value, Does.Not.Contain(","),
+                    "scan parameter '" + kv.Key + "' = '" + kv.Value + "' emitted a ',' with no notches, "
+                    + "which the instrument would read as an extra isolation window");
+            }
+        }
+
         private static void AssertStageDoubles(string raw, double stage0, double stage1)
         {
             var parts = raw.Split(';');
