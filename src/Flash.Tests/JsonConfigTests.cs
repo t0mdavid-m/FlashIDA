@@ -181,9 +181,7 @@ namespace Flash.Tests
         public void ToCppJson_ContainsRuntimeSection()
         {
             var mp = new MethodParameters();
-            mp.Config.Runtime.IdaLogPath = "IDALog_test.log";
-            mp.Config.Runtime.ScanCommandsPath = "ScanCommands_test.tsv";
-            mp.Config.Runtime.ScanResultsPath = "ScanResults_test.tsv";
+            mp.Config.Runtime.LogDir = @"C:\runs\case_2026-01-01-00-00-00";
 
             string json = mp.ToCppJson();
             var parsed = new JavaScriptSerializer()
@@ -192,9 +190,34 @@ namespace Flash.Tests
             Assert.IsTrue(parsed.ContainsKey("runtime"), "JSON should contain runtime section");
             var runtime = parsed["runtime"] as Dictionary<string, object>;
             Assert.IsNotNull(runtime, "runtime should be a dictionary");
-            Assert.AreEqual("IDALog_test.log", runtime["ida_log_path"]);
-            Assert.AreEqual("ScanCommands_test.tsv", runtime["scan_commands_path"]);
-            Assert.AreEqual("ScanResults_test.tsv", runtime["scan_results_path"]);
+            Assert.AreEqual(@"C:\runs\case_2026-01-01-00-00-00", runtime["log_dir"]);
+        }
+
+        /// <summary>
+        /// ToCppJson must hand log_dir across UNCHANGED.
+        ///
+        /// This is the tripwire for the one refactor that would quietly break everything: moving
+        /// run-folder composition (absolutise / stamp / mkdir) into ToCppJson or MethodParameters.Load
+        /// instead of leaving it in LogPathResolver. That would (a) make the generated
+        /// config_schema_reference.json differ on every run, failing Reference_IsNeverStale
+        /// unfixably, and (b) make every NUnit suite that merely calls Load start writing five log
+        /// files into bin/. Both failures point away from the actual cause.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void ToCppJson_EmitsLogDirVerbatim()
+        {
+            var mp = new MethodParameters();
+            mp.Config.Runtime.LogDir = "relative/unresolved";
+
+            var parsed = new JavaScriptSerializer()
+                .Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var runtime = (Dictionary<string, object>)parsed["runtime"];
+
+            Assert.AreEqual("relative/unresolved", runtime["log_dir"],
+                "ToCppJson resolved log_dir -- composition belongs in LogPathResolver, not the emitter");
+            Assert.AreEqual(1, runtime.Count,
+                "the runtime section carries exactly one key; a straggler here means the five "
+                + "deleted per-stream paths are still being emitted");
         }
 
         [Test, Category("Tier1")]
@@ -202,17 +225,28 @@ namespace Flash.Tests
         {
             string methodJson = @"{
                 ""global"": { ""duration"": 90 },
-                ""runtime"": {
-                    ""ida_log_path"": ""user_ida.log"",
-                    ""scan_commands_path"": ""user_commands.tsv"",
-                    ""scan_results_path"": ""user_results.tsv""
-                }
+                ""runtime"": { ""log_dir"": ""logs/run"" }
             }";
 
             var config = MethodConfigSerializer.Deserialize(methodJson);
-            Assert.AreEqual("user_ida.log", config.Runtime.IdaLogPath);
-            Assert.AreEqual("user_commands.tsv", config.Runtime.ScanCommandsPath);
-            Assert.AreEqual("user_results.tsv", config.Runtime.ScanResultsPath);
+            // The AUTHORED value survives unresolved: the loader never absolutises and never
+            // composes a run folder. Only the two Main methods do that, via LogPathResolver.
+            Assert.AreEqual("logs/run", config.Runtime.LogDir);
+        }
+
+        /// <summary>The five per-stream path keys are gone; a config carrying one must not load.</summary>
+        [Test, Category("Tier1")]
+        public void RuntimeConfig_LegacyPerStreamKeys_Rejected()
+        {
+            foreach (string dead in new[] { "ida_log_path", "scan_commands_path", "scan_results_path",
+                                            "identification_log_path", "pooled_identification_log_path" })
+            {
+                string methodJson = "{ \"runtime\": { \"" + dead + "\": \"x.log\" } }";
+                var ex = Assert.Throws<ArgumentException>(
+                    () => MethodConfigSerializer.Deserialize(methodJson),
+                    "loader accepted the deleted runtime key " + dead);
+                StringAssert.Contains("runtime." + dead, ex.Message);
+            }
         }
     }
 }

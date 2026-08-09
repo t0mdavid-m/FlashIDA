@@ -1173,11 +1173,11 @@ namespace Flash.Tests
                 Path.Combine(ConfigDir, configFile), false, false,
                 configure: mp =>
                 {
-                    mp.Config.Runtime.IdaLogPath = Path.Combine(caseDir, LogGoldenComparer.IdaLogName);
-                    mp.Config.Runtime.ScanCommandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
-                    mp.Config.Runtime.ScanResultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
-                    mp.Config.Runtime.IdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
-                    mp.Config.Runtime.PooledIdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
+                    // caseDir is absolute and already created; the engine joins the five fixed
+                    // basenames itself, and they are LogGoldenComparer.FileNames verbatim. No run
+                    // folder is composed here -- LogPathResolver runs only in the two Main methods
+                    // -- so the golden paths stay deterministic.
+                    mp.Config.Runtime.LogDir = caseDir;
                 });
         }
 
@@ -1246,11 +1246,11 @@ namespace Flash.Tests
                 Path.Combine(ConfigDir, configFile), forceFaims, false,
                 configure: mp =>
                 {
-                    mp.Config.Runtime.IdaLogPath = Path.Combine(caseDir, LogGoldenComparer.IdaLogName);
-                    mp.Config.Runtime.ScanCommandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
-                    mp.Config.Runtime.ScanResultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
-                    mp.Config.Runtime.IdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
-                    mp.Config.Runtime.PooledIdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
+                    // caseDir is absolute and already created; the engine joins the five fixed
+                    // basenames itself, and they are LogGoldenComparer.FileNames verbatim. No run
+                    // folder is composed here -- LogPathResolver runs only in the two Main methods
+                    // -- so the golden paths stay deterministic.
+                    mp.Config.Runtime.LogDir = caseDir;
                 }))
             {
                 // Interleaved engine-id-echo drive (one drain, mirrors C++ runFullAcquisition). MS1 rows
@@ -1341,6 +1341,23 @@ namespace Flash.Tests
 
             if (Capture)
             {
+                // Fail-closed BEFORE writing anything. A capture run performs no comparison at all
+                // (it writes and Assert.Passes), and LogGoldenComparer.Normalize returns "" for a
+                // file that does not exist -- so a run whose streams landed somewhere unexpected
+                // would overwrite good goldens with empty ones and report success. Every committed
+                // golden is non-empty, so "the engine wrote all five streams" is a safe precondition.
+                var missing = new List<string>();
+                foreach (var fileName in LogGoldenComparer.FileNames)
+                {
+                    string path = Path.Combine(caseDir, fileName);
+                    if (!File.Exists(path)) missing.Add(fileName + " (absent)");
+                    else if (new FileInfo(path).Length == 0) missing.Add(fileName + " (empty)");
+                }
+                Assert.IsEmpty(missing,
+                    $"Refusing to capture goldens for '{caseName}': the engine did not write every "
+                    + $"stream into {caseDir}. Capturing now would blank the committed goldens and "
+                    + "pass. Offending streams:\n  " + string.Join("\n  ", missing));
+
                 foreach (var fileName in LogGoldenComparer.FileNames)
                     CaptureGolden(caseName, fileName, normalized[fileName]);
                 Assert.Pass($"Captured goldens for '{caseName}'. Review the normalized diff and commit.");
@@ -1379,11 +1396,11 @@ namespace Flash.Tests
                 Path.Combine(ConfigDir, configFile), false, false,
                 configure: mp =>
                 {
-                    mp.Config.Runtime.IdaLogPath = Path.Combine(caseDir, LogGoldenComparer.IdaLogName);
-                    mp.Config.Runtime.ScanCommandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
-                    mp.Config.Runtime.ScanResultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
-                    mp.Config.Runtime.IdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
-                    mp.Config.Runtime.PooledIdentificationLogPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
+                    // caseDir is absolute and already created; the engine joins the five fixed
+                    // basenames itself, and they are LogGoldenComparer.FileNames verbatim. No run
+                    // folder is composed here -- LogPathResolver runs only in the two Main methods
+                    // -- so the golden paths stay deterministic.
+                    mp.Config.Runtime.LogDir = caseDir;
                 }))
             {
                 var map = ms3Map ?? new Dictionary<string, string>();
