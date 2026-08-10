@@ -64,8 +64,12 @@ namespace Flash.Tests.Mocks
 
             if (fileName == LogGoldenComparer.ResultsName)
             {
+                // Three parallel columns now, not four: the per-charge deconv output replaced the
+                // summed intensity and the [min,max] pair with a charge list and its matching
+                // intensities, keyed on deconv_masses as before. The groups stay index-aligned across
+                // all three, which is what makes reordering them together valid.
                 int[] deconv = ResolveColumns(referenceHeader,
-                    "deconv_masses", "deconv_intensities", "deconv_min_charge", "deconv_max_charge");
+                    "deconv_masses", "deconv_charges", "deconv_intensities");
                 return CanonicalizeTsv(text, cols => ReorderParallelColumns(cols, deconv, deconv[0]));
             }
             if (fileName == LogGoldenComparer.IdentificationName)
