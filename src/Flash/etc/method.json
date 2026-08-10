@@ -66,7 +66,9 @@
       "reaction_time_min": 0,
       "reaction_time_max": 0,
       "reaction_time_step": 1,
-      "activations": null,
+      "activations": [
+        "HCD"
+      ],
       "remaining_precursor_target": 0.1
     },
     "tag_expansion": {
@@ -86,7 +88,9 @@
       "reaction_time_min": 0,
       "reaction_time_max": 0,
       "reaction_time_step": 1,
-      "activations": null,
+      "activations": [
+        "CID"
+      ],
       "remaining_precursor_target": 0.1
     }
   },

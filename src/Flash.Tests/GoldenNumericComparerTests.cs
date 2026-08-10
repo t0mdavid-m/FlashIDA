@@ -123,11 +123,13 @@ namespace Flash.Tests
             return h;
         }
 
+        // The three parallel deconv lists the canonicalizer keys on. deconv_min_charge and
+        // deconv_max_charge are gone: the charge range is now the per-charge deconv_charges list, from
+        // which min and max are derivable, and deconv_intensities is per-charge rather than summed.
         private static string[] BuildResultsHeader()
         {
-            var h = MakeHeader(29);
-            h[19] = "deconv_masses"; h[20] = "deconv_intensities";
-            h[21] = "deconv_min_charge"; h[22] = "deconv_max_charge";
+            var h = MakeHeader(28);
+            h[19] = "deconv_masses"; h[20] = "deconv_charges"; h[21] = "deconv_intensities";
             return h;
         }
 
@@ -147,14 +149,15 @@ namespace Flash.Tests
         private static readonly string IdHeader = string.Join("\t", IdHeaderCols);
 
         // scan_results data row: deconv 4-tuple at cols 19-22, everything else placeholder.
-        private static string ResultsRow(string masses, string ints, string minC, string maxC)
+        // One row of the three parallel deconv lists: ';' separates PeakGroups, ',' separates the
+        // charge states within one PeakGroup's envelope.
+        private static string ResultsRow(string masses, string charges, string ints)
         {
-            var c = Blank(29);
+            var c = Blank(28);
             c[0] = "T1";
             c[19] = masses;
-            c[20] = ints;
-            c[21] = minC;
-            c[22] = maxC;
+            c[20] = charges;
+            c[21] = ints;
             return string.Join("\t", c);
         }
 
@@ -172,13 +175,13 @@ namespace Flash.Tests
             return string.Join("\t", c);
         }
 
-        [Test] // 11a — a reordered scan_results deconv 4-tuple (same multiset) -> Equivalent after canonicalize
+        [Test] // 11a — a reordered scan_results deconv triple (same multiset) -> Equivalent after canonicalize
         public void Canon_Results_Reorder_Equivalent()
         {
             string golden = Doc(ResultsHeader,
-                ResultsRow("100.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
+                ResultsRow("100.5;200.5;300.5", "1,2;3,4;5", "10.0,11.0;20.0,21.0;30.0"));
             string fresh = Doc(ResultsHeader,
-                ResultsRow("300.5;100.5;200.5", "3000.0;1000.0;2000.0", "3;1;2", "6;4;5"));
+                ResultsRow("300.5;100.5;200.5", "5;1,2;3,4", "30.0;10.0,11.0;20.0,21.0"));
             Assert.IsFalse(Eq(golden, fresh), "pre-canonicalize the reorder must differ (guards vacuity)");
             Assert.IsTrue(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
@@ -187,9 +190,9 @@ namespace Flash.Tests
         public void Canon_Results_DroppedEntry_NotEquivalent()
         {
             string golden = Doc(ResultsHeader,
-                ResultsRow("100.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
+                ResultsRow("100.5;200.5;300.5", "1,2;3,4;5", "10.0,11.0;20.0,21.0;30.0"));
             string fresh = Doc(ResultsHeader,
-                ResultsRow("100.5;200.5", "1000.0;2000.0", "1;2", "4;5"));
+                ResultsRow("100.5;200.5", "1,2;3,4", "10.0,11.0;20.0,21.0"));
             Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
 
@@ -197,20 +200,33 @@ namespace Flash.Tests
         public void Canon_Results_MassChanged_NotEquivalent()
         {
             string golden = Doc(ResultsHeader,
-                ResultsRow("100.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
+                ResultsRow("100.5;200.5;300.5", "1,2;3,4;5", "10.0,11.0;20.0,21.0;30.0"));
             string fresh = Doc(ResultsHeader,
-                ResultsRow("150.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
+                ResultsRow("150.5;200.5;300.5", "1,2;3,4;5", "10.0,11.0;20.0,21.0;30.0"));
             Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
 
-        [Test] // 11d — a changed deconv_min_charge INT (reordered otherwise) still FAILS: ints stay exact
-        public void Canon_Results_MinChargeInt_NotEquivalent()
+        [Test] // 11d — a changed deconv_charges INT (reordered otherwise) still FAILS: ints stay exact
+        public void Canon_Results_ChargeListInt_NotEquivalent()
         {
             string golden = Doc(ResultsHeader,
-                ResultsRow("100.5;200.5;300.5", "1000.0;2000.0;3000.0", "1;2;3", "4;5;6"));
-            // same multiset reordered C,A,B but record B's min_charge 2 -> 9 (record still sorts by its mass)
+                ResultsRow("100.5;200.5;300.5", "1,2;3,4;5", "10.0,11.0;20.0,21.0;30.0"));
+            // same multiset reordered C,A,B but record B's second charge 4 -> 9 (records still sort by mass)
             string fresh = Doc(ResultsHeader,
-                ResultsRow("300.5;100.5;200.5", "3000.0;1000.0;2000.0", "3;1;9", "6;4;5"));
+                ResultsRow("300.5;100.5;200.5", "5;1,2;3,9", "30.0;10.0,11.0;20.0,21.0"));
+            Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
+        }
+
+        [Test] // 11d' — a DROPPED charge state within one envelope still FAILS: the ',' arity is data
+        public void Canon_Results_ChargeDroppedWithinEnvelope_NotEquivalent()
+        {
+            string golden = Doc(ResultsHeader,
+                ResultsRow("100.5;200.5;300.5", "1,2;3,4;5", "10.0,11.0;20.0,21.0;30.0"));
+            // record A loses charge 2: same PeakGroup count, same masses, one fewer isolated charge.
+            // Summed intensities could not express this at all -- it is exactly what the per-charge
+            // schema exists to make visible.
+            string fresh = Doc(ResultsHeader,
+                ResultsRow("100.5;200.5;300.5", "1;3,4;5", "10.0;20.0,21.0;30.0"));
             Assert.IsFalse(EqCanon(LogGoldenComparer.ResultsName, golden, fresh, ResultsHeaderCols));
         }
 

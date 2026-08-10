@@ -155,22 +155,36 @@ namespace Flash
         /// GitHub's windows-2022 runners are en-US, so CI structurally cannot observe it —
         /// ScanFactoryCultureTests imposes the culture rather than inheriting it.
         /// </remarks>
+        /// <summary>Mirrors C++ <c>MAX_ISOLATION_STAGES</c>: the instrument's ';'-axis limit, i.e. the
+        /// deepest MSⁿ cascade one command can request.</summary>
+        internal const int MaxIsolationStages = 10;
+
+        /// <summary>Mirrors C++ <c>MAX_NOTCHES_PER_STAGE</c>: co-isolation windows per fragmentation
+        /// stage is capped at 10 (MSXTargets' own limit), and one of those is the anchor.</summary>
+        internal const int MaxNotchesPerStage = 9;
+
+        /// <summary>Mirrors C++ <c>MAX_NOTCHES</c>: a per-stage block for each of the two stages that
+        /// can carry notches.</summary>
+        internal const int MaxNotches = 2 * MaxNotchesPerStage;
+
         /// <summary>
         /// The co-isolation notches belonging to cascade stage <paramref name="k"/> of a command.
         /// </summary>
         /// <remarks>
-        /// C# mirror of C++ <c>notchesForStage</c> (ScanCommand.h) — keep the two in lockstep. Notches
-        /// are packed into <c>Stages[NumStages ...]</c>, stage-0's first then stage-1's, so stage 1's
-        /// offset depends on stage 0's COUNT and not on any fixed slot. Reading them from a fixed slot
-        /// is how stage-1's notches get emitted as stage-0's.
+        /// C# mirror of C++ <c>notchesForStage</c> (ScanCommand.h) — keep the two in lockstep. Stage
+        /// <paramref name="k"/> owns the FIXED block <c>[k * MaxNotchesPerStage, +MaxNotchesPerStage)</c>
+        /// of <c>Notches</c>, so either stage can carry a full 10-plex and neither can consume the
+        /// other's slots. They used to be packed into the unused tail of <c>Stages[]</c> with stage-1's
+        /// offset depending on stage-0's count, which capped an MS3 at 8 windows across both stages.
         /// </remarks>
-        private static IEnumerable<IsolationStage> NotchesForStage(ScanCommand cmd, int k)
+        private static IEnumerable<Notch> NotchesForStage(ScanCommand cmd, int k)
         {
-            int count = (k == 0) ? cmd.Stage0NotchCount : (k == 1) ? cmd.Stage1NotchCount : 0;
+            if (k < 0 || k > 1) yield break;
+            int count = (k == 0) ? cmd.Stage0NotchCount : cmd.Stage1NotchCount;
             if (count <= 0) yield break;
-            int begin = cmd.NumStages + ((k == 1) ? cmd.Stage0NotchCount : 0);
-            if (begin < 0 || begin + count > 10) yield break;   // 10 = MAX_ISOLATION_STAGES
-            for (int i = 0; i < count; i++) yield return cmd.Stages[begin + i];
+            int begin = k * MaxNotchesPerStage;
+            if (count > MaxNotchesPerStage || begin + count > MaxNotches) yield break;
+            for (int i = 0; i < count; i++) yield return cmd.Notches[begin + i];
         }
 
         private static string Fmt(object value)
@@ -257,7 +271,7 @@ namespace Flash
             // Isolation stages
             if (cmd.NumStages > 0 && cmd.Stages != null)
             {
-                int n = Math.Min(cmd.NumStages, 10);
+                int n = Math.Min(cmd.NumStages, MaxIsolationStages);
                 // Two axes in one string (docs/kb/scan-pipeline/multi-notch-wire-grammar.md): ';'
                 // descends an MSn cascade stage, ',' widens one into parallel co-isolation notches.
                 // The three notch-bearing keys therefore carry one ';'-separated GROUP per stage, each

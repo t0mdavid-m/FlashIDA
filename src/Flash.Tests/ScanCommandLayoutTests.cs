@@ -89,14 +89,27 @@ namespace Flash.Tests
             Assert.AreEqual(1424, (int)Marshal.OffsetOf<ScanCommand>("PrecursorIntensityS1"), "PrecursorIntensityS1 offset");
             Assert.AreEqual(1432, (int)Marshal.OffsetOf<ScanCommand>("PeakgroupIntensityS1"), "PeakgroupIntensityS1 offset");
             Assert.AreEqual(1440, (int)Marshal.OffsetOf<ScanCommand>("WindowSnr"), "WindowSnr offset");
-            // Carved out of Reserved, which has now moved 1448 -> 1460 and shrunk 600 -> 588 across
-            // two changes (FaimsEnabled, ADR-0012; then the two notch counts, ADR-0017). Every offset
-            // above is unchanged and the struct stays 2048 bytes -- that is why new bridge fields
-            // are consumed from the tail rather than appended.
+            // Carved out of Reserved, which has now moved 1448 -> 1896 and shrunk 600 -> 152 across
+            // three changes (FaimsEnabled, ADR-0012; the two notch counts, ADR-0017; the notch array,
+            // ADR-0019). Every offset above is unchanged and the struct stays 2048 bytes -- that is
+            // why new bridge fields are consumed from the tail rather than appended.
             Assert.AreEqual(1448, (int)Marshal.OffsetOf<ScanCommand>("FaimsEnabled"), "FaimsEnabled offset");
             Assert.AreEqual(1452, (int)Marshal.OffsetOf<ScanCommand>("Stage0NotchCount"), "Stage0NotchCount offset");
             Assert.AreEqual(1456, (int)Marshal.OffsetOf<ScanCommand>("Stage1NotchCount"), "Stage1NotchCount offset");
-            Assert.AreEqual(1460, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            // Pad4 is explicit on both sides: Notches is 8-aligned and 1460 is 4-mod-8, so leaving it
+            // implicit would put the C++ array at 1464 and give the mirror nothing to line up against.
+            Assert.AreEqual(1460, (int)Marshal.OffsetOf<ScanCommand>("Pad4"), "Pad4 offset");
+            Assert.AreEqual(1464, (int)Marshal.OffsetOf<ScanCommand>("Notches"), "Notches offset");
+            Assert.AreEqual(1896, (int)Marshal.OffsetOf<ScanCommand>("Reserved"), "Reserved offset");
+            Assert.AreEqual(24, Marshal.SizeOf<Notch>(), "Notch must be 24 bytes");
+            Assert.AreEqual(432, 18 * Marshal.SizeOf<Notch>(), "Notches block must be 432 bytes");
+
+            // Notch field offsets -- geometry only; no per-notch collision energy or activation,
+            // because every notch of a stage fires into the same fragmentation event.
+            Assert.AreEqual(0, (int)Marshal.OffsetOf<Notch>("PrecursorMz"), "Notch.PrecursorMz offset");
+            Assert.AreEqual(8, (int)Marshal.OffsetOf<Notch>("IsolationWidth"), "Notch.IsolationWidth offset");
+            Assert.AreEqual(16, (int)Marshal.OffsetOf<Notch>("ChargeState"), "Notch.ChargeState offset");
+            Assert.AreEqual(20, (int)Marshal.OffsetOf<Notch>("Pad"), "Notch.Pad offset");
 
             // IsolationStage field offsets
             Assert.AreEqual(0, (int)Marshal.OffsetOf<IsolationStage>("PrecursorMz"), "PrecursorMz offset");
@@ -311,19 +324,21 @@ namespace Flash.Tests
             cmd.Stage0NotchCount = 2;
             cmd.Stage1NotchCount = 1;
             var stages = new IsolationStage[10];
-            // Cascade stages first.
             stages[0].PrecursorMz = 1000.5; stages[0].IsolationWidth = 3.2;
             stages[0].ChargeState = 17; stages[0].CollisionEnergy = 30; stages[0].ActivationType = "HCD";
             stages[1].PrecursorMz = 1251.3; stages[1].IsolationWidth = 2.0;
             stages[1].ChargeState = 4; stages[1].CollisionEnergy = 25; stages[1].ActivationType = "CID";
-            // Then stage-0's notches, then stage-1's -- the packing order the accessor depends on.
-            stages[2].PrecursorMz = 938.2; stages[2].IsolationWidth = 3.0; stages[2].ChargeState = 16;
-            stages[2].CollisionEnergy = 30; stages[2].ActivationType = "HCD";
-            stages[3].PrecursorMz = 883.9; stages[3].IsolationWidth = 2.9; stages[3].ChargeState = 15;
-            stages[3].CollisionEnergy = 30; stages[3].ActivationType = "HCD";
-            stages[4].PrecursorMz = 1001.2; stages[4].IsolationWidth = 2.0; stages[4].ChargeState = 5;
-            stages[4].CollisionEnergy = 25; stages[4].ActivationType = "CID";
             cmd.Stages = stages;
+            // Notches live in their own array now, in fixed per-stage blocks: stage 0 at [0..9),
+            // stage 1 at [9..18). No CollisionEnergy or ActivationType per notch -- the Notch struct
+            // has no such field, which is what makes "one fragmentation event per stage" structural.
+            var notches = new Notch[18];
+            notches[0].PrecursorMz = 938.2; notches[0].IsolationWidth = 3.0; notches[0].ChargeState = 16;
+            notches[1].PrecursorMz = 883.9; notches[1].IsolationWidth = 2.9; notches[1].ChargeState = 15;
+            notches[ScanFactory.MaxNotchesPerStage + 0].PrecursorMz = 1001.2;
+            notches[ScanFactory.MaxNotchesPerStage + 0].IsolationWidth = 2.0;
+            notches[ScanFactory.MaxNotchesPerStage + 0].ChargeState = 5;
+            cmd.Notches = notches;
 
             var scan = factory.BuildFromCommand(cmd);
 
@@ -361,6 +376,7 @@ namespace Flash.Tests
             stages[0].PrecursorMz = 1000.5; stages[0].IsolationWidth = 3.2;
             stages[0].ChargeState = 17; stages[0].CollisionEnergy = 30; stages[0].ActivationType = "HCD";
             cmd.Stages = stages;
+            cmd.Notches = new Notch[ScanFactory.MaxNotches];   // present but all counts zero
 
             var scan = factory.BuildFromCommand(cmd);
 
@@ -372,6 +388,63 @@ namespace Flash.Tests
                     "scan parameter '" + kv.Key + "' = '" + kv.Value + "' emitted a ',' with no notches, "
                     + "which the instrument would read as an extra isolation window");
             }
+        }
+
+        /// <summary>
+        /// A 10-plex at BOTH cascade stages of one MS3 — 20 isolation windows in a single command.
+        /// </summary>
+        /// <remarks>
+        /// This is the ceiling the instrument documents: every notch-bearing key accepts "a maximum of
+        /// 10 values", and MSXTargets caps MSX windows per fragmentation stage at 10. It was previously
+        /// unreachable — notches shared the unused tail of Stages[], so an MS3's two stages had 8 slots
+        /// BETWEEN them and a fully multiplexed parent left the fragment stage with none.
+        /// </remarks>
+        [Test, Category("Tier2")]
+        public void BuildFromCommand_TenPlexAtBothStages_EmitsTwentyWindows()
+        {
+            var factory = new MockScanFactory();
+            var cmd = new ScanCommand();
+            cmd.MsnLevel = 3;
+            cmd.NumStages = 2;
+            cmd.Analyzer = "Orbitrap";
+            cmd.Stage0NotchCount = ScanFactory.MaxNotchesPerStage;
+            cmd.Stage1NotchCount = ScanFactory.MaxNotchesPerStage;
+            var stages = new IsolationStage[10];
+            stages[0].PrecursorMz = 1000.0; stages[0].IsolationWidth = 3.0;
+            stages[0].ChargeState = 20; stages[0].CollisionEnergy = 30; stages[0].ActivationType = "HCD";
+            stages[1].PrecursorMz = 500.0; stages[1].IsolationWidth = 2.0;
+            stages[1].ChargeState = 10; stages[1].CollisionEnergy = 25; stages[1].ActivationType = "CID";
+            cmd.Stages = stages;
+            var notches = new Notch[ScanFactory.MaxNotches];
+            for (int i = 0; i < ScanFactory.MaxNotchesPerStage; i++)
+            {
+                notches[i].PrecursorMz = 1010.0 + i;
+                notches[i].IsolationWidth = 3.0;
+                notches[i].ChargeState = 19 - i;
+                int j = ScanFactory.MaxNotchesPerStage + i;
+                notches[j].PrecursorMz = 510.0 + i;
+                notches[j].IsolationWidth = 2.0;
+                notches[j].ChargeState = 9 - i;
+            }
+            cmd.Notches = notches;
+
+            var scan = factory.BuildFromCommand(cmd);
+
+            foreach (var key in new[] { "PrecursorMass", "IsolationWidth", "ChargeStates" })
+            {
+                var groups = scan.Values[key].Split(';');
+                Assert.That(groups.Length, Is.EqualTo(2), "'" + key + "' group count");
+                Assert.That(groups[0].Split(',').Length, Is.EqualTo(10),
+                    "'" + key + "' stage 0 must be a full 10-plex, got '" + groups[0] + "'");
+                Assert.That(groups[1].Split(',').Length, Is.EqualTo(10),
+                    "'" + key + "' stage 1 must be a full 10-plex, got '" + groups[1] + "'");
+            }
+            // Anchor first in each group, then notches in the order the engine ranked them.
+            Assert.That(scan.Values["ChargeStates"],
+                Is.EqualTo("20,19,18,17,16,15,14,13,12,11;10,9,8,7,6,5,4,3,2,1"));
+            // Still one activation and one energy per stage, however many windows the stage carries.
+            Assert.That(scan.Values["ActivationType"], Is.EqualTo("HCD;CID"));
+            Assert.That(scan.Values["CollisionEnergy"], Is.EqualTo("30;25"));
         }
 
         private static void AssertStageDoubles(string raw, double stage0, double stage1)

@@ -29,6 +29,20 @@ namespace Flash.IDA
     }
 
     /// <summary>
+    /// Blittable struct matching C++ Notch (24 bytes): one co-isolation window inside a single
+    /// fragmentation stage. Geometry only — every notch of a stage fires into the same fragmentation
+    /// event, so there is no per-notch collision energy or activation type to carry.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, Pack = 8)]
+    public struct Notch
+    {
+        public double PrecursorMz;
+        public double IsolationWidth;
+        public int ChargeState;
+        public int Pad;
+    }
+
+    /// <summary>
     /// Blittable struct matching C++ ScanCommand (2048 bytes).
     /// Layout: 1248 (existing) + 8 (dequeue_timestamp_ms) + 8 (microscans+pad3)
     ///       + 24 (rf_lens+source_cid+source_cid_scaling) + 64 (data_type+scan_rate)
@@ -102,15 +116,20 @@ namespace Flash.IDA
                                    // Consumed by ScanFactory: FaimsCv alone cannot distinguish "no FAIMS"
                                    // from a compensation voltage of 0, and "FAIMS off" is an instruction
                                    // the instrument must actually be given (ADR-0012).
-        // @1452 / @1456 mirror C++ stage0_notch_count / stage1_notch_count (ADR-0017): the number of
-        // EXTRA co-isolation notches at cascade stage 0 / stage 1. A notch is a parallel isolation
-        // window WITHIN one fragmentation stage, as against a stage, which fragments in sequence.
-        // Descriptors live in Stages[NumStages ...] -- slots the engine never wrote, since NumStages
-        // is only ever 0, 1 or 2 -- packed stage-0's first, then stage-1's. NumStages does NOT count
-        // notches; ScanFactory's Math.Min(NumStages, 10) clamp depends on that.
+        // @1452 / @1456 mirror C++ stage0_notch_count / stage1_notch_count (ADR-0017, amended by
+        // ADR-0019): the number of EXTRA co-isolation notches at cascade stage 0 / stage 1. A notch is
+        // a parallel isolation window WITHIN one fragmentation stage, as against a stage, which
+        // fragments in sequence. Each count is at most MaxNotchesPerStage, so either stage can be a
+        // full 10-plex independently of the other. NumStages does NOT count notches; ScanFactory's
+        // Math.Min(NumStages, 10) clamp depends on that.
         public int Stage0NotchCount;
         public int Stage1NotchCount;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 588)]
+        public int Pad4;           // @1460 explicit; Notches[] must land 8-aligned at 1464
+        // @1464 mirrors C++ ScanCommand.notches: 18 * 24 = 432 bytes. Stage k owns the FIXED block
+        // [k * MaxNotchesPerStage, + MaxNotchesPerStage) -- see ScanFactory.NotchesForStage.
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 18)]
+        public Notch[] Notches;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 152)]
         public byte[] Reserved;
     }
 

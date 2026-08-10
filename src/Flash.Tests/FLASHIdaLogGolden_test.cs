@@ -1219,23 +1219,41 @@ namespace Flash.Tests
 
             for (int i = 0; i < n; i++)
             {
-                string ctx = $"{where}: '{col}' stage {i} (logged '{logTok[i]}', sent '{sentTok[i]}')";
-                if (mode == Cmp.Text)
+                // Each ';'-group may itself be a ','-joined list of co-isolation notches (ADR-0016):
+                // the anchor first, then this stage's notches. Compare group-wise so the notch axis is
+                // checked rather than tripped over -- a whole group handed to double.Parse throws on
+                // the first ',' and would take the wire contract's only cross-check down with it.
+                // Keys with no notch axis (activation, collision energy, the reagent trio) have
+                // single-element groups, so this degenerates to the previous element-wise compare.
+                var logWin = logTok[i].Split(',');
+                var sentWin = sentTok[i].Split(',');
+                Assert.That(sentWin.Length, Is.EqualTo(logWin.Length),
+                    $"{where}: '{col}' stage {i} isolation-window count disagrees — logged " +
+                    $"'{logTok[i]}' ({logWin.Length}) vs sent '{sentTok[i]}' ({sentWin.Length}). " +
+                    "The instrument acts on the sent count, so the log would be describing a " +
+                    "different acquisition than the one performed.");
+
+                for (int w = 0; w < logWin.Length; w++)
                 {
-                    Assert.That(sentTok[i], Is.EqualTo(logTok[i]), ctx);
-                    continue;
-                }
-                double logged = ParseLog(logTok[i]);
-                double actual = ParseSent(sentTok[i]);
-                if (mode == Cmp.ChargeClamped) logged = Math.Min(logged, 25);   // ScanFactory clamps
-                if (mode == Cmp.Rounded)
-                {
-                    Assert.That(actual, Is.EqualTo(Math.Round(logged)).Within(0.5), ctx);
-                }
-                else
-                {
-                    // The TSV carries C++ ostringstream's 6 significant digits, so compare relatively.
-                    Assert.That(actual, Is.EqualTo(logged).Within(Math.Max(1e-9, Math.Abs(logged) * 1e-5)), ctx);
+                    string ctx = $"{where}: '{col}' stage {i}" + (logWin.Length > 1 ? $" window {w}" : "")
+                               + $" (logged '{logWin[w]}', sent '{sentWin[w]}')";
+                    if (mode == Cmp.Text)
+                    {
+                        Assert.That(sentWin[w], Is.EqualTo(logWin[w]), ctx);
+                        continue;
+                    }
+                    double logged = ParseLog(logWin[w]);
+                    double actual = ParseSent(sentWin[w]);
+                    if (mode == Cmp.ChargeClamped) logged = Math.Min(logged, 25);   // ScanFactory clamps
+                    if (mode == Cmp.Rounded)
+                    {
+                        Assert.That(actual, Is.EqualTo(Math.Round(logged)).Within(0.5), ctx);
+                    }
+                    else
+                    {
+                        // The TSV carries C++ ostringstream's 6 significant digits, so compare relatively.
+                        Assert.That(actual, Is.EqualTo(logged).Within(Math.Max(1e-9, Math.Abs(logged) * 1e-5)), ctx);
+                    }
                 }
             }
         }
