@@ -43,13 +43,13 @@ Thermo MsScanArrived  ──► ProcessSpectrum(IMsScan)          [instrument ev
                             │
                             └─ if (inCustom):
                                  dataPipe.Push(scan)  ─────────► BufferBlock ─► ActionBlock  [pool thread]
-                                 │   (ownership transfers)           └─► UnifiedScanProcessor.ProcessMS
+                                 │   (false ⇒ DROPPED, logged)       └─► UnifiedScanProcessor.ProcessMS
                                  │                                        └─► FLASHIdaWrapper.ProcessScan
-                                 │                                   └─► scan.Dispose()  ← pipeline frees it
+                                 │                                   (nobody disposes the scan)
                                  └─ ONE GetNextScanCommand ─► ScanFactory.BuildFromCommand ─► SendCustomScan
 ```
 
-Four things this diagram exists to correct:
+Five things this diagram exists to correct:
 
 - **`Flash.cs` has no acquisition loop.** Its only loop is a do-nothing busy-wait
   `while (!stopRequest) { }` on the Main thread (`Flash.cs:191-197`) that burns a core and does
@@ -64,6 +64,15 @@ Four things this diagram exists to correct:
   nothing. See ADR-0008.)
 - **The drain is one command per arriving scan, not a loop.** A burst of commands from one
   `processScan` drains across subsequent scans. (It *must* be bounded — see the ABI note below.)
+- **Nobody disposes the `IMsScan`.** It is a handle to *framework-owned* shared memory that the
+  iAPI releases by itself once the next scan replaces it as the container's `LastScan`
+  (`dependencies/API-2.0.xml`, `IMsScan`). This has now been got wrong in both directions, each
+  time costing instrument runs: disposing on the **producer** side freed memory the pool thread was
+  still lazily reading (`Centroids`/`Header`/`Trailer`, a window the whole queue deep), and moving
+  the call to the **pool** side instead disposed late, out of arrival order, from a thread that
+  never acquired the handle — which threw out of a `finally` sitting *outside* the delegate's
+  `try/catch` and faulted the `ActionBlock` on the first scan of the run. There is no ownership
+  protocol to get right any more, because there is no disposal.
 - **`processScan` and `getNextScanCommand` genuinely run on different threads** — the pool
   thread and the instrument event thread respectively. The engine's mutexes are load-bearing.
 
@@ -132,15 +141,21 @@ exception was caught, never "queue empty".
     than production — and the two had drifted on exactly the number formatting above.
 - **`DataPipe.cs`** — `BufferBlock` → `ActionBlock`, constructed with no execution options, so
   `MaxDegreeOfParallelism` is 1 and `ProcessMS` calls are serialized.
-  - **`Push` transfers ownership.** It returns `true` when the pipeline accepted the scan, and the
-    pipeline then disposes it in a `finally` after `ProcessMS` returns. The producer must dispose
-    **only** when `Push` returns false. Disposing on the producer side frees Thermo shared memory
-    the pool thread is still lazily reading (`Centroids`/`Header`/`Trailer`) — and because the
-    consumer runs behind a queue, the window is the whole queue depth, not a race.
-  - **The `ActionBlock` must never fault.** An escaping exception faults it *permanently* and
-    unobserved (`Completion` is only awaited by tests), severing the link while `GetNextScanCommand`
-    keeps handing the instrument idle AGC scans — a silent, total loss of acquisition. It therefore
-    catches, logs FATAL, and invokes the required `onFailure` callback, which ends the run.
+  - **`Push` is not an ownership transfer** — nothing here disposes the scan (see the diagram
+    bullet above). Its `bool` says only whether the block *accepted* the message, and `false` means
+    the scan was **dropped and never processed**, so `ProcessSpectrum` logs it rather than ignoring
+    it. Production has no legitimate way to see `false`: the block is completed only by tests.
+  - **The `ActionBlock` must never fault, and no statement may sit outside its `try/catch`.** An
+    escaping exception faults it *permanently*, severing the link while `GetNextScanCommand` keeps
+    handing the instrument idle AGC scans — a silent, total loss of acquisition. It is invisible
+    from every side: `Post` still returns `true`, so the producer never learns, and `Completion` is
+    otherwise awaited only by tests. The delegate therefore catches, logs FATAL and invokes the
+    required `onFailure` callback (which ends the run) — **and that catch body is itself guarded**,
+    because a throwing `onFailure` or logger would kill acquisition in the act of reporting that
+    acquisition had a problem. `Completion` also gets an explicit fault observer, for the
+    exceptions `catch (Exception)` cannot hold.
+    > The `finally { scan.Dispose(); }` that used to live here is precisely how this happened for
+    > real. Adding *anything* outside the `try/catch` re-opens it.
   - Only `DataPipeTests` exercises the async path — the NUnit continuity harness calls `ProcessMS`
     directly. `Complete()`/`WaitForCompletion()` are called only from tests: production never drains
     the pipeline, never disposes the wrapper (`DisposeFLASHIda` runs on the finalizer, if ever), and
