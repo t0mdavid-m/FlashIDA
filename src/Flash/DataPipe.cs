@@ -66,6 +66,25 @@ namespace Flash
 
             inputScans.LinkTo(processBlock,
                 new DataflowLinkOptions { PropagateCompletion = true });
+
+            //Last-resort visibility. After the guards above the delegate cannot fault through any
+            //exception `catch (Exception)` can hold - but StackOverflow, OOM and (on .NET Framework)
+            //a re-raised ThreadAbort are not among those. A faulted block is the one failure mode
+            //that costs an entire gradient without producing a single log line, and production never
+            //awaits Completion (only tests do), so it gets an explicit observer instead of being
+            //left to nobody. Ending the run beats acquiring nothing for the next several hours.
+            processBlock.Completion.ContinueWith(t =>
+            {
+                if (!t.IsFaulted) return;
+                try
+                {
+                    log.Fatal(String.Format("Scan pipeline faulted - acquisition is dead: {0}", t.Exception));
+                    onFailure(t.Exception);
+                }
+                catch
+                {
+                }
+            }, TaskContinuationOptions.ExecuteSynchronously);
         }
 
         /// <summary>
