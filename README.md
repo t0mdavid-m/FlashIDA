@@ -26,7 +26,9 @@ Options:
 
 All log files — the two log4net logs and the engine's five TSV/text streams — are written into one
 per-run folder, `<runtime.log_dir>/<rawname>_<timestamp>/`, sharing a single timestamp.
-`runtime.log_dir` is set in the method file and defaults to the working directory.
+`runtime.log_dir` is set in the method file and defaults to the working directory. The folder also
+receives a verbatim copy of the method file, always named `method.json`, so a run folder records the
+exact config that produced it and can be re-run as-is.
 
 > **Note:** `Usage.pdf` still describes the older behaviour ("If any of the log files exist, a
 > timestamp will be added to the filename"). Timestamps are now unconditional and live in the

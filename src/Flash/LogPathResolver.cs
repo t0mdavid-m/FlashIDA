@@ -7,7 +7,8 @@ namespace Flash
 {
     /// <summary>
     /// Composes the per-run log folder that receives ALL of FLASHIda's output — the five engine
-    /// streams written by C++ IdaLogger plus the two log4net files.
+    /// streams written by C++ IdaLogger plus the two log4net files — and copies the authored
+    /// method file in beside them, so the folder also records the config that produced it.
     ///
     /// This exists as a separate, pure, injectable-clock unit for one reason: neither entry point
     /// can be executed by CI. Flash.csproj pins the offline harness as the StartupObject, and

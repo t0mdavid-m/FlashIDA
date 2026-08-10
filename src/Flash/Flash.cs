@@ -183,6 +183,7 @@ namespace Flash
             }
 
             // One folder and one timestamp for this run, minted once and shared by all seven files.
+            // A verbatim copy of the method file joins them further down, once `log` exists.
             // -r/--rawname (Xcalibur's %R) prefixes it, so a sequence's logs sit beside the .raw
             // they describe instead of being appended into each other.
             string runFolder = LogPathResolver.Compose(
