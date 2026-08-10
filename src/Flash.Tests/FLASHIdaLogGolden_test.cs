@@ -64,6 +64,28 @@ namespace Flash.Tests
         public void Golden_Exploration_HCD() =>
             RunCase("exploration_hcd", "method_exploration.json", "ms1_ca.txt", "ms2_ca_hcd25_scan181.txt");
 
+        // Exploration x co-isolation — the combination that had NO coverage anywhere. Every charge-mode
+        // golden (multiplexed_ms2/_ms3, separate_charges) runs WITHOUT exploration, and all six
+        // exploration goldens leave precursor_charges/fragment_charges at "single", so the CE-sweep path
+        // was never once driven with a notch present. That gap hid two things:
+        //
+        //   1. An MS3 cascaded from an MS2-exploration WINNER inherits stage 0 from
+        //      group.variants[best_idx].cmd (Exploration.cpp:687 -> initiateNextLevel -> buildMS3), a
+        //      different command object than the regular path's resolved parent_ctx. Nothing proved that
+        //      one carries the notch block.
+        //   2. Exploration deconvolved returning variants against the group's ANCHOR charge rather than
+        //      the isolated maximum, silently dropping fragments of the higher co-isolated members
+        //      before matching -- and MS3 targets are chosen from that matched list.
+        //
+        // Deliberately an exact two-key twin of exploration_hcd above (same config, same CA fixtures,
+        // + precursor_charges and fragment_charges = "multiplexed"), so a mode-to-mode diff isolates
+        // co-isolation and nothing else. Both modes on, because the point is that an MS3's two stages
+        // can be loaded at once without contending (ADR-0019's disjoint blocks) under real data.
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_Multiplexed() =>
+            RunCase("exploration_multiplexed", "method_exploration_multiplexed.json",
+                    "ms1_ca.txt", "ms2_ca_hcd25_scan181.txt");
+
         // ETD exploration sweep — the activation-type-parallel half of the HCD/ETD split (mirrors
         // the C++ FLASHIda_exploration ETD sections). Skips cleanly when the data-agent fixture
         // method_exploration_etd.json is not present, exactly as the C++ ETD fixture section does;
