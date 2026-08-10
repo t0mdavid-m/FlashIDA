@@ -57,13 +57,13 @@
     "strict_inclusion": false,
     "tie_threshold": 0.1,
     "rank_by": "qscore",
-    "max_precursors": 4,
+    "max_precursors": 1,
     "precursor_charges": "separate"
   },
   "characterization": {
     "mode": "ambiguity",
     "protein_sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE",
-    "max_targets": 6,
+    "max_targets": 3,
     "fragment_charges": "separate"
   },
   "ms_settings": {
