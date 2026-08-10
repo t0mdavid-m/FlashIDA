@@ -162,14 +162,26 @@ namespace Flash.Tests
             Assert.IsNotNull(parentScanIdAttr, "ParentScanId should have MarshalAs attribute");
             Assert.AreEqual(4, parentScanIdAttr.SizeConst, "ParentScanId SizeConst");
 
-            // ScanCommand.Reserved should be SizeConst=588 (after carving 84 B stage-1 scoring
-            // + 8 B window_snr + 4 B faims_enabled + 8 B the two notch counts). Every carve shrinks
-            // Reserved by exactly the bytes it takes, which is what keeps the struct at 2048 and
-            // every prior offset fixed.
+            // ScanCommand.Reserved should be SizeConst=152 (after carving 84 B stage-1 scoring
+            // + 8 B window_snr + 4 B faims_enabled + 8 B the two notch counts + 4 B pad4
+            // + 432 B notches[18]). Every carve shrinks Reserved by exactly the bytes it takes,
+            // which is what keeps the struct at 2048 and every prior offset fixed.
             var reservedAttr = typeof(ScanCommand).GetField("Reserved")
                 .GetCustomAttribute<MarshalAsAttribute>();
             Assert.IsNotNull(reservedAttr, "Reserved should have MarshalAs attribute");
-            Assert.AreEqual(588, reservedAttr.SizeConst, "Reserved SizeConst");
+            Assert.AreEqual(152, reservedAttr.SizeConst, "Reserved SizeConst");
+
+            // ScanCommand.Notches should be SizeConst=18 (two per-stage blocks of 9).
+            var notchesAttr = typeof(ScanCommand).GetField("Notches")
+                .GetCustomAttribute<MarshalAsAttribute>();
+            Assert.IsNotNull(notchesAttr, "Notches should have MarshalAs attribute");
+            Assert.AreEqual(ScanFactory.MaxNotches, notchesAttr.SizeConst, "Notches SizeConst");
+
+            // The carve arithmetic, asserted rather than only described: whatever Reserved and the
+            // notch block are, together with everything before them they must still total 2048.
+            Assert.AreEqual(2048,
+                (int)Marshal.OffsetOf<ScanCommand>("Reserved") + reservedAttr.SizeConst,
+                "Reserved must end exactly at the 2048-byte ABI boundary");
         }
 
         // P4-I02: CollisionEnergy rounds correctly (D5 fix)
