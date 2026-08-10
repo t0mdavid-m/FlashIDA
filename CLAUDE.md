@@ -121,7 +121,12 @@ exception was caught, never "queue empty".
     two axes: `';'` descends an MSⁿ stage, `','` widens one into co-isolation notches (ADR‑0016;
     `docs/kb/scan-pipeline/multi-notch-wire-grammar.md`). `CollisionEnergy` / `ActivationType` /
     `ReactionTime` / `Reagent*` stay one value per stage — all notches of a stage share one
-    fragmentation event. `NotchesForStage` mirrors the C++ accessor and must stay in lockstep.
+    fragmentation event. `NotchesForStage` mirrors the C++ accessor and must stay in lockstep — it
+    reads stage `k`'s **fixed block** of the `Notches[18]` array (`[k * MaxNotchesPerStage, +9)`), not
+    the tail of `Stages[]`, so either cascade stage can carry a full 10-plex and neither can consume
+    the other's slots (ADR‑0019). `Notch` is 24 bytes and deliberately has **no** CollisionEnergy or
+    ActivationType field. The three caps are named consts on `ScanFactory`, mirroring the C++ ones;
+    `MaxNotchesPerStage + 1` and `MaxIsolationStages` are **different tens** on different axes.
   - **`FillParameters` is `protected`, and `MockScanFactory` calls it.** It used to be `private` with a
     hand-copied twin in the mock, so every test asserting on `Values` was checking the copy rather
     than production — and the two had drifted on exactly the number formatting above.
