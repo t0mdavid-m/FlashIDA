@@ -155,17 +155,20 @@ namespace Flash
         /// GitHub's windows-2022 runners are en-US, so CI structurally cannot observe it —
         /// ScanFactoryCultureTests imposes the culture rather than inheriting it.
         /// </remarks>
+        // public, not internal: these three are half of a cross-language ABI contract, and the layout
+        // tests in Flash.Tests assert against them. There is no InternalsVisibleTo in this assembly.
+
         /// <summary>Mirrors C++ <c>MAX_ISOLATION_STAGES</c>: the instrument's ';'-axis limit, i.e. the
         /// deepest MSⁿ cascade one command can request.</summary>
-        internal const int MaxIsolationStages = 10;
+        public const int MaxIsolationStages = 10;
 
         /// <summary>Mirrors C++ <c>MAX_NOTCHES_PER_STAGE</c>: co-isolation windows per fragmentation
         /// stage is capped at 10 (MSXTargets' own limit), and one of those is the anchor.</summary>
-        internal const int MaxNotchesPerStage = 9;
+        public const int MaxNotchesPerStage = 9;
 
         /// <summary>Mirrors C++ <c>MAX_NOTCHES</c>: a per-stage block for each of the two stages that
         /// can carry notches.</summary>
-        internal const int MaxNotches = 2 * MaxNotchesPerStage;
+        public const int MaxNotches = 2 * MaxNotchesPerStage;
 
         /// <summary>
         /// The co-isolation notches belonging to cascade stage <paramref name="k"/> of a command.
