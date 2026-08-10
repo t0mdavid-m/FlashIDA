@@ -230,6 +230,14 @@ namespace Flash
 
             // First point at which `log` exists; these two lines used to sit next to the load.
             log.Info(String.Format("Logging to {0}", runFolder));
+
+            // The copy lands here rather than beside Directory.CreateDirectory above because `log`
+            // does not exist until XmlConfigurator has run, and a warning needs somewhere to go.
+            if (!LogPathResolver.TryCopyMethodFile(cliArgs.MethodPath, runFolder, out string copyError))
+            {
+                log.Warn(String.Format("Could not copy the method file into the run folder: {0}", copyError));
+            }
+
             log.Info("Read method");
             log.Info(methodParams.ToLogString());
 

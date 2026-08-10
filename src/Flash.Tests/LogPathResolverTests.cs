@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using Flash;
 using NUnit.Framework;
 
@@ -151,6 +152,77 @@ namespace Flash.Tests
             string r = LogPathResolver.Compose(tempRoot, "??", FixedNow);
             Assert.IsTrue(Path.IsPathRooted(r));
             StringAssert.EndsWith("_" + Stamp, Path.GetFileName(r));
+        }
+
+        /// <summary>Creates an empty run folder under tempRoot, as both Mains do before copying.</summary>
+        private string MakeRunFolder()
+        {
+            string runFolder = Path.Combine(tempRoot, Stamp);
+            Directory.CreateDirectory(runFolder);
+            return runFolder;
+        }
+
+        /// <summary>
+        /// Verbatim, not re-serialized. The whole value of the copy is that it can be handed back
+        /// to Flash.exe unchanged, so anything that rewrites it -- a round-trip through the config
+        /// model, or the emitted bridge JSON whose log_dir now points at this very folder -- would
+        /// defeat the point.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void CopyMethodFile_CopiesBytesVerbatim()
+        {
+            string source = Path.Combine(tempRoot, "method.json");
+            byte[] bytes = Encoding.UTF8.GetBytes("{\r\n  \"runtime\": { \"log_dir\": \"logs\" }\r\n}\r\n");
+            File.WriteAllBytes(source, bytes);
+            string runFolder = MakeRunFolder();
+
+            string error;
+            Assert.IsTrue(LogPathResolver.TryCopyMethodFile(source, runFolder, out error), error);
+
+            string dest = Path.Combine(runFolder, "method.json");
+            Assert.IsTrue(File.Exists(dest), "no method.json in the run folder");
+            CollectionAssert.AreEqual(bytes, File.ReadAllBytes(dest),
+                "the copy is not byte-identical to the authored method file");
+        }
+
+        /// <summary>
+        /// The destination name is fixed, so a run folder always has the same shape whatever the
+        /// operator called their method file.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void CopyMethodFile_NamesDestinationMethodJson()
+        {
+            string source = Path.Combine(tempRoot, "method_exclusion.json");
+            File.WriteAllText(source, "{}");
+            string runFolder = MakeRunFolder();
+
+            string error;
+            Assert.IsTrue(LogPathResolver.TryCopyMethodFile(source, runFolder, out error), error);
+
+            CollectionAssert.AreEqual(new[] { "method.json" },
+                Array.ConvertAll(Directory.GetFiles(runFolder), Path.GetFileName),
+                "the run folder must hold exactly one file, named method.json");
+        }
+
+        /// <summary>
+        /// The warn-not-fatal contract. Both neighbours at the call sites exit the process; this one
+        /// must not, because the config has already parsed and every log stream will still work.
+        /// An exception escaping here would kill an instrument run over a provenance artifact.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void CopyMethodFile_MissingSource_ReturnsFalseAndDoesNotThrow()
+        {
+            string runFolder = MakeRunFolder();
+            string missing = Path.Combine(tempRoot, "no_such_method.json");
+
+            string error = null;
+            bool copied = true;
+            Assert.DoesNotThrow(() => copied = LogPathResolver.TryCopyMethodFile(missing, runFolder, out error));
+
+            Assert.IsFalse(copied, "a missing source must report failure");
+            Assert.IsFalse(string.IsNullOrEmpty(error), "failure must carry a message for the caller to log");
+            CollectionAssert.IsEmpty(Directory.GetFiles(runFolder),
+                "a failed copy must not leave a partial file behind");
         }
     }
 }

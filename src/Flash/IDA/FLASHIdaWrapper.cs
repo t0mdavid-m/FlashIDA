@@ -512,6 +512,13 @@ namespace Flash.IDA
             }
             methodParams.Config.Runtime.LogDir = runFolder;
 
+            // Same provenance rule as the instrument path -- one implementation, one behaviour.
+            // No log4net in this Main, so the warning goes to the console like every other message.
+            if (!LogPathResolver.TryCopyMethodFile(args[2], runFolder, out string copyError))
+            {
+                Console.WriteLine("Could not copy the method file into the run folder: {0}", copyError);
+            }
+
             // Optional MS2 spectrum file for tag-based targeting
             double[] ms2Mzs = null;
             double[] ms2Ints = null;

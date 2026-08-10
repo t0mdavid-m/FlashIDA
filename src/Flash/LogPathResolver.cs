@@ -67,6 +67,39 @@ namespace Flash
             return candidate;
         }
 
+        /// <summary>Name the copy always takes, whatever the source file was called.</summary>
+        public const string MethodFileName = "method.json";
+
+        /// <summary>
+        /// Copy the authored method file verbatim into this run's folder, so the folder records the
+        /// exact input that produced it. The copy is the file as authored, not the emitted bridge
+        /// config, so it can be handed straight back to Flash.exe unchanged.
+        ///
+        /// Non-fatal by contract, unlike both of its neighbours at the call sites: an unloadable
+        /// method file and an uncreatable run folder each invalidate the run, but by the time this
+        /// runs the config has already parsed and the folder already exists. A failure here (source
+        /// locked, deleted between load and copy, AV or permissions) says nothing about the validity
+        /// of the run, and losing instrument time over a provenance artifact is the worse trade.
+        /// Returns false with a message; the caller reports it however it can -- log4net on the
+        /// instrument path, Console in the offline harness.
+        /// </summary>
+        public static bool TryCopyMethodFile(string sourcePath, string runFolder, out string error)
+        {
+            error = null;
+            try
+            {
+                // overwrite:false -- Compose never returns an existing directory, so a destination
+                // that already exists is a surprise worth reporting rather than silently clobbering.
+                File.Copy(sourcePath, Path.Combine(runFolder, MethodFileName), false);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
         /// <summary>Replace characters that cannot appear in a path segment.</summary>
         private static string Sanitize(string name)
         {
