@@ -531,22 +531,28 @@ namespace Flash
             }
 
             //push current scan to the DataPipe.
-            //Push TRANSFERS OWNERSHIP: on success the pipeline is the last reader and disposes the
-            //scan itself. Disposing here would free Thermo shared memory while the pool thread is
-            //still lazily enumerating Centroids/Header/Trailer.
-            bool pipelineOwns = false;
+            //NOTHING here disposes msScan. An IMsScan is a handle to framework-owned shared memory
+            //that the iAPI releases itself once the next scan replaces it as the container's
+            //LastScan; our only job is to stop reading it. Disposing it on this thread frees memory
+            //the pool thread is still lazily enumerating (Centroids/Header/Trailer), and disposing it
+            //on the pool thread instead - late, out of arrival order - killed the run outright.
+            //One rule, no ownership protocol: we never dispose a scan.
             if (inCustom)
             {
-                pipelineOwns = dataPipe.Push(msScan);
+                //a rejected Post means the scan is DROPPED, not deferred - never silent
+                if (!dataPipe.Push(msScan))
+                {
+                    log.Error(String.Format("Scan {0} was rejected by the pipeline and will NOT be processed", scanId));
+                }
 
                 var cmd = new ScanCommand();
                 if (wrapper.GetNextScanCommand(ref cmd) == 1)
                 {
                     //BuildFromCommand refuses a command whose stage geometry is incomplete rather
                     //than emitting a request the instrument would bind to the wrong stage. Caught
-                    //HERE, not around the whole `if (inCustom)` block, so the Dispose below is still
-                    //reached -- an escape would both leak the scan and surface as an unhandled
-                    //exception on the instrument event thread (see the ProcessSpectrum remarks).
+                    //HERE so it cannot escape onto the instrument event thread, where an unhandled
+                    //exception does not crash the process the usual way but leaves the API in a
+                    //weird state (see the InstrumentConnected remarks).
                     try
                     {
                         SendCustomScan(scanFactory.BuildFromCommand(cmd));
@@ -557,8 +563,6 @@ namespace Flash
                     }
                 }
             }
-
-            if (!pipelineOwns) msScan.Dispose();//Release resources we still own
         }
 
         /// <summary>

@@ -28,10 +28,21 @@ namespace Flash
 
             inputScans = new BufferBlock<IMsScan>();
 
-            //The pipeline is the LAST reader of the scan, so the pipeline disposes it. Letting the
-            //exception escape this delegate would fault the block permanently and unobserved: the
-            //link is severed, the buffer grows forever, and because GetNextScanCommand never returns
-            //0 the instrument keeps running idle AGC scans for the rest of the run with no log line.
+            //NOTHING may run outside the try/catch below. An exception escaping this delegate faults
+            //the block PERMANENTLY: the link is severed, but BufferBlock.Post keeps returning true so
+            //the producer never learns, Completion is observed by nobody, and because
+            //GetNextScanCommand never returns 0 the instrument keeps running fabricated idle AGC
+            //scans for the rest of the gradient while the engine sees no scan at all. A total, silent
+            //loss of acquisition.
+            //
+            //That is not hypothetical: a `finally { scan.Dispose(); }` used to sit here, OUTSIDE the
+            //catch, and it killed real runs after the very first scan.
+            //
+            //We do NOT dispose the scan. An IMsScan is a handle to FRAMEWORK-owned shared memory that
+            //the iAPI releases by itself - "the content will be released [when] the IMsScanContainer's
+            //LastScan property has changed" (dependencies/API-2.0.xml, IMsScan) - i.e. as soon as the
+            //next scan arrives. Disposing it here is disposal late, out of arrival order, from a pool
+            //thread that never acquired the handle. Nobody in this process disposes an IMsScan.
             processBlock = new ActionBlock<IMsScan>(scan =>
             {
                 try
@@ -40,13 +51,16 @@ namespace Flash
                 }
                 catch (Exception ex)
                 {
-                    log.Fatal(String.Format("Scan processing failed: {0}\n{1}", ex.Message, ex.StackTrace));
-                    onFailure(ex);
-                }
-                finally
-                {
-                    //free Thermo shared memory as soon as we are actually done reading it
-                    scan.Dispose();
+                    //the abort path is itself guarded: a throwing logger or onFailure must not be
+                    //able to do what the exception it is reporting was already prevented from doing
+                    try
+                    {
+                        log.Fatal(String.Format("Scan processing failed: {0}\n{1}", ex.Message, ex.StackTrace));
+                        onFailure(ex);
+                    }
+                    catch
+                    {
+                    }
                 }
             });
 
@@ -55,10 +69,14 @@ namespace Flash
         }
 
         /// <summary>
-        /// Hand a scan to the pipeline. Returns true when the pipeline ACCEPTED it and therefore
-        /// took ownership - the caller must not dispose an accepted scan. On false the caller still
-        /// owns it and is responsible for disposal.
+        /// Hand a scan to the pipeline. Returns whether the pipeline ACCEPTED it.
         /// </summary>
+        /// <remarks>
+        /// This is not an ownership transfer: nobody disposes an <see cref="IMsScan"/> (see the
+        /// constructor). A <c>false</c> means the scan was DROPPED and will never be processed, which
+        /// production has no legitimate reason to see - the block is completed only by tests - so the
+        /// caller should log it rather than ignore it.
+        /// </remarks>
         public bool Push(IMsScan scan) => inputScans.Post(scan);
         public void Complete() => inputScans.Complete();
         public Task WaitForCompletion() => processBlock.Completion;

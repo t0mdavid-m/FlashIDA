@@ -27,29 +27,43 @@ namespace Flash.Tests
         }
 
         /// <summary>
-        /// The pipeline - not the producer - owns the scan, and frees it only AFTER reading it.
+        /// NOBODY disposes the scan - not the producer, not the pipeline.
         ///
-        /// Before the ownership-transfer fix, Flash.ProcessSpectrum disposed the scan on the
-        /// instrument event thread immediately after Push, while UnifiedScanProcessor was still
-        /// lazily enumerating Centroids/Header/Trailer on the pool thread - a use-after-free of
-        /// Thermo shared memory whose window is the entire queue depth.
+        /// An IMsScan is a handle to FRAMEWORK-owned shared memory that the iAPI releases by itself
+        /// once the next scan replaces it as the container's LastScan (dependencies/API-2.0.xml,
+        /// IMsScan). Both halves of the lifetime dispute that produced this test were wrong:
+        /// disposing on the producer side freed memory the pool thread was still lazily enumerating,
+        /// and disposing on the pool side instead - late, out of arrival order, from a thread that
+        /// never acquired the handle - threw out of a `finally` that sat OUTSIDE the delegate's
+        /// try/catch. That faulted the ActionBlock permanently on the very first scan of a real run,
+        /// invisibly (Post keeps returning true, Completion is observed by nobody, and
+        /// GetNextScanCommand never returns 0), so the instrument ran fabricated idle AGC for the
+        /// rest of the gradient while the engine saw nothing at all.
+        ///
+        /// This test fails the moment anyone reintroduces a Dispose in the pipeline.
         /// </summary>
         [Test]
         [Category("Tier1")]
-        public void DataPipe_DisposesScanAfterProcessing()
+        public void DataPipe_DoesNotDisposeScan()
         {
             var scan = MockMsScan.EmptyMS1();
+            int processedCount = 0;
             bool disposedDuringProcessing = true;
 
-            var processor = new CountingProcessor(() => disposedDuringProcessing = scan.IsDisposed);
+            var processor = new CountingProcessor(() =>
+            {
+                processedCount++;
+                disposedDuringProcessing = scan.IsDisposed;
+            });
             var pipe = new DataPipe(processor, _ => { });
 
             pipe.Push(scan);
             pipe.Complete();
             Assert.IsTrue(pipe.WaitForCompletion().Wait(TimeSpan.FromSeconds(5)), "DataPipe should complete");
 
+            Assert.AreEqual(1, processedCount, "The scan must still be processed");
             Assert.IsFalse(disposedDuringProcessing, "Scan must NOT be disposed while ProcessMS is reading it");
-            Assert.IsTrue(scan.IsDisposed, "Pipeline must dispose the scan once processing is done");
+            Assert.IsFalse(scan.IsDisposed, "The pipeline must NOT dispose the scan - the iAPI owns its lifetime");
         }
 
         /// <summary>
@@ -82,7 +96,39 @@ namespace Flash.Tests
             Assert.IsTrue(completed, "A processor exception must not fault the block - it should complete cleanly");
             Assert.AreEqual(2, processor.CallCount, "Both scans should reach the processor");
             Assert.AreEqual(2, abortSignals, "Each failure must signal the abort callback");
-            Assert.IsTrue(scan1.IsDisposed && scan2.IsDisposed, "Scans must be released even on the throwing path");
+            Assert.IsFalse(scan1.IsDisposed || scan2.IsDisposed,
+                "The throwing path must not dispose either - that is where the old `finally` fired");
+        }
+
+        /// <summary>
+        /// A throwing onFailure - or a dead logger - must not fault the block either.
+        ///
+        /// The abort callback runs INSIDE the ActionBlock delegate, so without its own guard an
+        /// exception from it escapes exactly like the one it is reporting, and permanently kills
+        /// acquisition while in the act of reporting that acquisition has a problem.
+        /// </summary>
+        [Test]
+        [Category("Tier1")]
+        public void DataPipe_OnFailureThrows_DoesNotFaultBlock()
+        {
+            var processor = new ThrowingProcessor();
+            var pipe = new DataPipe(processor,
+                _ => { throw new InvalidOperationException("abort handler exploded"); });
+
+            pipe.Push(MockMsScan.EmptyMS1());
+            pipe.Push(MockMsScan.EmptyMS1());   // the second scan proves the block survived the first
+
+            pipe.Complete();
+
+            //AsyncWaitHandle rather than Task.Wait: Wait() THROWS on a faulted task, which would
+            //report this as an error rather than as the assertion failure it is.
+            var completion = pipe.WaitForCompletion();
+            bool finished = ((IAsyncResult)completion).AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5));
+
+            Assert.IsTrue(finished, "DataPipe should finish within 5 seconds");
+            Assert.IsFalse(completion.IsFaulted,
+                "A throwing onFailure must NOT fault the block: " + completion.Exception);
+            Assert.AreEqual(2, processor.CallCount, "Both scans must reach the processor");
         }
 
         private class CountingProcessor : IScanProcessor

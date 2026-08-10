@@ -268,8 +268,10 @@ namespace Flash.Tests.Mocks
                     ms2Responded++;
                 }
 
+                //no Dispose: production never disposes an IMsScan either (the iAPI releases the
+                //shared memory itself when the next scan replaces it as the container's LastScan).
+                //This harness mirrors the real acquisition contract, so it must not drift from it.
                 Processor.ProcessMS(response);
-                response.Dispose();
                 cmd = new ScanCommand();
             }
         }
