@@ -1,12 +1,12 @@
 {
   "global": {
     "method_name": "ExplorationMultiplexedMethod",
-    "method_description": "MS2 CE exploration with charge-state co-isolation at both MS2 and MS3",
+    "method_description": "MS2 + MS3 CE exploration with charge-state co-isolation at both levels",
     "duration": 120
   },
   "deconvolution": {
     "score_threshold": 0.0,
-    "tqscore_threshold": 0.9,
+    "tqscore_threshold": 0.0,
     "min_charge": 4,
     "max_charge": 50,
     "min_mass": 500,
@@ -46,12 +46,12 @@
   "files": {
     "target_logs": [],
     "fasta": "",
-    "inclusion_list": "",
+    "inclusion_list": "inclusion_cytc.txt",
     "ptm_list": ""
   },
   "precursor_selection": {
     "rt_window": 180,
-    "targeting": "none",
+    "targeting": "inclusion",
     "consider_all_charges": false,
     "charge_based_exclusion": false,
     "strict_inclusion": false,
@@ -71,9 +71,18 @@
   },
   "characterization": {
     "mode": "ambiguity",
-    "protein_sequence": "SHHWGYGKHNGPEHWHKDFPIANGERQSPVDIDTKAVVQDPALKPLALVYGEATSRRMVNNGHSFNVEYDDSQDKAVLKDGPLTGTYRLVQFHFHWGSSDDQGSEHTVDRKKYAAELHLVHWNTKYGDFGTAAQQPDGLAVVGVFLKVGDANPALQKVLDALDSIKTKGKSTDFPNFDPGSLLPNVLDYWTYPGSLTTPPLLESVTWIVLKEPISVSSQQMLKFRTLNFNAEGEPELLMLANWRPAQPLKNRQVRGFPK",
+    "protein_sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE",
     "max_targets": 3,
-    "fragment_charges": "multiplexed"
+    "fragment_charges": "multiplexed",
+    "exploration": {
+      "metric": "fragment_count",
+      "ce_min": 15,
+      "ce_max": 35,
+      "ce_step": 5,
+      "activations": [
+        "CID"
+      ]
+    }
   },
   "ms_settings": {
     "ms1": {

@@ -69,22 +69,44 @@ namespace Flash.Tests
         // exploration goldens leave precursor_charges/fragment_charges at "single", so the CE-sweep path
         // was never once driven with a notch present. That gap hid two things:
         //
-        //   1. An MS3 cascaded from an MS2-exploration WINNER inherits stage 0 from
-        //      group.variants[best_idx].cmd (Exploration.cpp:687 -> initiateNextLevel -> buildMS3), a
-        //      different command object than the regular path's resolved parent_ctx. Nothing proved that
-        //      one carries the notch block.
+        //   1. An MS3 built from an MS2-exploration WINNER takes stage 0 from an exploration VARIANT
+        //      command (Exploration.cpp:652/:687 -> buildMS3), a different object than the regular
+        //      path's resolved parent_ctx. Nothing proved that one carries the notch block.
         //   2. Exploration deconvolved returning variants against the group's ANCHOR charge rather than
         //      the isolated maximum, silently dropping fragments of the higher co-isolated members
         //      before matching -- and MS3 targets are chosen from that matched list.
         //
-        // Deliberately an exact two-key twin of exploration_hcd above (same config, same CA fixtures,
-        // + precursor_charges and fragment_charges = "multiplexed"), so a mode-to-mode diff isolates
-        // co-isolation and nothing else. Both modes on, because the point is that an MS3's two stages
-        // can be loaded at once without contending (ADR-0019's disjoint blocks) under real data.
+        // An exact two-key twin of exploration_ms3 below (+ precursor_charges and fragment_charges =
+        // "multiplexed"), so a mode-to-mode diff isolates co-isolation and nothing else. That baseline
+        // rather than exploration_hcd, on evidence: the cytC survey co-isolates 10 charges wide in the
+        // multiplexed_ms2 golden, whereas the CA survey is unproven — and a golden mode that turns out
+        // to co-isolate nothing would be a byte-copy of its twin dressed up as coverage. It is also
+        // inclusion-pinned and fed REAL per-ion MS3 responses, so the identification streams can move
+        // rather than the command stream alone.
+        //
+        // Both charge modes on, because the point is that an MS3's two cascade stages can be loaded
+        // with notches at once without contending (ADR-0019's disjoint blocks) under real data.
         [Test, Category("Tier2")]
-        public void Golden_Exploration_Multiplexed() =>
+        public void Golden_Exploration_Multiplexed()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exploration co-isolation golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+
+            // Same sweep grid as exploration_ms3 (ce 20-40 step 5 + the CE-0 baseline), so the same six
+            // CE-resolved fixtures cover it. NO FALLBACK: a missing CE throws rather than collapsing the
+            // sweep onto one spectrum.
+            var ms2CeMap = BuildMs2CeMap(SpectraDir);
+            Assert.That(ms2CeMap.Count, Is.EqualTo(6),
+                "Requires the CE-0 baseline fixture (ms2_cytc_ce0.txt) + all 5 CE-resolved cytC MS2 fixtures (ms2_cytc_ce{20,25,30,35,40}.txt).");
+
             RunCase("exploration_multiplexed", "method_exploration_multiplexed.json",
-                    "ms1_ca.txt", "ms2_ca_hcd25_scan181.txt");
+                    "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map, ms2CeMap: ms2CeMap);
+        }
 
         // ETD exploration sweep — the activation-type-parallel half of the HCD/ETD split (mirrors
         // the C++ FLASHIda_exploration ETD sections). Skips cleanly when the data-agent fixture
