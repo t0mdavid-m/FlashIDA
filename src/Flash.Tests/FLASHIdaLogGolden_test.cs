@@ -299,6 +299,37 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map);
         }
 
+        /// <summary>
+        /// The OTHER non-default charge mode: one scan PER charge state at both levels, rather than one
+        /// scan co-isolating them. This is the end-to-end cover for precursor_charges: "separate" and
+        /// characterization.fragment_charges: "separate".
+        /// </summary>
+        /// <remarks>
+        /// It exists because "separate" shipped silently inert at the MS2 level: the value parsed, it was
+        /// documented as the mode the old fan-out had become, and PrecursorSelection never branched on it
+        /// — the break added for the charge-keyed-exclusion fix was unconditional. Nothing failed, because
+        /// nothing asserted the behaviour the value promises. CBE-08 now catches that in C++; this pins the
+        /// whole acquisition shape.
+        ///
+        /// Both budgets are raised from the base config on purpose, because "separate" cannot express
+        /// itself otherwise: selected_peak_groups_ is bounded by max_precursors, so at 1 one-scan-per-charge
+        /// can only ever emit one scan; and under "separate" the MS3 budget counts (fragment, charge) PAIRS,
+        /// so at 3 a single fragment seen at three charges consumes all of it and one cleavage site gets
+        /// characterised. That budget arithmetic is the mode's real cost and the golden should show it.
+        /// </remarks>
+        [Test, Category("Tier2")]
+        public void Golden_Separate_Charges()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — separate-charges golden skipped cleanly.");
+                return;
+            }
+            RunCase("separate_charges", "method_cytc_separate_charges.json", "ms1_cytc.txt",
+                    "ms2_cytc_fresh_scan57.txt", feedMs3: true, ms3Map: ms3Map);
+        }
+
         // Coverage-objective MS3 targeting on the real cytC example. This is the CONTRAST PARTNER to
         // Golden_MS3_CytC, which runs method_ms3_cytc_real.json with the DEFAULT characterization
         // objective ("ambiguity"). Setting characterization.objective="coverage" makes
