@@ -23,7 +23,6 @@
     "consider_all_charges": true,
     "strict_inclusion": true,
     "tie_threshold": 0.13,
-    "charge_based_exclusion": true,
     "precursor_charges": "multiplexed",
     "rank_by": "qscore",
     "max_precursors": 3,

@@ -170,10 +170,46 @@ namespace Flash
             }
 
             if (problems.Count > 0)
-                throw new ArgumentException(
+            {
+                string message =
                     "Unknown config key(s) not in the FLASHIda schema: " + string.Join(", ", problems)
-                    + ". Keys are case-sensitive snake_case; see FlashIDA/test-data/config_schema_reference.json.");
+                    + ". Keys are case-sensitive snake_case; see FlashIDA/test-data/config_schema_reference.json.";
+                foreach (string p in problems)
+                {
+                    string hint;
+                    if (RetiredKeyHints.TryGetValue(p, out hint))
+                        message += Environment.NewLine + "  " + hint;
+                }
+                throw new ArgumentException(message);
+            }
         }
+
+        /// <summary>
+        /// Retired keys that earn a specific message on top of the bare unknown-key one.
+        /// <para>
+        /// This lives on the C# side because C# validates <c>method.json</c> FIRST: a user who still
+        /// has a retired key never reaches the C++ loader, so a migration message that exists only in
+        /// <c>Config.cpp</c> is unreachable from the normal path.
+        /// </para>
+        /// <para>
+        /// Worth the mechanism because "unknown key" invites deleting the key, which is the wrong fix
+        /// whenever the key was doing something the reader still wants.
+        /// </para>
+        /// </summary>
+        private static readonly Dictionary<string, string> RetiredKeyHints =
+            new Dictionary<string, string>
+            {
+                {
+                    "precursor_selection.charge_based_exclusion",
+                    "precursor_selection.charge_based_exclusion was removed (ADR-0021). It keyed exclusion "
+                    + "per (mass, charge), and as a side effect it was the only thing that made "
+                    + "precursor_charges: \"separate\" fan out. To acquire several charge states of one "
+                    + "species, ask for it directly: precursor_charges: \"separate\" (one MS2 per charge "
+                    + "state) or \"multiplexed\" (one MS2 co-isolating them). Exclusion is now always "
+                    + "mass-keyed; re-selecting one mass at a different charge on a LATER survey has no "
+                    + "replacement."
+                },
+            };
 
         /// <summary>Recurse a raw JSON node against its model type, collecting unknown keys.</summary>
         private static void CollectUnknownKeys(object rawNode, Type modelType, string path, List<string> problems)

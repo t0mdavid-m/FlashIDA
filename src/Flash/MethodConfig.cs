@@ -115,12 +115,8 @@ namespace Flash
         [Description("Consider all charge states for precursor selection")]
         public bool ConsiderAllChargeStates { get; set; }
 
-        [JsonKey("charge_based_exclusion")]
-        [Description("Key dynamic exclusion on (mass, charge) rather than mass alone, so a mass fragmented at one charge stays eligible at another on a LATER survey. A fallback, not a fan-out: one acquisition per detection.")]
-        public bool ChargeBasedExclusion { get; set; }
-
         [JsonKey("precursor_charges")]
-        [Description("How many charge states of a selected precursor ONE MS2 acquires: \"single\" (the representative charge), \"separate\" (one MS2 per charge state, each its own precursor), or \"multiplexed\" (one MS2 co-isolating the whole SNR-positive set as notches). Orthogonal to charge_based_exclusion, which keys exclusion rather than geometry.")]
+        [Description("How many charge states of a selected precursor ONE MS2 acquires: \"single\" (the representative charge), \"separate\" (one MS2 per charge state, each its own precursor), or \"multiplexed\" (one MS2 co-isolating the whole SNR-positive set as notches). This is the only thing that decides acquisition geometry; exclusion is mass-keyed.")]
         public string PrecursorCharges { get; set; } = "single";
 
         // --- moved here from selection_strategy.ms1 ---
@@ -539,7 +535,6 @@ namespace Flash
         public bool consider_all_charges { get; set; }
         public bool strict_inclusion { get; set; }
         public double tie_threshold { get; set; }
-        public bool charge_based_exclusion { get; set; }
         public string precursor_charges { get; set; }
         public string rank_by { get; set; }
         public int max_precursors { get; set; }

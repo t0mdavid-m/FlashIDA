@@ -142,7 +142,6 @@ namespace Flash
                     consider_all_charges = c.PrecursorSelection.ConsiderAllChargeStates,
                     strict_inclusion = c.PrecursorSelection.StrictInclusion,
                     tie_threshold = c.PrecursorSelection.TieThreshold,
-                    charge_based_exclusion = c.PrecursorSelection.ChargeBasedExclusion,
                     precursor_charges = c.PrecursorSelection.PrecursorCharges,
                     rank_by = (c.PrecursorSelection.RankBy ?? "qscore").ToLower(),
                     max_precursors = c.PrecursorSelection.MaxPrecursors,
@@ -485,7 +484,6 @@ namespace Flash
             c.PrecursorSelection.ConsiderAllChargeStates = true;
             c.PrecursorSelection.StrictInclusion = true;
             c.PrecursorSelection.TieThreshold = 0.13;
-            c.PrecursorSelection.ChargeBasedExclusion = true;
             c.PrecursorSelection.PrecursorCharges = "multiplexed";
 
             c.FlashTnT.MinLength = 4;

@@ -121,35 +121,27 @@ namespace Flash.Tests
             Assert.AreEqual(2, mp.Config.Faims.MaxCVSkip);
         }
 
+        // charge_based_exclusion is retired (ADR-0021). The two tests that used to live here asserted
+        // it round-tripped and defaulted to false; both are meaningless now. What replaces them is the
+        // migration path, and it is asserted HERE rather than only in C++ because C# validates
+        // method.json first -- a user with the retired key never reaches the C++ loader, so a message
+        // that exists only there is unreachable.
         [Test, Category("Tier1")]
-        public void Deserialize_ChargeBasedExclusion_RoundTrip()
+        public void Deserialize_ChargeBasedExclusion_IsRejectedWithMigrationHint()
         {
-            var mp = LoadJsonMethod("method_charge_based_exclusion.json");
-            Assert.IsTrue(mp.Config.PrecursorSelection.ChargeBasedExclusion);
+            string path = Path.Combine(ConfigsDir, "method_default.json");
+            Assert.IsTrue(File.Exists(path), "Test config not found: " + path);
+            // Re-introduce the retired key into an otherwise-valid config. `false` on purpose: that
+            // was its default, so a stale config carrying it is the common case, not the exotic one.
+            string json = File.ReadAllText(path)
+                .Replace("\"consider_all_charges\"", "\"charge_based_exclusion\": false, \"consider_all_charges\"");
 
-            // Roundtrip preserves the flag.
-            string serialized = MethodConfigSerializer.Serialize(mp.Config);
-            var config2 = MethodConfigSerializer.Deserialize(serialized);
-            Assert.IsTrue(config2.PrecursorSelection.ChargeBasedExclusion);
+            var ex = Assert.Throws<ArgumentException>(() => MethodConfigSerializer.Deserialize(json));
 
-            // ToCppJson surfaces the flag on the wire-JSON.
-            var cpp = mp.ToCppJson();
-            // Matches the RAW emitted text, so it breaks on the emit-DTO field rename alone --
-            // independently of the [JsonKey]. That is deliberate: it is the tripwire for a
-            // half-rename, where the loader accepts the new key and the emitter writes the old one.
-            Assert.IsTrue(cpp.Contains("\"charge_based_exclusion\":true") ||
-                          cpp.Contains("\"charge_based_exclusion\": true"));
-        }
-
-        [Test, Category("Tier1")]
-        public void Deserialize_ChargeBasedExclusion_DefaultsFalse()
-        {
-            var mp = LoadJsonMethod("method_default.json");
-            Assert.IsFalse(mp.Config.PrecursorSelection.ChargeBasedExclusion);
-
-            var cpp = mp.ToCppJson();
-            Assert.IsTrue(cpp.Contains("\"charge_based_exclusion\":false") ||
-                          cpp.Contains("\"charge_based_exclusion\": false"));
+            // The dotted path, so the reader knows WHICH key -- and the replacement, so they do not
+            // simply delete it and silently lose multi-charge acquisition.
+            StringAssert.Contains("precursor_selection.charge_based_exclusion", ex.Message);
+            StringAssert.Contains("precursor_charges", ex.Message);
         }
 
         [Test, Category("Tier1")]
