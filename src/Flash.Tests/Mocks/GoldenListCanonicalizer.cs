@@ -11,7 +11,7 @@ namespace Flash.Tests.Mocks
     /// before <see cref="GoldenNumericComparer"/> runs — never at capture time — so no golden is ever
     /// re-recaptured (the stored bytes stay untouched; <c>LogGoldenComparer.Normalize</c> is not touched).
     ///
-    /// Why: the engine dumps the MS1 deconvolution (scan_results deconv_masses/intensities/charges) and
+    /// Why: the engine dumps the MS1 deconvolution (scan_results deconv_masses/qscores/charges/intensities) and
     /// the MS2/MS3 fragment matches (identification) in INTENSITY order, and ida.log's AllMass line in the
     /// same order. Near-tied entries swap position between the non-deterministic CI OpenMS rebuilds, so the
     /// positional <see cref="GoldenNumericComparer"/> flags a pure reorder as a diff (exploration_hcd flaps
@@ -27,8 +27,9 @@ namespace Flash.Tests.Mocks
     /// </summary>
     internal static class GoldenListCanonicalizer
     {
-        // scan_results reorderable deconv 4-tuple and the identification MS2/MS3 fragment tuples are resolved
-        // BY NAME (see ResolveColumns) against the reference header, not by hardcoded index.
+        // scan_results reorderable deconv 4-tuple (deconv_masses / deconv_qscores / deconv_charges /
+        // deconv_intensities) and the identification MS2/MS3 fragment tuples are resolved BY NAME
+        // (see ResolveColumns) against the reference header, not by hardcoded index.
 
         private const string AllMassPrefix = "AllMass=";
 
@@ -64,12 +65,17 @@ namespace Flash.Tests.Mocks
 
             if (fileName == LogGoldenComparer.ResultsName)
             {
-                // Three parallel columns now, not four: the per-charge deconv output replaced the
-                // summed intensity and the [min,max] pair with a charge list and its matching
-                // intensities, keyed on deconv_masses as before. The groups stay index-aligned across
-                // all three, which is what makes reordering them together valid.
+                // Four parallel columns: deconv_masses, deconv_qscores, deconv_charges, deconv_intensities.
+                // deconv_qscores is ONE PeakGroup qscore per deconvolved mass, index-aligned 1:1 with
+                // deconv_masses, so it MUST ride the same permutation as its siblings — omitting it here
+                // would mass-sort the others around it while it stayed in engine order, giving a column
+                // that is both misaligned AND only intermittently red (near-tied entries swap position
+                // only on the CI rebuilds that happen to reorder them). deconv_charges/deconv_intensities
+                // are the per-charge lists that replaced the summed intensity and the [min,max] pair.
+                // The groups stay index-aligned across all four, which is what makes reordering them
+                // together valid; the sort key is still deconv_masses (deconv[0]).
                 int[] deconv = ResolveColumns(referenceHeader,
-                    "deconv_masses", "deconv_charges", "deconv_intensities");
+                    "deconv_masses", "deconv_qscores", "deconv_charges", "deconv_intensities");
                 return CanonicalizeTsv(text, cols => ReorderParallelColumns(cols, deconv, deconv[0]));
             }
             if (fileName == LogGoldenComparer.IdentificationName)
