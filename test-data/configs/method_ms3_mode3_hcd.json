@@ -53,7 +53,6 @@
     "rt_window": 180,
     "targeting": "none",
     "consider_all_charges": false,
-    "charge_based_exclusion": false,
     "strict_inclusion": false,
     "tie_threshold": 0.1,
     "rank_by": "qscore",
