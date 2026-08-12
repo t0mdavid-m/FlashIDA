@@ -328,7 +328,7 @@ namespace Flash
     public class CharacterizationConfig
     {
         [JsonKey("mode")]
-        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), or coverage (extend sequence coverage). Unknown values are rejected, not defaulted.")]
+        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), coverage (extend sequence coverage), or exhaustive (fragment every deconvolved mass of the winner MS2 scan, mapped or not -- ADR-0023). Unknown values are rejected, not defaulted.")]
         public string Mode { get; set; } = "off";
 
         [JsonKey("protein_sequence")]
@@ -353,6 +353,14 @@ namespace Flash
         [JsonKey("exploration")]
         public ExplorationBlockConfig Exploration { get; set; }
     }
+        // Not inheritable from deconvolution.min_mass: that floor is not applied to MSn output (the
+        // reference config sets min_mass 500 / min_charge 4 and its MS2 spectra still carry 248 Da and
+        // charge-1 species). A genuinely new floor, not a duplicate of an existing one. Default 0 =
+        // off, deliberately -- exhaustive does exactly what its name says until told otherwise.
+        [JsonKey("min_target_mass")]
+        [Description("Exhaustive mode only: deconvolved masses below this (Da) are not MS3 targets. 0 = off.")]
+        public double MinTargetMass { get; set; } = 0.0;
+
 
     [JsonKey("files")]
     public class FilesConfig
@@ -726,6 +734,7 @@ namespace Flash
         public JsonDeconvolutionConfig deconvolution { get; set; }
         public JsonPrecursorSelectionConfig precursor_selection { get; set; }
         public JsonFlashTnTConfig flashtnt { get; set; }
+        public double min_target_mass { get; set; }
         public JsonTaggingConfig tagging { get; set; }
         public JsonQuantificationConfig quantification { get; set; }
         public JsonFaimsConfig faims { get; set; }

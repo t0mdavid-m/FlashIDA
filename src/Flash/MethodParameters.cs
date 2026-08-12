@@ -241,6 +241,7 @@ namespace Flash
                 files = new JsonFilesConfig
                 {
                     target_logs = (c.Files.TargetLogs ?? new List<string>()).ToArray(),
+                    min_target_mass = c.Characterization.MinTargetMass,
                     fasta = c.Files.FastaFile ?? "",
                     inclusion_list = c.Files.InclusionList ?? "",
                     ptm_list = c.Files.PtmList ?? ""
