@@ -395,6 +395,30 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
         }
 
+        // The THIRD objective on the same cytC data (ADR-0023). ambiguity and coverage both select out of
+        // the mapped-fragment table; exhaustive selects out of the winner MS2 scan's RAW deconvolved
+        // masses, so masses that matched no theoretical fragment become MS3 targets too — in this
+        // spectrum roughly two of every three by intensity. Those carry ion_type 'u' / ion_index 0
+        // in-engine, take buildMS3's no-ion branch, and therefore log an EMPTY ion_type with index 0
+        // (ADR-0023 5b): an ms_level-3 command row with no ion is the discriminator for an unassigned
+        // target, since every mapped target carries a real ion and a positive index.
+        //
+        // The fixture is method_ms3_cytc_real.json with exactly two keys changed (mode, min_target_mass),
+        // so this golden diffed against ms3_cytc isolates the objective and nothing else.
+        // minMs2Commands:1 fail-closes if the inclusion pin does not select the cytC precursor.
+        [Test, Category("Tier2")]
+        public void Golden_MS3_Exhaustive_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exhaustive MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("ms3_exhaustive_cytc", "method_ms3_cytc_exhaustive.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
         // Active guard that the two characterization objectives select DIFFERENT MS3 targets on the same
         // cytC data — the "ambiguity vs coverage" contrast that motivates the coverage golden. Ambiguity
         // (method_ms3_cytc_real.json, default objective) picks containers of the ambiguous mod ranges;
