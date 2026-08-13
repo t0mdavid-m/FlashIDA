@@ -120,6 +120,7 @@
     <Compile Include="LogPathResolver.cs" />
     <Compile Include="MethodConfig.cs" />
     <Compile Include="MethodParameters.cs" />
+    <Compile Include="NextScanSource.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ScanFactory.cs" />
   </ItemGroup>
