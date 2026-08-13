@@ -611,27 +611,39 @@ namespace Flash
             //One rule, no ownership protocol: we never dispose a scan.
             if (inCustom)
             {
-                //top up the queue on a background thread - the drain must not happen on this one
-                if (nextScans.Count <= 1)
+                //NOTHING below may throw onto the instrument event thread: an unhandled exception here
+                //does not crash the process the usual way but leaves the API in a weird state (see the
+                //InstrumentConnected remarks). Two of these statements can throw - Thread.Start() if
+                //the process cannot create one, which a pile-up of slow fills is exactly what would
+                //cause, and BuildFillerScan's reflection.
+                try
                 {
-                    new System.Threading.Thread(FillQueue) { IsBackground = true }.Start();
-                }
+                    //top up the queue on a background thread - the drain must not happen on this one
+                    if (nextScans.Count <= 1)
+                    {
+                        new System.Threading.Thread(FillQueue) { IsBackground = true }.Start();
+                    }
 
-                //a rejected Post means the scan is DROPPED, not deferred - never silent
-                if (!dataPipe.Push(msScan))
-                {
-                    log.Error(String.Format("Scan {0} was rejected by the pipeline and will NOT be processed", scanId));
-                }
+                    //a rejected Post means the scan is DROPPED, not deferred - never silent
+                    if (!dataPipe.Push(msScan))
+                    {
+                        log.Error(String.Format("Scan {0} was rejected by the pipeline and will NOT be processed", scanId));
+                    }
 
-                //send the next queued request; a filler keeps the instrument in custom control if the
-                //queue has run dry, rather than letting it fall back to its own method
-                if (nextScans.TryDequeue(out var next))
-                {
-                    SendCustomScan(next);
+                    //send the next queued request; a filler keeps the instrument in custom control if
+                    //the queue has run dry, rather than letting it fall back to its own method
+                    if (nextScans.TryDequeue(out var next))
+                    {
+                        SendCustomScan(next);
+                    }
+                    else
+                    {
+                        SendCustomScan(BuildFillerScan());
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    SendCustomScan(BuildFillerScan());
+                    log.Fatal(String.Format("Scan {0} handling failed: {1}\n{2}", scanId, ex.Message, ex.StackTrace));
                 }
             }
         }
