@@ -191,6 +191,7 @@
     "protein_sequence": "MSENTINELPEPTIDESEQ",
     "max_targets": 4,
     "min_fragment_charge": 1,
+    "min_target_mass": 617.5,
     "fragment_charges": "separate",
     "exploration": {
       "metric": "fragment_count",
