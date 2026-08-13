@@ -234,6 +234,7 @@ namespace Flash
                     protein_sequence = c.Characterization.ProteinSequence ?? "",
                     max_targets = c.Characterization.MaxTargets,
                     min_fragment_charge = c.Characterization.MinFragmentCharge,
+                    min_target_mass = c.Characterization.MinTargetMass,
                     fragment_charges = c.Characterization.FragmentCharges,
                     exploration = ToJsonExploration(c.Characterization.Exploration)
                 },
@@ -241,7 +242,6 @@ namespace Flash
                 files = new JsonFilesConfig
                 {
                     target_logs = (c.Files.TargetLogs ?? new List<string>()).ToArray(),
-                    min_target_mass = c.Characterization.MinTargetMass,
                     fasta = c.Files.FastaFile ?? "",
                     inclusion_list = c.Files.InclusionList ?? "",
                     ptm_list = c.Files.PtmList ?? ""
@@ -592,6 +592,10 @@ namespace Flash
             c.Characterization.ProteinSequence = "MSENTINELPEPTIDESEQ";
             c.Characterization.MaxTargets = 4;
             c.Characterization.MinFragmentCharge = 1;
+            // Distinctive, per this builder's own rule: every key carries a non-default value so a
+            // DROPPED key is detectable. Leaving this at 0.0 would make the regenerated reference
+            // vacuous for exactly the key it is being regenerated for.
+            c.Characterization.MinTargetMass = 617.5;
             c.Characterization.FragmentCharges = "separate";
             c.Characterization.Exploration = new ExplorationBlockConfig
             {

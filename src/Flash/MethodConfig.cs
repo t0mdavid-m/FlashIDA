@@ -352,7 +352,7 @@ namespace Flash
         // sweeps HCD 20-40 at MS2 and CID 15-35 at MS3).
         [JsonKey("exploration")]
         public ExplorationBlockConfig Exploration { get; set; }
-    }
+
         // Not inheritable from deconvolution.min_mass: that floor is not applied to MSn output (the
         // reference config sets min_mass 500 / min_charge 4 and its MS2 spectra still carry 248 Da and
         // charge-1 species). A genuinely new floor, not a duplicate of an existing one. Default 0 =
@@ -360,7 +360,7 @@ namespace Flash
         [JsonKey("min_target_mass")]
         [Description("Exhaustive mode only: deconvolved masses below this (Da) are not MS3 targets. 0 = off.")]
         public double MinTargetMass { get; set; } = 0.0;
-
+    }
 
     [JsonKey("files")]
     public class FilesConfig
@@ -717,6 +717,7 @@ namespace Flash
         public string protein_sequence { get; set; }
         public int max_targets { get; set; }
         public int min_fragment_charge { get; set; }
+        public double min_target_mass { get; set; }
         public string fragment_charges { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
     }
@@ -734,7 +735,6 @@ namespace Flash
         public JsonDeconvolutionConfig deconvolution { get; set; }
         public JsonPrecursorSelectionConfig precursor_selection { get; set; }
         public JsonFlashTnTConfig flashtnt { get; set; }
-        public double min_target_mass { get; set; }
         public JsonTaggingConfig tagging { get; set; }
         public JsonQuantificationConfig quantification { get; set; }
         public JsonFaimsConfig faims { get; set; }
