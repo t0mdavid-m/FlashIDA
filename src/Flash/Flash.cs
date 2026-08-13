@@ -71,6 +71,19 @@ namespace Flash
         //analysis_mutex_ - all of it between a scan arriving and the next command going out.
         static readonly ConcurrentQueue<IFusionCustomScan> nextScans = new ConcurrentQueue<IFusionCustomScan>();
 
+        //0 = no fill running, 1 = one in flight. Load-bearing: the queue-depth check alone bounds the
+        //QUEUE, not the number of fills, and a fill blocks INSIDE GetNextScanCommand - before it can
+        //enqueue anything - whenever processScan is holding analysis_mutex_. Without this flag the
+        //queue stays empty for the whole deconvolution, so every arriving scan passes the depth check
+        //and spawns another blocked thread, while the filler each one sends generates the next arrival.
+        static int filling;
+
+        //AGC group for our two CONTROL scans (handshake, filler). Deliberately not group 1: an AGC
+        //scan gain-corrects the other scans in its group, and these two are cheap IonTrap probes that
+        //command neither the configured source region nor a FAIMS CV, so their flux estimate does not
+        //describe the real scans it would otherwise be applied to.
+        private const int ControlScanAgcGroup = 2;
+
         //loggers
         static ILog log;
 
@@ -484,7 +497,7 @@ namespace Flash
                     Microscans = 1,
                     DataType = "Profile",
                     ScanType = "Full",
-                }, id: HandshakeJobNumber, IsAGC: true, delay: 3);
+                }, id: HandshakeJobNumber, IsAGC: true, delay: 3, AGCgroup: ControlScanAgcGroup);
         }
 
         /// <summary>
@@ -533,7 +546,27 @@ namespace Flash
                     Microscans = 1,
                     DataType = "Profile",
                     ScanType = "Full",
-                }, id: 0, IsAGC: true, delay: 0);
+                }, id: 0, IsAGC: true, delay: 0, AGCgroup: ControlScanAgcGroup);
+        }
+
+        /// <summary>
+        /// Thread body for a queue top-up: fill once, then release the in-flight flag.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="FillQueue"/> so the synchronous priming call at startup does not
+        /// touch the flag it never took. The release is in a <c>finally</c> because a flag left set
+        /// would stop the queue ever being topped up again.
+        /// </remarks>
+        private static void FillQueueAndRelease()
+        {
+            try
+            {
+                FillQueue();
+            }
+            finally
+            {
+                System.Threading.Volatile.Write(ref filling, 0);
+            }
         }
 
         /// <summary>
@@ -620,16 +653,22 @@ namespace Flash
                 //failed top-up cannot skip the two statements below, which are obligations: miss the
                 //Push and the scan is never analysed, miss the send and - with SingleProcessingDelay
                 //at 0 - the instrument drops out of custom control.
-                try
+                //Both conditions are needed: the depth check keeps the queue shallow, the flag keeps
+                //the number of concurrent drains at one. getNextScanCommand is documented as being
+                //called from this thread alone, and its steps are check-then-act across separate
+                //locks, so concurrent callers duplicate AGC scans and forced surveys.
+                if (nextScans.Count <= 1 && System.Threading.Interlocked.CompareExchange(ref filling, 1, 0) == 0)
                 {
-                    if (nextScans.Count <= 1)
+                    try
                     {
-                        new System.Threading.Thread(FillQueue) { IsBackground = true }.Start();
+                        new System.Threading.Thread(FillQueueAndRelease) { IsBackground = true }.Start();
                     }
-                }
-                catch (Exception ex)
-                {
-                    log.Fatal(String.Format("Could not start the queue-fill thread: {0}", ex.Message));
+                    catch (Exception ex)
+                    {
+                        //the thread never ran, so nothing else will clear the flag
+                        System.Threading.Volatile.Write(ref filling, 0);
+                        log.Fatal(String.Format("Could not start the queue-fill thread: {0}", ex.Message));
+                    }
                 }
 
                 try
