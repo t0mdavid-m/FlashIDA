@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reflection;
 using System.Linq;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Xml;
 using Thermo.TNG.Factory;
@@ -63,6 +64,12 @@ namespace Flash
 
         //DataPipe
         static DataPipe dataPipe;
+
+        //Instrument requests already drained and built, waiting to be sent. Kept topped up from a
+        //background thread so ProcessSpectrum never has to drain the engine itself: that call flushes
+        //a TSV row to disk, writes to stdout, and can block behind a deconvolution holding
+        //analysis_mutex_ - all of it between a scan arriving and the next command going out.
+        static readonly ConcurrentQueue<IFusionCustomScan> nextScans = new ConcurrentQueue<IFusionCustomScan>();
 
         //loggers
         static ILog log;
@@ -390,6 +397,10 @@ namespace Flash
                 {
                     scanControl.SetFusionCustomScan(BuildHandshakeScan());
                     log.Info("Sent the first magic scan");
+
+                    //prime the queue while the handshake is in flight. Synchronous, and the delay does
+                    //not matter here - nothing is being acquired yet. Must be on BOTH startup paths.
+                    FillQueue();
                 }
                 catch (Exception ex)
                 {
@@ -434,6 +445,9 @@ namespace Flash
             {
                 scanControl.SetFusionCustomScan(BuildHandshakeScan());
                 log.Info("Sent the first magic scan");
+
+                //prime the queue while the handshake is in flight - see the OverrideCC branch
+                FillQueue();
             }
             catch (Exception ex)
             {
@@ -471,6 +485,55 @@ namespace Flash
                     DataType = "Profile",
                     ScanType = "Full",
                 }, id: HandshakeJobNumber, IsAGC: true, delay: 3);
+        }
+
+        /// <summary>
+        /// Drain one command out of the engine and queue the instrument request built from it.
+        /// </summary>
+        /// <remarks>
+        /// Runs as the whole body of a background thread, so it MUST NOT throw - an escaping exception
+        /// kills that thread, nothing ever refills the queue again, and the run sends filler scans for
+        /// the rest of the gradient with the instrument busy and the logs clean.
+        /// A refused command (incomplete stage geometry, ADR-0010) is dropped, not retried.
+        /// </remarks>
+        private static void FillQueue()
+        {
+            try
+            {
+                var cmd = new ScanCommand();
+                if (wrapper.GetNextScanCommand(ref cmd) == 1)
+                    nextScans.Enqueue(scanFactory.BuildFromCommand(cmd));
+            }
+            catch (Exception ex)
+            {
+                log.Fatal(String.Format("Could not queue the next scan: {0}\n{1}", ex.Message, ex.StackTrace));
+            }
+        }
+
+        /// <summary>
+        /// Cheap scan sent to keep the instrument in custom control when the queue has run dry.
+        /// </summary>
+        /// <remarks>
+        /// Same parameters as <see cref="BuildHandshakeScan"/> but a separate method on purpose: that
+        /// one stamps <c>id: HandshakeJobNumber</c>, and its echo hits the latch in ProcessSpectrum,
+        /// which reassigns <c>currentNumber</c> and re-issues job numbers already used in the run.
+        /// Goes through <see cref="SendCustomScan"/>, so it takes the next running number normally.
+        /// </remarks>
+        private static IFusionCustomScan BuildFillerScan()
+        {
+            return scanFactory.CreateFusionCustomScan(
+                new ScanParameters
+                {
+                    Analyzer = "IonTrap",
+                    FirstMass = new double[] { methodParams.Config.MsSettings.MS1.FirstMass },
+                    LastMass = new double[] { methodParams.Config.MsSettings.MS1.LastMass },
+                    ScanRate = "Turbo",
+                    AGCTarget = 30000,
+                    MaxIT = 1,
+                    Microscans = 1,
+                    DataType = "Profile",
+                    ScanType = "Full",
+                }, id: 0, IsAGC: true, delay: 0);
         }
 
         /// <summary>
@@ -548,28 +611,27 @@ namespace Flash
             //One rule, no ownership protocol: we never dispose a scan.
             if (inCustom)
             {
+                //top up the queue on a background thread - the drain must not happen on this one
+                if (nextScans.Count <= 1)
+                {
+                    new System.Threading.Thread(FillQueue) { IsBackground = true }.Start();
+                }
+
                 //a rejected Post means the scan is DROPPED, not deferred - never silent
                 if (!dataPipe.Push(msScan))
                 {
                     log.Error(String.Format("Scan {0} was rejected by the pipeline and will NOT be processed", scanId));
                 }
 
-                var cmd = new ScanCommand();
-                if (wrapper.GetNextScanCommand(ref cmd) == 1)
+                //send the next queued request; a filler keeps the instrument in custom control if the
+                //queue has run dry, rather than letting it fall back to its own method
+                if (nextScans.TryDequeue(out var next))
                 {
-                    //BuildFromCommand refuses a command whose stage geometry is incomplete rather
-                    //than emitting a request the instrument would bind to the wrong stage. Caught
-                    //HERE so it cannot escape onto the instrument event thread, where an unhandled
-                    //exception does not crash the process the usual way but leaves the API in a
-                    //weird state (see the InstrumentConnected remarks).
-                    try
-                    {
-                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        log.Fatal(String.Format("Refused to send scan {0}: {1}", cmd.ScanId, ex.Message));
-                    }
+                    SendCustomScan(next);
+                }
+                else
+                {
+                    SendCustomScan(BuildFillerScan());
                 }
             }
         }
