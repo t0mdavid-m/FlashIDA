@@ -406,6 +406,33 @@ namespace Flash.Tests
         // The fixture is method_ms3_cytc_real.json with exactly two keys changed (mode, min_target_mass),
         // so this golden diffed against ms3_cytc isolates the objective and nothing else.
         // minMs2Commands:1 fail-closes if the inclusion pin does not select the cytC precursor.
+        //
+        // WHAT THIS GOLDEN PINS, AND WHAT IT DOES NOT. It is a TARGETING reference, not a return-path
+        // one. 49 of its 51 MS3 commands are never fed back: BuildMs3IonMap keys fixtures by ION, and
+        // an unassigned target has no ion to key on (every committed ms3_cytc_* fixture is a b-ion).
+        // So it pins the pool, the intensity ranking, the budget, the identification gate, and the
+        // unassigned wire contract (empty ion_type, ion_index 0, no-ion descriptor) -- 34 such rows
+        // against ms3_cytc's zero, which is what would catch `exhaustive` decaying into an alias of
+        // `ambiguity`.
+        //
+        // It does NOT pin: the unassigned RETURN path (ADR-0023 decision 6's second half), the
+        // matcher's known-ion-class guard (never reached through processScan), the dispatch memory
+        // (planExhaustive_ runs once per Precursor here, so the set is written and never read), either
+        // pool filter (min_target_mass is 0 and min_fragment_charge unauthored), the decision-11 metric
+        // override (no exploration block), or the ETD capability gate (all 25 winners are HCD).
+        // identification/pooled/ida.log are strict subsets of ms3_cytc's -- a red in those three is
+        // almost certainly NOT this feature.
+        //
+        // Adding one real ms3_cytc_y56_scan*.txt would convert 15 skipped commands into real returns
+        // and close most of that gap. It needs ACQUIRED data: fabricating an MS3 from an MS2 is what
+        // the Assert.Pass guards above exist to prevent.
+        //
+        // KNOWN, DELIBERATE: the rank-1 target in 8 of 17 precursors is 6175.65 @ z=7, which is the
+        // surviving intact precursor mis-deconvolved at half mass and half charge (2x6175.65 = 12351.30
+        // vs 12351.4; m/z 883.814 either way). It carries the file's lowest SNR (0.329) and qscore
+        // (0.796) and its highest intensity (8.76e7), and intensity is what ranks. For precursors 6 and
+        // 20 it displaces b51, which ms3_cytc acquired. ADR-0023 decision 9 declined a precursor skip,
+        // and one keyed on precursor IDENTITY would not catch a half-mass harmonic anyway.
         [Test, Category("Tier2")]
         public void Golden_MS3_Exhaustive_CytC()
         {
