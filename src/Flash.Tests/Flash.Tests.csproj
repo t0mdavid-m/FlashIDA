@@ -110,7 +110,6 @@
     <Compile Include="LogColumnReorderTests.cs" />
     <Compile Include="InterfaceShapeTests.cs" />
     <Compile Include="DataPipeTests.cs" />
-    <Compile Include="NextScanSourceTests.cs" />
     <Compile Include="AcquisitionLoop\ContinuityTests.cs" />
     <Compile Include="CleanupTests.cs" />
     <Compile Include="EclipseMethodAcquisitionTests.cs" />
