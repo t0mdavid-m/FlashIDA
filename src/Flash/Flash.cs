@@ -64,6 +64,10 @@ namespace Flash
         //DataPipe
         static DataPipe dataPipe;
 
+        //Holds the next instrument request already drained and already built, so ProcessSpectrum only
+        //has to hand it over. See docs/adr/0024 for why the drain must not happen on this thread.
+        static NextScanSource source;
+
         //loggers
         static ILog log;
 
@@ -365,6 +369,20 @@ namespace Flash
                 dataPipe = new DataPipe(flashIDAProcessor,
                     ex => RequestStop(String.Format("Aborting run - scan processing failed: {0}", ex.Message)));
                 log.Info("Created DataPipe");
+
+                //Armed-command buffer. The refill goes to a DEDICATED background thread, not the
+                //thread pool: a filler blocked on the engine's analysis_mutex_ would otherwise occupy
+                //a pool slot that the DataPipe ActionBlock needs to run and release that very mutex,
+                //and the pool injects replacement threads at only ~1-2/sec.
+                //System.Threading is fully qualified on purpose - a using would make the Timer in
+                //'static Timer duration' ambiguous against System.Timers.Timer (CS0104).
+                source = new NextScanSource(
+                    TryDrainNextCommand,
+                    cmd => scanFactory.BuildFromCommand(cmd),
+                    BuildFillerScan,
+                    work => new System.Threading.Thread(new System.Threading.ThreadStart(work))
+                            { IsBackground = true }.Start());
+                log.Info("Created NextScanSource");
             }
             catch (Exception ex)
             {
@@ -390,6 +408,12 @@ namespace Flash
                 {
                     scanControl.SetFusionCustomScan(BuildHandshakeScan());
                     log.Info("Sent the first magic scan");
+
+                    //Arm the buffer while the handshake is in flight. Synchronous on purpose: the
+                    //handshake echo can return in tens of milliseconds, and nothing is acquiring yet,
+                    //so however long the first drain takes costs nothing. MUST be on both startup
+                    //paths or they drift - the defect ADR-0008 exists to prevent.
+                    source.Arm();
                 }
                 catch (Exception ex)
                 {
@@ -434,6 +458,11 @@ namespace Flash
             {
                 scanControl.SetFusionCustomScan(BuildHandshakeScan());
                 log.Info("Sent the first magic scan");
+
+                //Arm the buffer while the handshake is in flight - see the OverrideCC branch. Both
+                //startup paths must do this, or the first arriving scan finds an empty buffer and is
+                //answered with a filler instead of the engine's first real command.
+                source.Arm();
             }
             catch (Exception ex)
             {
@@ -471,6 +500,57 @@ namespace Flash
                     DataType = "Profile",
                     ScanType = "Full",
                 }, id: HandshakeJobNumber, IsAGC: true, delay: 3);
+        }
+
+        /// <summary>
+        /// Drain one command out of the engine. Matches <see cref="TryDrainCommand"/>.
+        /// </summary>
+        /// <remarks>
+        /// A <c>false</c> means the wrapper CAUGHT something, never "queue empty" - the engine returns
+        /// 1 on every path and fabricates an idle AGC when its queues drain.
+        /// </remarks>
+        private static bool TryDrainNextCommand(out ScanCommand cmd)
+        {
+            cmd = new ScanCommand();
+            return wrapper.GetNextScanCommand(ref cmd) == 1;
+        }
+
+        /// <summary>
+        /// Build the cheap scan submitted when no armed command is ready.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately NOT <see cref="BuildHandshakeScan"/>, though the parameters are identical.
+        /// That one stamps <c>id: HandshakeJobNumber</c>, and its echo hits the latch in
+        /// <see cref="ProcessSpectrum"/>, which reassigns <c>currentNumber = HandshakeJobNumber</c> -
+        /// re-issuing instrument job numbers already used earlier in the run. The engine never reads
+        /// them, so it is not fatal, but it destroys log correlation exactly when someone is trying to
+        /// diagnose timing.
+        ///
+        /// Sent through <see cref="SendCustomScan"/> like any other command, so it takes the next
+        /// running number. It carries no ScanDescription, so the engine rejects its echo before
+        /// deconvolution (gate 1), same as the handshake's: a control signal, not data. That also means
+        /// filler scans appear in the raw file and in no engine log - <c>NextScanSource.DryRuns</c> and
+        /// its warnings are the only trace they leave.
+        ///
+        /// Built fresh per call rather than cached and re-stamped: <see cref="SendCustomScan"/> assigns
+        /// RunningNumber immediately before submitting, and mutating a scan the iAPI may still hold
+        /// from the previous submission would be a race for no gain.
+        /// </remarks>
+        private static IFusionCustomScan BuildFillerScan()
+        {
+            return scanFactory.CreateFusionCustomScan(
+                new ScanParameters
+                {
+                    Analyzer = "IonTrap",
+                    FirstMass = new double[] { methodParams.Config.MsSettings.MS1.FirstMass },
+                    LastMass = new double[] { methodParams.Config.MsSettings.MS1.LastMass },
+                    ScanRate = "Turbo",
+                    AGCTarget = 30000,
+                    MaxIT = 1,
+                    Microscans = 1,
+                    DataType = "Profile",
+                    ScanType = "Full",
+                }, id: 0, IsAGC: true, delay: 0);
         }
 
         /// <summary>
@@ -548,29 +628,26 @@ namespace Flash
             //One rule, no ownership protocol: we never dispose a scan.
             if (inCustom)
             {
-                //a rejected Post means the scan is DROPPED, not deferred - never silent
+                //1. Top up the armed-command buffer if it is running low. Non-blocking - the drain and
+                //   the build happen on a background thread. First, so the refill overlaps the rest.
+                source.OnScanArrived();
+
+                //2. Hand the arriving scan to the analysis pipeline.
+                //   A rejected Post means the scan is DROPPED, not deferred - never silent.
                 if (!dataPipe.Push(msScan))
                 {
                     log.Error(String.Format("Scan {0} was rejected by the pipeline and will NOT be processed", scanId));
                 }
 
-                var cmd = new ScanCommand();
-                if (wrapper.GetNextScanCommand(ref cmd) == 1)
-                {
-                    //BuildFromCommand refuses a command whose stage geometry is incomplete rather
-                    //than emitting a request the instrument would bind to the wrong stage. Caught
-                    //HERE so it cannot escape onto the instrument event thread, where an unhandled
-                    //exception does not crash the process the usual way but leaves the API in a
-                    //weird state (see the InstrumentConnected remarks).
-                    try
-                    {
-                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        log.Fatal(String.Format("Refused to send scan {0}: {1}", cmd.ScanId, ex.Message));
-                    }
-                }
+                //3. Submit. Next() is pure handover: no P/Invoke, no BuildFromCommand, no disk flush.
+                //   The drain used to happen right here, between the scan arriving and the command
+                //   going out, while the instrument waited (ADR-0024).
+                //   Next() hands back a cheap filler rather than nothing when the buffer has run dry,
+                //   and it never throws - an exception escaping onto the instrument event thread does
+                //   not crash the process the usual way but leaves the API in a weird state (see the
+                //   InstrumentConnected remarks). The refusal of a malformed command is caught inside
+                //   NextScanSource.FillOnce now, on the filler thread, off this path entirely.
+                SendCustomScan(source.Next());
             }
         }
 
