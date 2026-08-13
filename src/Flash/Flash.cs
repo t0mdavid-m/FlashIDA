@@ -613,17 +613,27 @@ namespace Flash
             {
                 //NOTHING below may throw onto the instrument event thread: an unhandled exception here
                 //does not crash the process the usual way but leaves the API in a weird state (see the
-                //InstrumentConnected remarks). Two of these statements can throw - Thread.Start() if
-                //the process cannot create one, which a pile-up of slow fills is exactly what would
-                //cause, and BuildFillerScan's reflection.
+                //InstrumentConnected remarks). Hence two separate catches, not one.
+                //
+                //Topping up is OPTIONAL and it is the one statement here that can realistically throw
+                //(Thread.Start when the process cannot create a thread). It gets its own catch so a
+                //failed top-up cannot skip the two statements below, which are obligations: miss the
+                //Push and the scan is never analysed, miss the send and - with SingleProcessingDelay
+                //at 0 - the instrument drops out of custom control.
                 try
                 {
-                    //top up the queue on a background thread - the drain must not happen on this one
                     if (nextScans.Count <= 1)
                     {
                         new System.Threading.Thread(FillQueue) { IsBackground = true }.Start();
                     }
+                }
+                catch (Exception ex)
+                {
+                    log.Fatal(String.Format("Could not start the queue-fill thread: {0}", ex.Message));
+                }
 
+                try
+                {
                     //a rejected Post means the scan is DROPPED, not deferred - never silent
                     if (!dataPipe.Push(msScan))
                     {
