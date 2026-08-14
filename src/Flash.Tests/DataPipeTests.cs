@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using Flash.Tests.Mocks;
 using NUnit.Framework;
 using Thermo.Interfaces.InstrumentAccess_V1.MsScanContainer;
@@ -129,6 +132,120 @@ namespace Flash.Tests
             Assert.IsFalse(completion.IsFaulted,
                 "A throwing onFailure must NOT fault the block: " + completion.Exception);
             Assert.AreEqual(2, processor.CallCount, "Both scans must reach the processor");
+        }
+
+        /// <summary>
+        /// A scan that has been queued must still be readable after the iAPI has released its
+        /// source handle.
+        ///
+        /// The pipeline queues the IMsScan HANDLE and the consumer reads Centroids/Header/Trailer
+        /// through it at DEQUEUE time (UnifiedScanProcessor.cs:20-25). An IMsScan is a window onto
+        /// framework-owned memory that the iAPI releases as soon as the next scan replaces it as the
+        /// container's LastScan - so anything still sitting in the queue at that moment is a handle
+        /// to memory that may already be gone. Nothing signals it and nothing throws on the producer
+        /// side; the scan is simply lost, silently and corruptly.
+        ///
+        /// Today this never bites because the queue is only ever ~1 deep: the command drain blocks
+        /// behind the deconvolution, which couples the instrument's scan rate to the processing
+        /// rate. That coupling is accidental, and removing it is exactly what the engine-side lock
+        /// split does - so this latent defect becomes reachable the moment the drain stops blocking.
+        ///
+        /// The fix is for the queue to hold a COPY of the six values the engine needs rather than a
+        /// handle. This test is red until it does.
+        /// </summary>
+        [Test]
+        [Category("Tier1")]
+        public void DataPipe_QueuedScan_SurvivesSourceHandleInvalidation()
+        {
+            var consumerEntered = new ManualResetEventSlim(false);
+            var release = new ManualResetEventSlim(false);
+            var captured = new List<CapturedScan>();
+            int abortSignals = 0;
+
+            var processor = new CapturingProcessor(consumerEntered, release, captured);
+            var pipe = new DataPipe(processor, _ => abortSignals++);
+
+            //The first scan PARKS the consumer, which is what guarantees the second one is sitting
+            //in the queue rather than already in flight. Latched, not raced - there is no timing
+            //assumption here and nothing for a loaded CI runner to perturb.
+            pipe.Push(MockMsScan.EmptyMS1(rt: 1.0, scanNumber: "1"));
+            Assert.IsTrue(consumerEntered.Wait(TimeSpan.FromSeconds(5)),
+                "The consumer should have picked up the first scan and parked");
+
+            var queued = MockMsScan.WithPeaks(2.0, "2", (700.5, 1234.0), (701.0, 5678.0));
+            pipe.Push(queued);
+
+            //The next scan arriving is what releases this one's content on a real instrument. We
+            //never get told; the handle just stops being readable.
+            queued.Invalidate();
+
+            release.Set();
+            pipe.Complete();
+            Assert.IsTrue(pipe.WaitForCompletion().Wait(TimeSpan.FromSeconds(5)), "DataPipe should complete");
+
+            Assert.AreEqual(0, abortSignals,
+                "Reading a queued scan must not fail. A non-zero count means the consumer read through "
+                + "a released handle and the ActionBlock caught the exception - i.e. the scan was lost.");
+            Assert.AreEqual(2, captured.Count, "Both scans must be processed");
+
+            var second = captured[1];
+            CollectionAssert.AreEqual(new[] { 700.5, 701.0 }, second.Mzs,
+                "The queued scan's peaks must survive its source handle being released");
+            CollectionAssert.AreEqual(new[] { 1234.0, 5678.0 }, second.Intensities);
+            Assert.AreEqual(2.0, second.Rt, 1e-9);
+            Assert.AreEqual(1, second.MsLevel);
+            Assert.AreEqual(MockMsScan.Ms1ScanDescription, second.Description);
+        }
+
+        private class CapturedScan
+        {
+            public double[] Mzs;
+            public double[] Intensities;
+            public double Rt;
+            public int MsLevel;
+            public string Description;
+        }
+
+        /// <summary>
+        /// Reads exactly the six values UnifiedScanProcessor reads, in the same order, so this test
+        /// reproduces the production access pattern rather than a convenient approximation of it.
+        /// Parks on the first scan so a later one can be observed sitting in the queue.
+        /// </summary>
+        private class CapturingProcessor : IScanProcessor
+        {
+            private readonly ManualResetEventSlim entered;
+            private readonly ManualResetEventSlim release;
+            private readonly List<CapturedScan> captured;
+            private bool parked;
+
+            public CapturingProcessor(ManualResetEventSlim entered, ManualResetEventSlim release,
+                List<CapturedScan> captured)
+            {
+                this.entered = entered;
+                this.release = release;
+                this.captured = captured;
+            }
+
+            public void ProcessMS(IMsScan msScan)
+            {
+                if (!parked)
+                {
+                    parked = true;
+                    entered.Set();
+                    release.Wait(TimeSpan.FromSeconds(10));
+                }
+
+                string desc;
+                msScan.Trailer.TryGetValue("Scan Description", out desc);
+                captured.Add(new CapturedScan
+                {
+                    Mzs = msScan.Centroids.Select(c => c.Mz).ToArray(),
+                    Intensities = msScan.Centroids.Select(c => c.Intensity).ToArray(),
+                    Rt = double.Parse(msScan.Header["StartTime"]),
+                    MsLevel = int.Parse(msScan.Header["MSOrder"]),
+                    Description = desc
+                });
+            }
         }
 
         private class CountingProcessor : IScanProcessor

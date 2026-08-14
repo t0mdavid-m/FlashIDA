@@ -30,10 +30,10 @@ namespace Flash.Tests.Mocks
         // === IMsScan members ===
 
         /// <summary>Header: scan metadata (MSOrder, MassAnalyzer, StartTime, Scan, etc.)</summary>
-        public IDictionary<string, string> Header => _headerDict;
+        public IDictionary<string, string> Header { get { ThrowIfInvalidated("Header"); return _headerDict; } }
 
         /// <summary>Trailer: scan-level metadata (Access ID, Charge State, FAIMS CV, etc.)</summary>
-        public IInformationSourceAccess Trailer => _trailerAccess;
+        public IInformationSourceAccess Trailer { get { ThrowIfInvalidated("Trailer"); return _trailerAccess; } }
 
         /// <summary>Tune data (not used by Flash code)</summary>
         public IInformationSourceAccess TuneData => null;
@@ -47,7 +47,7 @@ namespace Flash.Tests.Mocks
         // === ISpectrum members ===
 
         /// <summary>Centroid peak list</summary>
-        public IEnumerable<ICentroid> Centroids => _centroids;
+        public IEnumerable<ICentroid> Centroids { get { ThrowIfInvalidated("Centroids"); return _centroids; } }
 
         /// <summary>Number of centroids</summary>
         public int? CentroidCount => _centroids.Count;
@@ -84,6 +84,34 @@ namespace Flash.Tests.Mocks
         {
             // No unmanaged resources in the mock; record the call so tests can assert ownership.
             IsDisposed = true;
+        }
+
+        private bool _invalidated;
+
+        /// <summary>
+        /// Simulate the iAPI RELEASING this scan's content, which is a different event from Dispose
+        /// and is not under our control at all.
+        ///
+        /// Per dependencies/API-2.0.xml (IMsScan), the framework releases a scan's content once the
+        /// IMsScanContainer's LastScan property has changed - i.e. as soon as the NEXT scan arrives.
+        /// Nobody calls anything to make that happen and nothing signals it; the handle simply stops
+        /// being readable. Any component that holds an IMsScan across that boundary and reads it
+        /// afterwards is reading released memory.
+        ///
+        /// After this call Header, Trailer and Centroids all throw, which is the observable form of
+        /// that hazard. Dispose/IsDisposed stay independent: they model OUR ownership mistakes, this
+        /// models the framework's normal, expected behaviour.
+        /// </summary>
+        public void Invalidate()
+        {
+            _invalidated = true;
+        }
+
+        private void ThrowIfInvalidated(string member)
+        {
+            if (_invalidated)
+                throw new ObjectDisposedException(nameof(MockMsScan),
+                    "IMsScan." + member + " was read after the iAPI released this scan's content");
         }
 
         // === Factory methods ===
