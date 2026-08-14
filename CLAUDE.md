@@ -42,7 +42,10 @@ Thermo MsScanArrived  ──► ProcessSpectrum(IMsScan)          [instrument ev
                             ├─ if Trailer["Access ID"] == HandshakeJobNumber ──► inCustom = true  (latch)
                             │
                             └─ if (inCustom):
-                                 dataPipe.Push(scan)  ─────────► BufferBlock ─► ActionBlock  [pool thread]
+                                 dataPipe.Push(scan)
+                                 │   └─ ScanData.From(scan)  ◄── the handle is read HERE, on this
+                                 │        (6 owned values)        thread, while it is still live
+                                 │   ─────────► BufferBlock<ScanData> ─► ActionBlock  [pool thread]
                                  │   (false ⇒ DROPPED, logged)       └─► UnifiedScanProcessor.ProcessMS
                                  │                                        └─► FLASHIdaWrapper.ProcessScan
                                  │                                   (nobody disposes the scan)
@@ -73,6 +76,10 @@ Five things this diagram exists to correct:
   never acquired the handle — which threw out of a `finally` sitting *outside* the delegate's
   `try/catch` and faulted the `ActionBlock` on the first scan of the run. There is no ownership
   protocol to get right any more, because there is no disposal.
+  **The pool thread no longer reads the handle at all** — `Push` snapshots it into a `ScanData`
+  first — so the *lifetime* hazard that made both mistakes so expensive is gone as well. That is a
+  reason to be more suspicious of a new `Dispose`, not less: "we've copied what we need, release
+  it" is the shape the producer-side mistake takes now. Pinned by `DataPipe_DoesNotDisposeScan`.
 - **`processScan` and `getNextScanCommand` genuinely run on different threads** — the pool
   thread and the instrument event thread respectively. The engine's mutexes are load-bearing.
 
@@ -139,12 +146,31 @@ exception was caught, never "queue empty".
   - **`FillParameters` is `protected`, and `MockScanFactory` calls it.** It used to be `private` with a
     hand-copied twin in the mock, so every test asserting on `Values` was checking the copy rather
     than production — and the two had drifted on exactly the number formatting above.
-- **`DataPipe.cs`** — `BufferBlock` → `ActionBlock`, constructed with no execution options, so
-  `MaxDegreeOfParallelism` is 1 and `ProcessMS` calls are serialized.
+- **`DataPipe.cs`** — `BufferBlock` → `ActionBlock` with an explicit `MaxDegreeOfParallelism = 1`,
+  so `ProcessMS` calls are serialized. It was always 1, but as a TPL *default*; it is now stated,
+  because the engine leans on it — `processScan` is serialized against itself by this block and by
+  nothing else, which is why `analysis_mutex_` only has to defend against the drain.
+  - **The queue holds a `ScanData` snapshot, not the `IMsScan`.** `Push` takes the handle and copies
+    the six values the engine needs (`ScanData.From`) **on the caller's thread**, i.e. while the
+    handle is still live. An `IMsScan` is a window onto framework-owned memory the iAPI releases as
+    soon as the next scan replaces it as `LastScan`, so a queued *handle* is only safe while the
+    queue is ~1 deep — which it was, by accident, because the command drain blocked behind the
+    deconvolution. Removing that stall is what made a deep queue reachable.
+    ⚠️ **Anything the engine needs is added to `ScanData.From`, never read at the consumer.** A field
+    fetched lazily from the handle later reintroduces exactly this defect.
+  - **The queue is deliberately unbounded and nothing is ever dropped.** Bounding it was considered
+    and rejected: a dropped exploration variant wedges its group for the rest of the run
+    (`Exploration::active_groups_.erase` is reachable only past the `all_received` gate, no timeout)
+    and leaks its pending-map entry. If `D > T` persistently the backlog grows — watch RSS, and fix
+    the throughput rather than start discarding data.
   - **`Push` is not an ownership transfer** — nothing here disposes the scan (see the diagram
-    bullet above). Its `bool` says only whether the block *accepted* the message, and `false` means
-    the scan was **dropped and never processed**, so `ProcessSpectrum` logs it rather than ignoring
-    it. Production has no legitimate way to see `false`: the block is completed only by tests.
+    bullet above). Its `bool` says only whether the pipeline accepted it, and `false` means the scan
+    was **dropped and never processed**, so `ProcessSpectrum` logs it rather than ignoring it. There
+    are two ways to get one: the block refusing it (completed only by tests, so not a production
+    path), and a scan that could not be *read* — a malformed header, or a handle already released.
+    The second takes the same FATAL + `onFailure` route a processing failure takes, because it used
+    to be one: the parsing ran inside the consumer's `try/catch` before it moved to `Push`. It is
+    caught rather than thrown because `Push`'s caller is the instrument event thread.
   - **The `ActionBlock` must never fault, and no statement may sit outside its `try/catch`.** An
     escaping exception faults it *permanently*, severing the link while `GetNextScanCommand` keeps
     handing the instrument idle AGC scans — a silent, total loss of acquisition. It is invisible
