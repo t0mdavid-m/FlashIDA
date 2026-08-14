@@ -14,23 +14,46 @@ which order, using real-time deconvolution and quality scoring for precursor sel
 
 C# 7.3 / .NET Framework 4.8, x64, Windows only. Solution: `src/Flash.sln`. Output: `bin/`.
 
-## The build currently ships the OFFLINE harness, not the instrument app
+## `Flash.Flash` IS production. The `StartupObject` in git says otherwise, and it is lying.
 
-`src/Flash/Flash.csproj:38` pins `<StartupObject>Flash.IDA.FLASHIdaWrapper</StartupObject>`.
-Two classes define a `Main`, and the csproj picks the offline one:
+Two classes define a `Main`, and `src/Flash/Flash.csproj:38` picks between them:
 
-| `Main` | Contains | Reachable? |
+| `Main` | Contains | Built by the checked-in csproj? |
 |---|---|---|
-| `Flash.IDA.FLASHIdaWrapper.Main` (`IDA/FLASHIdaWrapper.cs:438`) | Offline deconvolution over a text spectrum file | **Yes — this is Flash.exe** |
-| `Flash.Flash.Main` (`Flash.cs:154`) | Thermo instrument connection, method load + run-folder composition + log4net wiring, the whole Mono.Options CLI (`-t/--test`, `-m`, `-o`, `-r`, …) | **No — dead code in this build** |
+| `Flash.IDA.FLASHIdaWrapper.Main` (`IDA/FLASHIdaWrapper.cs:438`) | Offline deconvolution over a text spectrum file | **Yes — this is what CI builds and tests** |
+| `Flash.Flash.Main` (`Flash.cs:154`) | Thermo instrument connection, method load + run-folder composition + log4net wiring, the whole Mono.Options CLI (`-t/--test`, `-m`, `-o`, `-r`, …) | No — but **this is what ships** |
 
-So `Flash.exe` takes **positional args only**: `<input_spectrum> <output.tsv> <method.json> [ms2_spectrum]`.
-There is no `-t/--test` flag — passing `-t` makes it `args[0]` and the run dies with
-`Cannot open input file: -t`. Fewer than 3 args prints usage and exits 1. Git history shows the
-StartupObject used to be `Flash.Flash`; **restoring instrument acquisition means flipping it back**.
+**Do not read the second row as "dead code".** Owner-confirmed: the instrument path is what runs on
+the hardware. The `StartupObject` is a developer toggle that gets flipped at deploy time and back
+again, and the flip happens **outside version control** —
+`git log -L 37,39:src/Flash/Flash.csproj` shows the file created at `Flash.Flash` (`9ed3653`,
+2021-07-01) and **21 flips** since, the last to the offline harness (`46f0fc8`, 2025-07-07). So no
+commit in over a year has produced an instrument-entry-point binary, and the deployed artifact is
+built from a working tree that differs from `HEAD` in exactly this line.
 
-Everything in *Architecture* below describes `Flash.cs`, which is real, maintained, and currently
-unreachable. Treat it as the acquisition design, not as what runs today.
+It sits in an **unconditional** `PropertyGroup`, so it is not a Debug/Release or platform switch,
+and nothing asserts its value.
+
+Consequences that are easy to get backwards:
+
+- **A bug in `Flash.cs` / `OnContactClosure` / `ProcessSpectrum` / `DataPipe` is a live production
+  bug**, and wastes real instrument runs and samples. Do not deprioritise defects there.
+- **log4net *is* configured in production** — `XmlConfigurator.Configure` has exactly one call site
+  and it is inside the instrument `Main`. "log4net is never configured" is false for real runs.
+- **`Flash.Flash` has zero automated coverage.** It needs a live Thermo
+  `IFusionInstrumentAccess`/`IFusionScans`, so no CI job can execute it and defects there are found
+  by inspection only.
+- **"Just flip it back" is not a fix.** `regression-runner.ps1` and the CI golden-capture step both
+  drive `Flash.exe` through the offline positional interface; flipping the StartupObject breaks
+  both.
+
+When the offline harness *is* the entry point, `Flash.exe` takes **positional args only**:
+`<input_spectrum> <output.tsv> <method.json> [ms2_spectrum]`. There is no `-t/--test` flag — passing
+`-t` makes it `args[0]` and the run dies with `Cannot open input file: -t`. Fewer than 3 args prints
+usage and exits 1.
+
+Everything in *Architecture* below describes `Flash.cs`. Treat it as what runs on the instrument,
+because it is.
 
 ## Architecture
 
