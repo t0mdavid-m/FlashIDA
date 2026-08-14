@@ -44,6 +44,13 @@ namespace Flash.Tests
         /// rest of the gradient while the engine saw nothing at all.
         ///
         /// This test fails the moment anyone reintroduces a Dispose in the pipeline.
+        ///
+        /// It guards a NEWER temptation too. Push now snapshots the scan into a ScanData before
+        /// queueing it, which makes "we have copied everything we need, so release the handle" look
+        /// reasonable. It is not: the iAPI owns that lifetime and frees the content itself. The
+        /// consumer no longer touches the handle at all, so the only remaining way for this
+        /// assertion to fail is someone disposing on the producer side - the exact half of the old
+        /// lifetime dispute that freed memory the pool thread was still reading.
         /// </summary>
         [Test]
         [Category("Tier1")]
@@ -159,7 +166,7 @@ namespace Flash.Tests
         {
             var consumerEntered = new ManualResetEventSlim(false);
             var release = new ManualResetEventSlim(false);
-            var captured = new List<CapturedScan>();
+            var captured = new List<ScanData>();
             int abortSignals = 0;
 
             var processor = new CapturingProcessor(consumerEntered, release, captured);
@@ -192,41 +199,31 @@ namespace Flash.Tests
             CollectionAssert.AreEqual(new[] { 700.5, 701.0 }, second.Mzs,
                 "The queued scan's peaks must survive its source handle being released");
             CollectionAssert.AreEqual(new[] { 1234.0, 5678.0 }, second.Intensities);
-            Assert.AreEqual(2.0, second.Rt, 1e-9);
+            Assert.AreEqual(2.0, second.RetentionTime, 1e-9);
             Assert.AreEqual(1, second.MsLevel);
-            Assert.AreEqual(MockMsScan.Ms1ScanDescription, second.Description);
-        }
-
-        private class CapturedScan
-        {
-            public double[] Mzs;
-            public double[] Intensities;
-            public double Rt;
-            public int MsLevel;
-            public string Description;
+            Assert.AreEqual(MockMsScan.Ms1ScanDescription, second.ScanDescription);
         }
 
         /// <summary>
-        /// Reads exactly the six values UnifiedScanProcessor reads, in the same order, so this test
-        /// reproduces the production access pattern rather than a convenient approximation of it.
-        /// Parks on the first scan so a later one can be observed sitting in the queue.
+        /// Records what the consumer actually received. Parks on the first scan so a later one can
+        /// be observed sitting in the queue rather than in flight.
         /// </summary>
         private class CapturingProcessor : IScanProcessor
         {
             private readonly ManualResetEventSlim entered;
             private readonly ManualResetEventSlim release;
-            private readonly List<CapturedScan> captured;
+            private readonly List<ScanData> captured;
             private bool parked;
 
             public CapturingProcessor(ManualResetEventSlim entered, ManualResetEventSlim release,
-                List<CapturedScan> captured)
+                List<ScanData> captured)
             {
                 this.entered = entered;
                 this.release = release;
                 this.captured = captured;
             }
 
-            public void ProcessMS(IMsScan msScan)
+            public void ProcessMS(ScanData scan)
             {
                 if (!parked)
                 {
@@ -235,16 +232,7 @@ namespace Flash.Tests
                     release.Wait(TimeSpan.FromSeconds(10));
                 }
 
-                string desc;
-                msScan.Trailer.TryGetValue("Scan Description", out desc);
-                captured.Add(new CapturedScan
-                {
-                    Mzs = msScan.Centroids.Select(c => c.Mz).ToArray(),
-                    Intensities = msScan.Centroids.Select(c => c.Intensity).ToArray(),
-                    Rt = double.Parse(msScan.Header["StartTime"]),
-                    MsLevel = int.Parse(msScan.Header["MSOrder"]),
-                    Description = desc
-                });
+                captured.Add(scan);
             }
         }
 
@@ -252,13 +240,13 @@ namespace Flash.Tests
         {
             private Action onProcess;
             public CountingProcessor(Action onProcess) { this.onProcess = onProcess; }
-            public void ProcessMS(IMsScan msScan) { onProcess(); }
+            public void ProcessMS(ScanData scan) { onProcess(); }
         }
 
         private class ThrowingProcessor : IScanProcessor
         {
             public int CallCount { get; private set; }
-            public void ProcessMS(IMsScan msScan)
+            public void ProcessMS(ScanData scan)
             {
                 CallCount++;
                 throw new InvalidOperationException("simulated scan processing failure");

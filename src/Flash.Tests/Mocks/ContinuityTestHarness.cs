@@ -104,7 +104,11 @@ namespace Flash.Tests.Mocks
         /// <returns>The list of custom scans produced by the C++ engine</returns>
         public List<IFusionCustomScan> PushScan(IMsScan msScan)
         {
-            Processor.ProcessMS(msScan);
+            //ScanData.From, NOT a second hand-rolled extraction. This harness produces the log
+            //goldens, so if it read the scan differently from production the goldens would encode the
+            //harness's reading rather than the engine's. One factory, one definition of what a scan
+            //means to the engine.
+            Processor.ProcessMS(ScanData.From(msScan));
 
             var scanList = new List<IFusionCustomScan>();
             var cmd = new ScanCommand();
@@ -270,8 +274,11 @@ namespace Flash.Tests.Mocks
 
                 //no Dispose: production never disposes an IMsScan either (the iAPI releases the
                 //shared memory itself when the next scan replaces it as the container's LastScan).
-                //This harness mirrors the real acquisition contract, so it must not drift from it.
-                Processor.ProcessMS(response);
+                //This harness mirrors the real acquisition contract, so it must not drift from it -
+                //including the snapshot, which production takes on the arrival thread via the same
+                //ScanData.From. Reading the response any other way here would let the goldens and the
+                //engine disagree about what a scan contains.
+                Processor.ProcessMS(ScanData.From(response));
                 cmd = new ScanCommand();
             }
         }
