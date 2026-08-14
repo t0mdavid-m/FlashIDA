@@ -449,12 +449,27 @@ namespace Flash
         /// single definition of the handshake, so the two paths cannot drift apart again.
         ///
         /// Deliberately a cheap, fast IonTrap scan: it is a control signal, not data, and we want it
-        /// echoed back immediately. <c>delay: 3</c> is load-bearing - SingleProcessingDelay is the time
-        /// the instrument waits for further custom scan requests after executing this one, i.e. the
-        /// grace window that keeps custom control open until the first real command is drained.
+        /// echoed back immediately.
+        ///
+        /// <c>delay: 3</c> is INERT, and this used to claim the opposite. SingleProcessingDelay is
+        /// documented as the grace window the instrument keeps custom control open for after
+        /// executing a scan (dependencies/API-2.0.xml, ICustomScan) - but per Thermo it is not
+        /// functional on this instrument, and adjusting it was tried on the hardware with no
+        /// observable effect. The handshake works for other reasons. Every other command we send
+        /// carries <c>delay: 0.0</c> (ScanFactory.BuildFromCommand), so the parameter is doing
+        /// nothing anywhere in this codebase.
+        ///
+        /// Do not reason about instrument pacing as if the host could widen that window, and do not
+        /// propose changing this value to fix a latency problem - that has been tried.
         ///
         /// Must be handed to <c>scanControl.SetFusionCustomScan</c> DIRECTLY, never via
         /// <see cref="SendCustomScan"/>, which would overwrite RunningNumber with ++currentNumber.
+        ///
+        /// ⚠ Known defect, deliberately not fixed here: <c>IsAGC: true</c> with no AGCgroup means
+        /// this control scan lands in PAGC group 1 - the group every real acquisition uses - while
+        /// commanding neither the configured source region nor a FAIMS CV. So a cheap IonTrap probe
+        /// acts as the flux prescan gain-correcting the first real scans of every run. Two-character
+        /// fix (an explicit group), but it changes acquisition behaviour and wants its own evidence.
         /// </remarks>
         private static IFusionCustomScan BuildHandshakeScan()
         {
