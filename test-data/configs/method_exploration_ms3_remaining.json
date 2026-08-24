@@ -1,7 +1,7 @@
 {
   "global": {
     "method_name": "ExplorationMS3RemainingMethod",
-    "method_description": "MS3 CE exploration under a MEASURING metric (remaining_precursor) with no overrides — the ADR-0020 always-follow-up case. Two-key twin of method_exploration_ms3.json: characterization.exploration.metric and the ce grid centred on the ms3 collision_energy.",
+    "method_description": "MS3 CE exploration under a MEASURING metric (remaining_precursor). The overrides map is REQUIRED by ADR-0026 decision 3 — a remaining_precursor sweep scans only its isolation window, so it must declare what its throwaway pre-scans run at; an empty map is rejected at config load. The ADR-0020 gate-#2 case (a measuring MS3 sweep with no overrides, closed out by a full-range production scan) is therefore no longer expressible here and is pinned by mass_count instead. Two-key twin of method_exploration_ms3.json: characterization.exploration.metric and the ce grid centred on the ms3 collision_energy.",
     "duration": 120
   },
   "deconvolution": {
@@ -78,7 +78,10 @@
       "ce_step": 5,
       "activations": [
         "CID"
-      ]
+      ],
+      "overrides": {
+        "analyzer": "Orbitrap"
+      }
     }
   },
   "ms_settings": {
