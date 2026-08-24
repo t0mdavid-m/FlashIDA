@@ -20,10 +20,12 @@ namespace Flash.Tests
     public class LogColumnReorderTests
     {
         // The scan_commands header in the NEW (reordered) live-writer order — enqueue_ts is now LAST (index
-        // 31), parent_tracking_id is index 3 (the OLD masked index), scan_description index 28.
+        // 33), parent_tracking_id is index 3 (the OLD masked index), scan_description index 28.
         // These tests are synthetic and self-consistent, so they pass whatever this array contains; it is
         // kept in step with IdaLogger.cpp's header emit anyway, because a stale schema mirror is exactly
-        // the kind of thing a later reader trusts. ADR-0012 added faims_enabled at index 30.
+        // the kind of thing a later reader trusts. ADR-0012 added faims_enabled at index 30; ADR-0026
+        // decision 6 added first_mass and last_mass at indices 31 and 32 — the same gap, chosen for the
+        // same reason: enqueue_ts stays the trailing column and no index below 29 moves.
         private static readonly string[] NewCommandsHeader =
         {
             "tracking_id", "scan_type", "ms_level", "parent_tracking_id", "precursor_id",
@@ -31,12 +33,12 @@ namespace Flash.Tests
             "charge_snr", "iso_cos", "snr", "charge_score", "activation", "collision_energy", "hcd_energy",
             "reaction_time", "reagent_max_it", "reagent_agc_target", "ppm_error", "precursor_intensity",
             "peakgroup_intensity", "ion_type", "ion_index", "ms3_proteoform", "scan_description", "faims_cv",
-            "faims_enabled", "enqueue_ts"
+            "faims_enabled", "first_mass", "last_mass", "enqueue_ts"
         };
 
         // (a) Name-based Normalize masks enqueue_ts and relabels ids at their NEW positions, NOT the old
         // fixed indices. Under a bug where masking stayed positional (old index 3), parent_tracking_id (now
-        // index 3) would be masked and enqueue_ts (now index 31) would survive — both asserts would fail.
+        // index 3) would be masked and enqueue_ts (now index 33) would survive — both asserts would fail.
         [Test]
         public void NameBasedNormalize_MasksAndRelabelsByName_UnderNewColumnOrder()
         {
@@ -44,7 +46,7 @@ namespace Flash.Tests
             row[0] = "abc";     // tracking_id
             row[3] = "abc";     // parent_tracking_id (same id -> same T<n>; must be RELABELED, never masked)
             row[28] = "abcS1";  // scan_description (3-char id prefix + marker)
-            row[31] = "999";    // enqueue_ts (must be masked to <TS> BY NAME at its new last position)
+            row[33] = "999";    // enqueue_ts (must be masked to <TS> BY NAME at its new last position)
 
             string dir = Path.Combine(Path.GetTempPath(), "logreorder_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
