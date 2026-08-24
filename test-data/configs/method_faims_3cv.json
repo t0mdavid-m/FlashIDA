@@ -66,7 +66,7 @@
   },
   "characterization": {
     "mode": "off",
-    "protein_sequence": "SEQUENCE",
+    "protein_sequence": "",
     "max_targets": 3
   },
   "ms_settings": {
