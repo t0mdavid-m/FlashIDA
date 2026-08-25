@@ -171,8 +171,11 @@ namespace Flash.Tests
             return string.Join("\t", c);
         }
 
-        // identification ms_level==2 data row: fragment 5-tuple at cols 15,16,26,27,28.
-        private static string Ms2Row(string frags, string masses, string theo, string dda, string dppm)
+        // identification ms_level==2 data row: the fragment tuple at cols 15,16,26,27,28,29.
+        // qs is NOT optional and NOT padded: fragment_qscores is a member of the reorderable tuple, so
+        // it has to carry the same arity as its siblings (a ragged member makes ReorderParallelColumns
+        // bail and the permute never runs) AND permute with them, or the column is present but untested.
+        private static string Ms2Row(string frags, string masses, string theo, string dda, string dppm, string qs)
         {
             var c = Blank(34);
             c[0] = "2";   // ms_level
@@ -182,6 +185,7 @@ namespace Flash.Tests
             c[26] = theo;
             c[27] = dda;
             c[28] = dppm;
+            c[29] = qs;
             return string.Join("\t", c);
         }
 
@@ -247,9 +251,11 @@ namespace Flash.Tests
         public void Canon_Identification_Ms2_Reorder_Equivalent()
         {
             string golden = Doc(IdHeader,
-                Ms2Row("y5;b3;y2", "500.5;300.3;200.2", "500.6;300.4;200.3", "-0.1;-0.2;-0.3", "-1.0;-1.5;-2.0"));
+                Ms2Row("y5;b3;y2", "500.5;300.3;200.2", "500.6;300.4;200.3", "-0.1;-0.2;-0.3", "-1.0;-1.5;-2.0",
+                       "0.9100;0.7200;0.5500"));
             string fresh = Doc(IdHeader,
-                Ms2Row("y2;y5;b3", "200.2;500.5;300.3", "200.3;500.6;300.4", "-0.3;-0.1;-0.2", "-2.0;-1.0;-1.5"));
+                Ms2Row("y2;y5;b3", "200.2;500.5;300.3", "200.3;500.6;300.4", "-0.3;-0.1;-0.2", "-2.0;-1.0;-1.5",
+                       "0.5500;0.9100;0.7200"));
             Assert.IsFalse(Eq(golden, fresh), "pre-canonicalize the reorder must differ (guards vacuity)");
             Assert.IsTrue(EqCanon(LogGoldenComparer.IdentificationName, golden, fresh, IdHeaderCols));
         }
@@ -258,10 +264,12 @@ namespace Flash.Tests
         public void Canon_Identification_Ms2_IonIndexInt_NotEquivalent()
         {
             string golden = Doc(IdHeader,
-                Ms2Row("y5;b3;y2", "500.5;300.3;200.2", "500.6;300.4;200.3", "-0.1;-0.2;-0.3", "-1.0;-1.5;-2.0"));
+                Ms2Row("y5;b3;y2", "500.5;300.3;200.2", "500.6;300.4;200.3", "-0.1;-0.2;-0.3", "-1.0;-1.5;-2.0",
+                       "0.9100;0.7200;0.5500"));
             // identical masses so records align after canonicalize; only ion label y5 -> y6 changes
             string fresh = Doc(IdHeader,
-                Ms2Row("y6;b3;y2", "500.5;300.3;200.2", "500.6;300.4;200.3", "-0.1;-0.2;-0.3", "-1.0;-1.5;-2.0"));
+                Ms2Row("y6;b3;y2", "500.5;300.3;200.2", "500.6;300.4;200.3", "-0.1;-0.2;-0.3", "-1.0;-1.5;-2.0",
+                       "0.9100;0.7200;0.5500"));
             Assert.IsFalse(EqCanon(LogGoldenComparer.IdentificationName, golden, fresh, IdHeaderCols));
         }
 
