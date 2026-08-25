@@ -42,19 +42,23 @@ namespace Flash.Tests
         {
             string configPath = Path.Combine(ConfigDir, "method_dda_hcd.json");
             string ms1Path = Path.Combine(SpectraDir, "ms1_standard.txt");
+            string ms2Path = Path.Combine(SpectraDir, "ms2_hcd_fragment.txt");
             Assert.IsTrue(File.Exists(configPath), "method_dda_hcd.json not found at " + configPath);
             Assert.IsTrue(File.Exists(ms1Path), "ms1_standard.txt not found at " + ms1Path);
+            Assert.IsTrue(File.Exists(ms2Path), "ms2_hcd_fragment.txt not found at " + ms2Path);
 
             using (var harness = new ContinuityTestHarness(configPath))
             {
-                var scans = MockMsScan.FromTsvAllScans(ms1Path);
-                Assert.IsNotEmpty(scans, "no MS1 scans loaded");
-
-                // PushMs1 stamps the spectrum with a real engine-emitted survey id so it clears the
-                // MS1 gate, then drains — CapturedRecords holds the RAW ScanCommand structs, which
-                // is what carries Priority (CollectResults reads the built request, which does not).
-                harness.PushMs1(scans[0]);
-                foreach (var s in scans) s.Dispose();
+                // PushScanAndDrainFull, not PushMs1: dda_hcd yields only a handful of MS2s across
+                // ~51 surveys, so feeding ONE survey selects nothing and the anti-vacuity guard below
+                // (correctly) fires. The canonical interleaved drive feeds every MS1 and answers each
+                // MS2 command, so real workload exists to check.
+                //
+                // CapturedRecords holds the RAW ScanCommand structs — that is what carries Priority;
+                // CollectResults reads the built instrument request, which does not. Records are added
+                // at ContinuityTestHarness.cs:199, BEFORE the idle-tick continue, so priority-3 idle
+                // surveys land here too.
+                harness.PushScanAndDrainFull(ms1Path, ms2Path);
 
                 List<ScanCommandRecord> emitted = harness.CapturedRecords;
                 Assert.IsNotEmpty(emitted, "engine emitted no commands at all");
@@ -93,18 +97,25 @@ namespace Flash.Tests
         {
             string configPath = Path.Combine(ConfigDir, "method_dda_hcd.json");
             string ms1Path = Path.Combine(SpectraDir, "ms1_standard.txt");
+            string ms2Path = Path.Combine(SpectraDir, "ms2_hcd_fragment.txt");
             Assert.IsTrue(File.Exists(configPath), "method_dda_hcd.json not found at " + configPath);
+            Assert.IsTrue(File.Exists(ms1Path), "ms1_standard.txt not found at " + ms1Path);
+            Assert.IsTrue(File.Exists(ms2Path), "ms2_hcd_fragment.txt not found at " + ms2Path);
 
             using (var harness = new ContinuityTestHarness(configPath))
             {
-                var scans = MockMsScan.FromTsvAllScans(ms1Path);
-                Assert.IsNotEmpty(scans, "no MS1 scans loaded");
-
-                harness.PushMs1(scans[0]);
-                foreach (var s in scans) s.Dispose();
+                // Full interleaved drive: asserting "no prescan" over one survey would pass almost
+                // trivially. Over a whole acquisition — every survey, every MS2 answered — it is a
+                // real statement about the drained-queue path.
+                harness.PushScanAndDrainFull(ms1Path, ms2Path);
 
                 List<ScanCommandRecord> emitted = harness.CapturedRecords;
                 Assert.IsNotEmpty(emitted, "anti-vacuous: engine emitted no commands at all");
+
+                // Anti-vacuous in the direction that matters: the drive must have hit the drained-queue
+                // path at least once, or "no prescan" says nothing about it.
+                Assert.IsNotEmpty(emitted.Where(r => r.MsnLevel == 1 && r.Priority == 3).ToList(),
+                    "anti-vacuous: the drive never reached the idle path, so this proves nothing");
 
                 var prescans = emitted.Where(r => r.IsAGC).ToList();
                 Assert.IsEmpty(prescans,
