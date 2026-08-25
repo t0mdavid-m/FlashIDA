@@ -938,10 +938,25 @@ namespace Flash.Tests
             Assert.That(File.Exists(idPath), Is.True,
                 "ms3_cytc: engine must have written identification.tsv for the ground-truth leaf check");
             var idRows = ParseTsv(idPath, out var idHeader);
-            int tidCol = Array.IndexOf(idHeader, "tracking_id");
             int pfCol = Array.IndexOf(idHeader, "proteoform");
             int lvlCol = Array.IndexOf(idHeader, "ms_level");
-            Assert.That(tidCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: tracking_id column present in identification.tsv");
+            // Anchor on the FRAGMENT ION, not the tracking id. The ion (b80 / b70) is the physical
+            // identity of an MS3 leaf — which fragment was re-isolated — and is stable across any
+            // renumbering of scan ids. Anchoring on tracking_id coupled this external oracle to an
+            // incidental sequence number: ADR-0031 removed the AGC prescan that used to consume one
+            // id per idle drain, both anchors shifted down by exactly one, and the mismatch surfaced
+            // as a "flip-localization regression" when the proteoforms were in fact byte-identical.
+            // That misread is the cost the assertion message already warned about ("fixture/engine
+            // scan sequence drift"); this removes the coupling rather than re-syncing it.
+            //
+            // The ion alone is NOT unique: an adjacent precursor (12352.3986, one isotopologue up)
+            // yields its own b80/b70 leaves whose ProForma differs only in the mod mass
+            // ([+615.2512] vs [+615.2498]). So the anchor is (precursor mass, fragment ion) — both
+            // physical, both ground truth, neither a sequence number.
+            int ionCol = Array.IndexOf(idHeader, "ms2_precursor_ion");
+            int massCol = Array.IndexOf(idHeader, "ms1_precursor_mass");
+            Assert.That(ionCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms2_precursor_ion column present in identification.tsv");
+            Assert.That(massCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms1_precursor_mass column present in identification.tsv");
             Assert.That(pfCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: proteoform column present in identification.tsv");
             Assert.That(lvlCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms_level column present in identification.tsv");
 
@@ -949,25 +964,37 @@ namespace Flash.Tests
             Assert.That(File.Exists(fixturePath), Is.True,
                 $"ms3_cytc: ground-truth fixture missing: {fixturePath}");
             var expected = ParseTsv(fixturePath, out var fxHeader);
-            int fxTid = Array.IndexOf(fxHeader, "tracking_id");
+            // The fixture keeps its tracking_id column as provenance -- it records which scan the
+            // oracle was originally read from -- but matching is by precursor_ion.
+            int fxIon = Array.IndexOf(fxHeader, "precursor_ion");
+            int fxMass = Array.IndexOf(fxHeader, "precursor_mass");
             int fxPf = Array.IndexOf(fxHeader, "expected_proforma");
-            Assert.That(fxTid, Is.GreaterThanOrEqualTo(0), "ms3_cytc: tracking_id column present in the fixture");
+            Assert.That(fxIon, Is.GreaterThanOrEqualTo(0), "ms3_cytc: precursor_ion column present in the fixture");
+            Assert.That(fxMass, Is.GreaterThanOrEqualTo(0), "ms3_cytc: precursor_mass column present in the fixture");
             Assert.That(fxPf, Is.GreaterThanOrEqualTo(0), "ms3_cytc: expected_proforma column present in the fixture");
 
             foreach (var exp in expected)
             {
-                if (fxTid >= exp.Length || fxPf >= exp.Length) continue;
-                string tid = exp[fxTid];
+                if (fxIon >= exp.Length || fxMass >= exp.Length || fxPf >= exp.Length) continue;
+                string ion = exp[fxIon];
                 string wantPf = exp[fxPf];
-                var row = idRows.FirstOrDefault(r =>
+                double wantMass = double.Parse(exp[fxMass], CultureInfo.InvariantCulture);
+                // 0.5 Da window: the neighbouring precursor is ~1.0 Da away, so this separates them
+                // unambiguously while staying immune to the last-digit float drift that a freshly
+                // built OpenMS.dll produces on every CI run.
+                var matches = idRows.Where(r =>
                     lvlCol < r.Length && ParseIntSafe(r[lvlCol]) == 3 &&
-                    tidCol < r.Length && r[tidCol] == tid);
-                Assert.That(row, Is.Not.Null,
-                    $"ms3_cytc: no MS3 identification row for tracking_id '{tid}' -- the ground-truth leaf anchor " +
-                    "cannot be checked (fixture/engine scan sequence drift).");
-                Assert.That(row[pfCol], Is.EqualTo(wantPf),
-                    $"ms3_cytc: per-event leaf proteoform for '{tid}' must equal the external ground truth " +
-                    $"(MS3 flip-localization regression). Expected '{wantPf}', got '{row[pfCol]}'.");
+                    ionCol < r.Length && r[ionCol] == ion &&
+                    massCol < r.Length &&
+                    double.TryParse(r[massCol], NumberStyles.Float, CultureInfo.InvariantCulture, out double m) &&
+                    Math.Abs(m - wantMass) < 0.5).ToList();
+                Assert.That(matches.Count, Is.EqualTo(1),
+                    $"ms3_cytc: expected exactly one MS3 identification row for precursor {wantMass:F4} ion '{ion}', " +
+                    $"found {matches.Count}. The ground-truth leaf anchor must be unambiguous -- if the engine now " +
+                    "acquires this fragment more than once, the fixture needs a sharper key, not a looser one.");
+                Assert.That(matches[0][pfCol], Is.EqualTo(wantPf),
+                    $"ms3_cytc: per-event leaf proteoform for precursor ion '{ion}' must equal the external " +
+                    $"ground truth (MS3 flip-localization regression). Expected '{wantPf}', got '{matches[0][pfCol]}'.");
             }
         }
 
