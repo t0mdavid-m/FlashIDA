@@ -558,15 +558,19 @@ namespace Flash
             //parse out API scan identifier
             msScan.Trailer.TryGetValue("Access ID", out var scanId);
 
+            //The RECD lines below report `outstanding` BEFORE the decrement further down, so the
+            //logged depth is depth AS THIS SCAN ARRIVED. That is the quantity worth reading: it is
+            //what the instrument was holding when it acquired this scan. Deliberate, not a slip.
+
             if (msScan.Header["MSOrder"] == "1")
             {
-                log.Debug(String.Format("RECD {0} MS1 Scan #{1}; ID: {2}",
-                    msScan.Header["MassAnalyzer"], msScan.Header["Scan"], scanId));
+                log.Debug(String.Format("RECD {0} MS1 Scan #{1}; ID: {2}; depth {3}",
+                    msScan.Header["MassAnalyzer"], msScan.Header["Scan"], scanId, outstanding));
             }
             else if (msScan.Header["MSOrder"] == "2")
             {
-                log.Debug(String.Format("RECD {0} MS2 Scan #{1}; ID: {2}; Precursor: {3:f04}",
-                    msScan.Header["MassAnalyzer"], msScan.Header["Scan"], scanId, msScan.Header["PrecursorMass[0]"]));
+                log.Debug(String.Format("RECD {0} MS2 Scan #{1}; ID: {2}; depth {3}; Precursor: {4:f04}",
+                    msScan.Header["MassAnalyzer"], msScan.Header["Scan"], scanId, outstanding, msScan.Header["PrecursorMass[0]"]));
             }
 
             //when handshake scan received switch to custom control mode
