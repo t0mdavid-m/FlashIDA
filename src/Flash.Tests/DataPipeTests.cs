@@ -205,6 +205,126 @@ namespace Flash.Tests
         }
 
         /// <summary>
+        /// An AGC prescan still reaches the engine, but WITHOUT its peaks.
+        ///
+        /// Two halves, and both are the point. The engine identifies a prescan by the 4th character
+        /// of the description and returns before touching the spectrum
+        /// (FLASHIda.cpp:92-97) - so carrying the peaks there is pure waste. But it calls
+        /// resolvePending() on the way out, and that is the ONLY eraser of the pending-map entry,
+        /// reachable only from processScan - so a prescan that never arrives leaks its entry.
+        /// Skip the payload, keep the delivery.
+        ///
+        /// The waste is not theoretical: prescans are IonTrap/Profile, so Centroids is ~12 000
+        /// points (measured on the 2026-08-25 Eclipse run), enumerated across the iAPI boundary on
+        /// the instrument event thread, ahead of the command drain, once a second at the production
+        /// default of agc_interval_seconds: 1.
+        /// </summary>
+        [Test]
+        [Category("Tier1")]
+        public void ScanData_SkipsCentroidsForAgcDescription()
+        {
+            var peaks = new (double mz, double intensity)[12000];
+            for (int i = 0; i < peaks.Length; i++) peaks[i] = (500.0 + i * 0.1, 100.0 + i);
+
+            //"!!\"A" is a REAL engine id ("!!\"" decodes to 1) with the 'A' suffix makeAGC stamps.
+            var scan = MockMsScan.WithPeaks(11.21, "9246", "!!\"A", peaks);
+
+            int abortSignals = 0;
+            var captured = new List<ScanData>();
+            var pipe = new DataPipe(new RecordingProcessor(captured), _ => abortSignals++);
+
+            Assert.IsTrue(pipe.Push(scan), "The prescan must still be accepted by the pipeline");
+            pipe.Complete();
+            Assert.IsTrue(pipe.WaitForCompletion().Wait(TimeSpan.FromSeconds(5)), "DataPipe should complete");
+
+            Assert.AreEqual(0, abortSignals, "Skipping the payload must not look like a failure");
+            Assert.AreEqual(1, captured.Count,
+                "The prescan must STILL reach the engine - resolvePending is reached only from processScan, "
+                + "so dropping it here leaks the pending-map entry");
+
+            var got = captured[0];
+            Assert.AreEqual(0, got.Mzs.Length,
+                "12 000 peaks the engine discards unread must not be enumerated on the event thread");
+            Assert.AreEqual(0, got.Intensities.Length, "Both arrays, or neither");
+            Assert.AreEqual("!!\"A", got.ScanDescription,
+                "The identity token must survive - it is what resolvePending keys on");
+            Assert.AreEqual(1, got.MsLevel, "Everything except the payload is unchanged");
+            Assert.AreEqual(11.21, got.RetentionTime, 1e-9, "Everything except the payload is unchanged");
+        }
+
+        /// <summary>
+        /// A real scan keeps every peak. Guards the prescan predicate against over-matching: an
+        /// engine-minted MS1 description is "&lt;3-char id&gt;S", one character away from the "A"
+        /// this skips on, and silently emptying a survey would deconvolve nothing for a whole run.
+        /// </summary>
+        [Test]
+        [Category("Tier1")]
+        public void ScanData_KeepsCentroidsForNonAgcDescription()
+        {
+            var scan = MockMsScan.WithPeaks(11.22, "9247", "!!#S",
+                (700.5, 1234.0), (701.0, 5678.0), (702.5, 91.0), (703.0, 42.0), (704.5, 7.0));
+
+            int abortSignals = 0;
+            var captured = new List<ScanData>();
+            var pipe = new DataPipe(new RecordingProcessor(captured), _ => abortSignals++);
+
+            pipe.Push(scan);
+            pipe.Complete();
+            Assert.IsTrue(pipe.WaitForCompletion().Wait(TimeSpan.FromSeconds(5)), "DataPipe should complete");
+
+            //asserted HERE, not inside onFailure: that callback runs on the pool thread inside
+            //DataPipe's swallowing guard, so an Assert.Fail there could never fail the test.
+            Assert.AreEqual(0, abortSignals, "Reading this scan must not fail");
+            Assert.AreEqual(1, captured.Count);
+            CollectionAssert.AreEqual(new[] { 700.5, 701.0, 702.5, 703.0, 704.5 }, captured[0].Mzs,
+                "An 'S'-suffixed survey must keep its peaks");
+            CollectionAssert.AreEqual(new[] { 1234.0, 5678.0, 91.0, 42.0, 7.0 }, captured[0].Intensities);
+        }
+
+        /// <summary>
+        /// Every way of failing to read the description keeps the peaks.
+        ///
+        /// This pins the FAIL-OPEN direction, which is the whole safety argument for the skip: a
+        /// null, empty or too-short description must degrade to the old behaviour (enumerate
+        /// everything), never to "assume prescan and discard the spectrum". The same reasoning
+        /// ADR-0032 applies to the answer half - a misread must cost throughput, never data.
+        /// </summary>
+        [Category("Tier1")]
+        [TestCase(null, TestName = "ScanData_KeepsCentroids_WhenDescriptionMissing")]
+        [TestCase("", TestName = "ScanData_KeepsCentroids_WhenDescriptionEmpty")]
+        [TestCase("ab", TestName = "ScanData_KeepsCentroids_WhenDescriptionTooShort")]
+        [TestCase("!!#", TestName = "ScanData_KeepsCentroids_WhenDescriptionHasNoSuffix")]
+        [TestCase("!!#A!", TestName = "ScanData_KeepsCentroids_WhenSuffixIsNotAtIndex3")]
+        public void ScanData_KeepsCentroidsWhenDescriptionUnreadable(string description)
+        {
+            var scan = MockMsScan.WithPeaks(11.23, "9248", description, (900.25, 111.0), (901.75, 222.0));
+
+            int abortSignals = 0;
+            var captured = new List<ScanData>();
+            var pipe = new DataPipe(new RecordingProcessor(captured), _ => abortSignals++);
+
+            pipe.Push(scan);
+            pipe.Complete();
+            Assert.IsTrue(pipe.WaitForCompletion().Wait(TimeSpan.FromSeconds(5)), "DataPipe should complete");
+
+            //asserted HERE, not inside onFailure: that callback runs on the pool thread inside
+            //DataPipe's swallowing guard, so an Assert.Fail there could never fail the test.
+            Assert.AreEqual(0, abortSignals, "Reading this scan must not fail");
+            Assert.AreEqual(1, captured.Count);
+            CollectionAssert.AreEqual(new[] { 900.25, 901.75 }, captured[0].Mzs,
+                "An unreadable description must fall back to enumerating, not to discarding");
+            CollectionAssert.AreEqual(new[] { 111.0, 222.0 }, captured[0].Intensities);
+        }
+
+        /// <summary>Captures every ScanData the consumer was handed, in order.</summary>
+        private class RecordingProcessor : IScanProcessor
+        {
+            private readonly List<ScanData> captured;
+            public RecordingProcessor(List<ScanData> captured) { this.captured = captured; }
+            public void ProcessMS(ScanData scan) { captured.Add(scan); }
+        }
+
+        /// <summary>
         /// Records what the consumer actually received. Parks on the first scan so a later one can
         /// be observed sitting in the queue rather than in flight.
         /// </summary>

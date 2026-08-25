@@ -67,14 +67,6 @@ namespace Flash
         /// </remarks>
         public static ScanData From(IMsScan msScan)
         {
-            var mzs = new List<double>();
-            var intensities = new List<double>();
-            foreach (var centroid in msScan.Centroids)
-            {
-                mzs.Add(centroid.Mz);
-                intensities.Add(centroid.Intensity);
-            }
-
             string scanDescription;
             msScan.Trailer.TryGetValue("Scan Description", out scanDescription);
 
@@ -82,6 +74,35 @@ namespace Flash
             string cvStr;
             if (msScan.Trailer.TryGetValue("FAIMS CV", out cvStr))
                 double.TryParse(cvStr, out faimsCv);
+
+            //An AGC prescan's peaks are DEAD WEIGHT. The engine identifies one by the 4th character
+            //of the description and returns before looking at the spectrum at all
+            //(FLASHIda.cpp:92-97: `if (size() >= 4 && desc[3] == 'A') { resolvePending(...); return 0; }`).
+            //These scans are IonTrap/Profile, so Centroids is ~12 000 points - measured on the
+            //2026-08-25 Eclipse run - and at the production default of agc_interval_seconds: 1 that
+            //is 12 000 cross-boundary property reads a second, on the instrument event thread, ahead
+            //of the command drain, purely to be discarded.
+            //
+            //It is the ARRAYS that are skipped, not the push: resolvePending is the ONLY eraser of
+            //the pending-map entry and it is reached only from processScan, so a prescan that never
+            //reaches the engine leaks its entry. The scan still goes through the pipeline; it just
+            //goes through empty.
+            //
+            //Fail-open, like every other predicate on this path: a null/short/unreadable description
+            //enumerates the peaks, i.e. exactly the old behaviour. The trailer is therefore read
+            //BEFORE the loop rather than after it, which is the only reason this block can exist.
+            bool isAgc = scanDescription != null && scanDescription.Length >= 4 && scanDescription[3] == 'A';
+
+            var mzs = new List<double>();
+            var intensities = new List<double>();
+            if (!isAgc)
+            {
+                foreach (var centroid in msScan.Centroids)
+                {
+                    mzs.Add(centroid.Mz);
+                    intensities.Add(centroid.Intensity);
+                }
+            }
 
             return new ScanData(
                 mzs.ToArray(),
