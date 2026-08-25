@@ -98,6 +98,7 @@
     <Compile Include="ScanFactoryCultureTests.cs" />
     <Compile Include="ScanFactoryTests.cs" />
     <Compile Include="BridgePhase3Tests.cs" />
+    <Compile Include="IdleSurveySentinelTests.cs" />
     <Compile Include="Mocks\MockTrailer.cs" />
     <Compile Include="Mocks\MockMsScan.cs" />
     <Compile Include="Mocks\MockCustomScan.cs" />

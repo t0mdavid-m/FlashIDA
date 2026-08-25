@@ -67,13 +67,17 @@ namespace Flash.Tests
         {
             var cmd = new ScanCommand();
             int result = GetNextScanCommand(nativePtr, ref cmd);
-            // Idle cycling: returns AGC when queue is empty (never returns 0)
-            Assert.AreEqual(1, result, "GetNextScanCommand should return 1 (idle AGC)");
+            // Idle cycling: a drained queue returns an idle survey MS1 (never returns 0).
+            // It used to return an AGC prescan here; prescans are now scheduled by
+            // scheduling.agc_interval_seconds alone and are never fabricated as filler (ADR-0031).
+            Assert.AreEqual(1, result, "GetNextScanCommand should return 1 (idle survey)");
 
-            // Verify AGC struct fields survived marshaling
-            Assert.AreEqual(1, cmd.MsnLevel, "MsnLevel should be 1 for AGC");
-            Assert.AreEqual(1, cmd.IsAgc, "IsAgc should be 1 for AGC");
-            Assert.AreEqual(0, cmd.NumStages, "NumStages should be 0 for AGC");
+            // Verify the struct fields survived marshaling. Priority is asserted because three
+            // production drain loops break on exactly (MsnLevel == 1 && Priority == 3).
+            Assert.AreEqual(1, cmd.MsnLevel, "MsnLevel should be 1 for the idle survey");
+            Assert.AreEqual(0, cmd.IsAgc, "IsAgc should be 0 for the idle survey");
+            Assert.AreEqual(3, cmd.Priority, "Idle survey is emitted at priority 3");
+            Assert.AreEqual(0, cmd.NumStages, "NumStages should be 0 for an MS1");
         }
 
         // P3-I02: ProcessScan returns 0 with insufficient/synthetic peaks (no real charge envelopes)

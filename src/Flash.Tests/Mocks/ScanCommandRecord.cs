@@ -45,6 +45,17 @@ namespace Flash.Tests.Mocks
         /// <summary>Whether this is a PAGC scan</summary>
         public bool IsAGC { get; set; }
 
+        /// <summary>
+        /// The engine's priority band for this command (0 highest .. 3 lowest). Only meaningful on
+        /// records built by <see cref="FromScanCommand"/> — <see cref="FromCustomScan"/> reads the
+        /// built instrument request, which does not carry it, and leaves this at 0.
+        ///
+        /// Captured because priority 3 is the drained-queue contract: it identifies the idle survey
+        /// MS1, which is what three production drain loops terminate on (ADR-0031). Intentionally
+        /// NOT serialized to golden JSON, for the same reason as ParentScanId — see ToJsonObject.
+        /// </summary>
+        public int Priority { get; set; }
+
         /// <summary>FAIMS CV value (0 if not set)</summary>
         public double FaimsCV { get; set; }
 
@@ -84,6 +95,7 @@ namespace Flash.Tests.Mocks
             record.ScanDescription = cmd.ScanDescription ?? "";
             record.ParentScanId = cmd.ParentScanId ?? "";
             record.IsAGC = cmd.IsAgc != 0;
+            record.Priority = cmd.Priority;
 
             if (cmd.NumStages > 0 && cmd.Stages != null)
             {

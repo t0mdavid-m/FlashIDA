@@ -1157,11 +1157,18 @@ namespace Flash.Tests.AcquisitionLoop
 
                     var cmd = new ScanCommand();
                     int cmdResult = wrapper.GetNextScanCommand(ref cmd);
-                    // Idle cycling: alternates AGC and MS1 when queue is empty
+                    // Idle cycling: a drained queue yields an idle survey MS1 at priority 3 on EVERY
+                    // tick. It used to alternate an AGC prescan with the survey; prescans are now
+                    // scheduled by agc_interval_seconds alone (ADR-0031), and method_default.json
+                    // pins that at 9999999, so none can fire across these 1000 iterations.
                     Assert.AreEqual(1, cmdResult,
                         string.Format("GetNextScanCommand should return 1 (idle scan) at iteration {0}", i));
                     Assert.AreEqual(1, cmd.MsnLevel,
                         string.Format("Idle scan should be MS level 1 at iteration {0}", i));
+                    Assert.AreEqual(0, cmd.IsAgc,
+                        string.Format("Idle scan should be a survey, not a prescan, at iteration {0}", i));
+                    Assert.AreEqual(3, cmd.Priority,
+                        string.Format("Idle survey should be priority 3 at iteration {0}", i));
 
                     int trackId = wrapper.GetNextTrackingId();
                     Assert.IsFalse(trackingIds.Contains(trackId),
