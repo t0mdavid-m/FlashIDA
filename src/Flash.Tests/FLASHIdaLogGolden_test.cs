@@ -150,6 +150,24 @@ namespace Flash.Tests
             RunCase("inclusion_strict", "method_inclusion_cytc_strict.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1);
 
+        // Identification WITHOUT MS3 -- the configuration that had no representation until identification
+        // stopped being gated on characterization.mode. method_identify_only.json is a byte-identical twin
+        // of method_ms3_cytc_real.json except for ONE key (mode ambiguity -> off), so diffing this golden
+        // against ms3_cytc's isolates exactly what MS3 dispatch contributes and nothing else -- the same
+        // isolate-one-variable construction the multiplexed and faims_single_cv modes use.
+        //
+        // It is the only golden covering mode: off WITH a real protein_sequence. Every other mode: off
+        // config carries an empty one, so before this the engine path "identify, dispatch nothing" was
+        // exercised by a single C++ section (§ID1) and no exact values anywhere. Expect a populated
+        // identification.tsv, real tag_count/fragment_count/tic_coverage on its MS2 scan_results rows,
+        // and ZERO ms_level==3 rows in scan_commands.
+        //
+        // No feedMs3/ms3Map: with MS3 off the engine issues no MS3 commands, so there is nothing to answer.
+        [Test, Category("Tier2")]
+        public void Golden_Identify_Only() =>
+            RunCase("identify_only", "method_identify_only.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1);
+
         [Test, Category("Tier2")]
         public void Golden_Exclusion() =>
             RunCase("exclusion", "method_exclusion.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
