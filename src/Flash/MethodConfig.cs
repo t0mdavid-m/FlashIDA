@@ -308,9 +308,13 @@ namespace Flash
         [JsonKey("scan_timeout")]
         public ScanTimeoutConfig ScanTimeout { get; set; } = new ScanTimeoutConfig();
 
+        // The only trigger that emits an AGC prescan (ADR-0031). The drained-queue path used to
+        // fabricate one as filler and reset this timer with it, so the authored value never
+        // governed the real cadence. Committed test configs deliberately pin this at 9999999 so
+        // golden capture stays independent of wall clock.
         [JsonKey("agc_interval_seconds")]
-        [Description("AGC recalculation interval in seconds")]
-        public double AgcIntervalSeconds { get; set; } = 30;
+        [Description("Interval between scheduled AGC prescans, in seconds")]
+        public double AgcIntervalSeconds { get; set; } = 1;
     }
 
     /// <summary>
