@@ -81,12 +81,19 @@ namespace Flash.Tests.Mocks
             if (fileName == LogGoldenComparer.IdentificationName)
             {
                 int msLevelCol = ColumnIndex(referenceHeader, "ms_level");
+                // fragment_qscores belongs in BOTH tuples, and this is load-bearing rather than tidy: these
+                // columns are REORDERED here, so a parallel list left out of the tuple keeps its original
+                // order while its siblings are permuted, and every qscore then describes a different ion
+                // than the one it is printed beside. Silent, and it would corrupt the goldens rather than
+                // fail. It is index-aligned with the mass table by construction — the writer builds all
+                // five in one loop over match.fragments — so it must stay aligned through canonicalization.
                 int[] ms2 = ResolveColumns(referenceHeader,
-                    "ms2_fragments", "ms2_fragment_masses", "theoretical_masses", "diff_da", "diff_ppm");
+                    "ms2_fragments", "ms2_fragment_masses", "theoretical_masses", "diff_da", "diff_ppm",
+                    "fragment_qscores");
                 int ms2Key = ColumnIndex(referenceHeader, "ms2_fragment_masses");
                 int[] ms3 = ResolveColumns(referenceHeader,
                     "ms2_fragments", "ms2_fragment_masses", "ms3_fragments", "ms3_fragment_masses",
-                    "theoretical_masses", "diff_da", "diff_ppm");
+                    "theoretical_masses", "diff_da", "diff_ppm", "fragment_qscores");
                 int ms3Key = ColumnIndex(referenceHeader, "ms3_fragment_masses");
                 return CanonicalizeTsv(text, cols =>
                 {

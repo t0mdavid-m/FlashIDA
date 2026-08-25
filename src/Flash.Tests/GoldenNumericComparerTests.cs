@@ -131,7 +131,7 @@ namespace Flash.Tests
         // live writer's, but the width (29) is the real scan_results column count.
         private static string[] BuildResultsHeader()
         {
-            var h = MakeHeader(29);
+            var h = MakeHeader(32);
             h[19] = "deconv_masses"; h[20] = "deconv_qscores";
             h[21] = "deconv_charges"; h[22] = "deconv_intensities";
             return h;
@@ -139,11 +139,15 @@ namespace Flash.Tests
 
         private static string[] BuildIdHeader()
         {
-            var h = MakeHeader(32);
+            var h = MakeHeader(34);
             h[0] = "ms_level";
             h[15] = "ms2_fragments"; h[16] = "ms2_fragment_masses";
             h[17] = "ms3_fragments"; h[18] = "ms3_fragment_masses";
             h[26] = "theoretical_masses"; h[27] = "diff_da"; h[28] = "diff_ppm";
+            // Sixth member of the reorderable fragment tuple. It needs a REAL name, not a "cN"
+            // placeholder: ColumnIndex throws on a missing name, and a placeholder cell would trip
+            // ReorderParallelColumns' ragged-length guard instead of exercising the permute.
+            h[29] = "fragment_qscores";
             return h;
         }
 
@@ -158,7 +162,7 @@ namespace Flash.Tests
         // PeakGroup, so they never carry a ',' — they are still ';'-aligned with charges/intensities.
         private static string ResultsRow(string masses, string qscores, string charges, string ints)
         {
-            var c = Blank(29);
+            var c = Blank(32);
             c[0] = "T1";
             c[19] = masses;
             c[20] = qscores;
@@ -170,7 +174,7 @@ namespace Flash.Tests
         // identification ms_level==2 data row: fragment 5-tuple at cols 15,16,26,27,28.
         private static string Ms2Row(string frags, string masses, string theo, string dda, string dppm)
         {
-            var c = Blank(32);
+            var c = Blank(34);
             c[0] = "2";   // ms_level
             c[2] = "T4";  // tracking_id
             c[15] = frags;
