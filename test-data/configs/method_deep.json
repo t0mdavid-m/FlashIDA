@@ -41,7 +41,7 @@
       "enabled": false,
       "value_ms": 30000
     },
-    "agc_interval_seconds": 30
+    "agc_interval_seconds": 9999999
   },
   "files": {
     "target_logs": [
