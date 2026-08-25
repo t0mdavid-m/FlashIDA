@@ -150,6 +150,26 @@ namespace Flash.Tests
             RunCase("inclusion_strict", "method_inclusion_cytc_strict.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1);
 
+        // AUTHORED CHARGE SETs (ADR-0028): the inclusion row names 10;13;16 rather than -1, so the
+        // acquisition is restricted to three of cytC's thirteen resolved charge states. Two modes, because
+        // the authored set and precursor_charges are ORTHOGONAL axes and single-axis goldens have hidden
+        // real defects at their product before: "single" walks the set one charge per survey on per-charge
+        // exclusion, "multiplexed" co-isolates it in one command. Diffing either against the plain
+        // inclusion golden above isolates exactly what the charge column contributes -- the same
+        // isolate-one-variable construction the other paired modes use.
+        //
+        // minMs2Commands: 1 fail-closes: if the authored set ever selected nothing, this fails rather than
+        // capturing an empty golden that would then look like agreement forever after.
+        [Test, Category("Tier2")]
+        public void Golden_Inclusion_ChargeSet() =>
+            RunCase("inclusion_charge_set", "method_inclusion_charge_set.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1);
+
+        [Test, Category("Tier2")]
+        public void Golden_Inclusion_ChargeSet_Multiplexed() =>
+            RunCase("inclusion_charge_set_multiplexed", "method_inclusion_charge_set_multiplexed.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1);
+
         // Identification WITHOUT MS3 -- the configuration that had no representation until identification
         // stopped being gated on characterization.mode. method_identify_only.json is a byte-identical twin
         // of method_ms3_cytc_real.json except for ONE key (mode ambiguity -> off), so diffing this golden
