@@ -431,7 +431,15 @@ namespace Flash.IDA
 
             double scoreSum = 0.0;
             var cmd = new ScanCommand();
-            while (w.GetNextScanCommand(ref cmd) == 1 && cmd.IsAgc == 0)
+            //Stop when the engine hands back an IDLE SURVEY -- an MS1 at priority 3. That is the
+            //only command Step 5 fabricates, and it fabricates it only once all four queues are
+            //drained, so it marks exactly the same moment the idle AGC used to (ADR-0031).
+            //
+            //NOT `IsAgc == 0`: a scheduled AGC prescan can now arrive mid-drain (the production
+            //interval is 1 s and an offline run is many seconds), and stopping on it would truncate
+            //the drain and silently drop the MS2 commands behind it. A prescan falls through the
+            //`MsnLevel == 2` guard below and costs one harmless iteration.
+            while (w.GetNextScanCommand(ref cmd) == 1 && !(cmd.MsnLevel == 1 && cmd.Priority == 3))
             {
                 if (cmd.MsnLevel == 2 && cmd.NumStages > 0)
                 {
@@ -449,7 +457,7 @@ namespace Flash.IDA
                     {
                         w.ProcessScan(ms2Mzs, ms2Ints, rt, 2, cmd.ScanDescription);
                         var followup = new ScanCommand();
-                        while (w.GetNextScanCommand(ref followup) == 1 && followup.IsAgc == 0) { followup = new ScanCommand(); }
+                        while (w.GetNextScanCommand(ref followup) == 1 && !(followup.MsnLevel == 1 && followup.Priority == 3)) { followup = new ScanCommand(); }
                     }
                 }
                 cmd = new ScanCommand();

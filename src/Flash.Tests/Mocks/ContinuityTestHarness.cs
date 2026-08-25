@@ -116,8 +116,11 @@ namespace Flash.Tests.Mocks
             {
                 CapturedRecords.Add(ScanCommandRecord.FromScanCommand(cmd));
                 scanList.Add(Factory.BuildFromCommand(cmd));
-                // Idle cycle: AGC signals queue is empty — capture it then stop
-                if (cmd.IsAgc == 1) break;
+                // Idle survey: an MS1 at priority 3 signals the queue is drained — capture it then
+                // stop. Step 5 is its only producer, so it marks the same moment the idle AGC used
+                // to (ADR-0031). NOT IsAgc: a scheduled prescan can arrive mid-drain and stopping
+                // on it would truncate the capture.
+                if (cmd.MsnLevel == 1 && cmd.Priority == 3) break;
                 cmd = new ScanCommand();
             }
             return scanList;
