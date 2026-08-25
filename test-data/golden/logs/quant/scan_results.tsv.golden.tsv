@@ -1,63 +1,63 @@
 tracking_id	ms_level	parent_tracking_id	commands_pushed	child_ids	rt	duration_ms	duration_received_ms	queue_duration_ms	instrument_duration_ms	processing_duration_ms	mass_count	remaining_ratio	tag_count	fragment_count	tic_coverage	exploration_group_id	exploration_metric	exploration_score	variant_index	total_variants	winner_tracking_id	activation_type	collision_energy	reaction_time	deconv_masses	deconv_qscores	deconv_charges	deconv_intensities	resolve_ts	received_ts	dequeue_ts
-T1	1		0		0.00111333	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T3	1		0		0.00887667	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	2	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2087.43;2170.43	0.521686;0.442184	4;4	4460.15;3414.71	<TS>	<TS>	<TS>
-T5	1		0		0.01664	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T7	1		0		0.02443	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T9	1		0		0.032205	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T11	1		0		0.03998	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T13	1		0		0.0477483	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T15	1		0		0.0555367	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T17	1		0		0.0633183	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T19	1		0		0.0710983	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T21	1		1	T22	0.0788633	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	2	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2063.61;2091.5	0.476161;0.422183	4;4	5459.27;5509.29	<TS>	<TS>	<TS>
-T22	2	T21	1	T23	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
-T23	2	T22	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
-T25	1		0		0.08664	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T27	1		0		0.0944117	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T29	1		1	T30	0.10218	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2277.25	0.771507	4	5213.45	<TS>	<TS>	<TS>
-T30	2	T29	1	T31	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
-T31	2	T30	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
-T33	1		0		0.109953	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T35	1		0		0.117748	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T37	1		0		0.12553	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T39	1		0		0.133302	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T41	1		0		0.14108	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T43	1		0		0.148847	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T45	1		0		0.15664	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T47	1		0		0.164417	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T49	1		0		0.17219	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T51	1		0		0.179947	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T53	1		0		0.187728	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T55	1		0		0.195485	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T57	1		0		0.203273	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T59	1		0		0.211043	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T61	1		0		0.218827	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T63	1		0		0.226602	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T65	1		0		0.234377	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T67	1		0		0.242163	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T69	1		0		0.249938	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T71	1		0		0.257727	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T73	1		0		0.265502	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2087.42	0.818923	4	6731.1	<TS>	<TS>	<TS>
-T75	1		0		0.273273	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2246.47	0.397635	4	3339.08	<TS>	<TS>	<TS>
-T77	1		0		0.281043	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2247.27	0.396806	4	4530.08	<TS>	<TS>	<TS>
-T79	1		1	T80	0.288823	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	5315.13	0.350165	9	5876.7	<TS>	<TS>	<TS>
-T80	2	T79	1	T81	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
-T81	2	T80	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
-T83	1		0		0.296593	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T85	1		0		0.304363	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T87	1		0		0.312135	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T89	1		1	T90	0.319922	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	2	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2256.18;2019.38	0.419769;0.3638	4;4	3336.41;5832.68	<TS>	<TS>	<TS>
-T90	2	T89	1	T91	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
-T91	2	T90	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
-T93	1		0		0.327707	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T95	1		0		0.335478	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T97	1		0		0.343252	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T99	1		0		0.351017	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T101	1		0		0.35881	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T103	1		1	T104	0.36657	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	4297.18	0.393986	6,7	2029.78,3821.83	<TS>	<TS>	<TS>
-T104	2	T103	1	T105	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
-T105	2	T104	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
-T107	1		0		0.374337	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
-T109	1		1	T110	0.382113	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2135.71	0.3612	4	3519.72	<TS>	<TS>	<TS>
-T110	2	T109	1	T111	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
-T111	2	T110	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
+T0	1		0		0.00111333	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T1	1		0		0.00887667	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	2	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2087.43;2170.43	0.521686;0.442184	4;4	4460.15;3414.71	<TS>	<TS>	<TS>
+T2	1		0		0.01664	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T3	1		0		0.02443	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T4	1		0		0.032205	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T5	1		0		0.03998	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T6	1		0		0.0477483	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T7	1		0		0.0555367	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T8	1		0		0.0633183	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T9	1		0		0.0710983	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T10	1		1	T11	0.0788633	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	2	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2063.61;2091.5	0.476161;0.422183	4;4	5459.27;5509.29	<TS>	<TS>	<TS>
+T11	2	T10	1	T12	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
+T12	2	T11	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
+T13	1		0		0.08664	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T14	1		0		0.0944117	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T15	1		1	T16	0.10218	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2277.25	0.771507	4	5213.45	<TS>	<TS>	<TS>
+T16	2	T15	1	T17	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
+T17	2	T16	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
+T18	1		0		0.109953	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T19	1		0		0.117748	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T20	1		0		0.12553	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T21	1		0		0.133302	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T22	1		0		0.14108	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T23	1		0		0.148847	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T24	1		0		0.15664	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T25	1		0		0.164417	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T26	1		0		0.17219	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T27	1		0		0.179947	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T28	1		0		0.187728	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T29	1		0		0.195485	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T30	1		0		0.203273	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T31	1		0		0.211043	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T32	1		0		0.218827	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T33	1		0		0.226602	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T34	1		0		0.234377	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T35	1		0		0.242163	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T36	1		0		0.249938	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T37	1		0		0.257727	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T38	1		0		0.265502	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2087.42	0.818923	4	6731.1	<TS>	<TS>	<TS>
+T39	1		0		0.273273	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2246.47	0.397635	4	3339.08	<TS>	<TS>	<TS>
+T40	1		0		0.281043	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2247.27	0.396806	4	4530.08	<TS>	<TS>	<TS>
+T41	1		1	T42	0.288823	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	5315.13	0.350165	9	5876.7	<TS>	<TS>	<TS>
+T42	2	T41	1	T43	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
+T43	2	T42	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
+T44	1		0		0.296593	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T45	1		0		0.304363	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T46	1		0		0.312135	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T47	1		1	T48	0.319922	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	2	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2256.18;2019.38	0.419769;0.3638	4;4	3336.41;5832.68	<TS>	<TS>	<TS>
+T48	2	T47	1	T49	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
+T49	2	T48	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
+T50	1		0		0.327707	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T51	1		0		0.335478	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T52	1		0		0.343252	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T53	1		0		0.351017	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T54	1		0		0.35881	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T55	1		1	T56	0.36657	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	4297.18	0.393986	6,7	2029.78,3821.83	<TS>	<TS>	<TS>
+T56	2	T55	1	T57	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
+T57	2	T56	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
+T58	1		0		0.374337	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0			0	0					<TS>	<TS>	<TS>
+T59	1		1	T60	0.382113	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	1	-1	-1	-1	-1	-1	0	-1	-1	0			0	0	2135.71	0.3612	4	3519.72	<TS>	<TS>	<TS>
+T60	2	T59	1	T61	2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		ETD	0.000000	7.000000					<TS>	<TS>	<TS>
+T61	2	T60	0		2.42256	<DUR>	<DUR>	<DUR>	<DUR>	<DUR>	0	-1	-1	-1	-1	-1	0	-1	-1	0		HCD	30.000000	0.000000					<TS>	<TS>	<TS>
