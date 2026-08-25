@@ -40,6 +40,17 @@ namespace Flash
         //switch indicating that we received custom scan control
         static bool inCustom = false;
 
+        //Commands submitted that the instrument has not yet executed - the acquisition's DEPTH
+        //(CONTEXT.md, "outstanding command"). Starts at 1: the handshake is submitted before any
+        //scan can arrive. Thermo defines depth > 1 as UNDEFINED behaviour that fails silently
+        //(dependencies/API-2.0.xml, IScans.SetCustomScan), so depth is maintained deliberately and
+        //can never be inferred from the absence of complaint.
+        //DERIVED, not accumulated: incremented only after a submission returns, so a command that
+        //was never sent self-heals on the next arrival instead of being baked in. See docs/adr/0032.
+        //NOTE: a second contact-closure event would send a second handshake and leave this one low.
+        //That double-send is pre-existing; it is neither introduced nor fixed here.
+        static int outstanding = 1;
+
         //Instrument job number stamped on the handshake scan; the latch in ProcessSpectrum keys on
         //its echo in Trailer["Access ID"]. NOT an engine identity - see docs/adr/0008.
         private const int HandshakeJobNumber = 41;
@@ -569,21 +580,41 @@ namespace Flash
                     log.Error(String.Format("Scan {0} was rejected by the pipeline and will NOT be processed", scanId));
                 }
 
-                var cmd = new ScanCommand();
-                if (wrapper.GetNextScanCommand(ref cmd) == 1)
+                //An UNCOMMANDED scan (CONTEXT.md) is ingested and NOT answered. "0" is the iAPI's
+                //reserved job number, so it is never one of ours; the ingest half above already
+                //rejects it engine-side, and this is the half that used to buy it a command anyway.
+                //Every one we answered deepened the instrument's queue by one, permanently --
+                //depth = 1 + uncommanded arrivals, with no path that decrements it. docs/adr/0032.
+                //
+                //Deliberately the LOOSEST predicate available: every way of misreading the trailer
+                //(null, garbage, a moved key) lands on "answer it", which merely degrades to the old
+                //behaviour. A range check or a tracking-id check would fail CLOSED instead, and
+                //depth 0 is ABSORBING -- the instrument then acquires only its own scans, so every
+                //further arrival is uncommanded and we would never send again.
+                if (scanId != "0") outstanding--;
+                else log.Warn(String.Format("Uncommanded scan #{0} - not answering it (depth {1})",
+                                            msScan.Header["Scan"], outstanding));
+
+                if (outstanding <= 0)
                 {
-                    //BuildFromCommand refuses a command whose stage geometry is incomplete rather
-                    //than emitting a request the instrument would bind to the wrong stage. Caught
-                    //HERE so it cannot escape onto the instrument event thread, where an unhandled
-                    //exception does not crash the process the usual way but leaves the API in a
-                    //weird state (see the InstrumentConnected remarks).
-                    try
+                    var cmd = new ScanCommand();
+                    if (wrapper.GetNextScanCommand(ref cmd) == 1)
                     {
-                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        log.Fatal(String.Format("Refused to send scan {0}: {1}", cmd.ScanId, ex.Message));
+                        //BuildFromCommand refuses a command whose stage geometry is incomplete rather
+                        //than emitting a request the instrument would bind to the wrong stage. Caught
+                        //HERE so it cannot escape onto the instrument event thread, where an unhandled
+                        //exception does not crash the process the usual way but leaves the API in a
+                        //weird state (see the InstrumentConnected remarks).
+                        try
+                        {
+                            SendCustomScan(scanFactory.BuildFromCommand(cmd));
+                            outstanding++;   //ONLY on success. A throw here leaves depth low so the
+                                             //next arrival re-sends, instead of stranding the run at 0.
+                        }
+                        catch (InvalidOperationException ex)
+                        {
+                            log.Fatal(String.Format("Refused to send scan {0}: {1}", cmd.ScanId, ex.Message));
+                        }
                     }
                 }
             }
