@@ -180,5 +180,123 @@ namespace Flash.Tests
                 "CV 0 with FAIMS enabled is a real setting, not an absent one");
             Assert.AreEqual("0", v["FAIMS CV"]);
         }
+
+        // ------------------------------------------------------------------
+        // Activation-coupled reaction time (ADR-0030)
+        // ------------------------------------------------------------------
+
+        /// <summary>An MSn command with <paramref name="n"/> fragmentation stages, each carrying the
+        /// geometry BuildFromCommand structurally requires, so only the reaction-time binding under
+        /// test varies.</summary>
+        private static ScanCommand MsnCommand(params string[] activations)
+        {
+            var stages = new IsolationStage[ScanFactory.MaxIsolationStages];
+            for (int i = 0; i < activations.Length; i++)
+            {
+                stages[i].PrecursorMz = 800.0 + i;
+                stages[i].IsolationWidth = 2.0;
+                stages[i].ChargeState = 3;
+                stages[i].ActivationType = activations[i];
+                stages[i].CollisionEnergy = 0;
+                stages[i].ReactionTime = 0;
+            }
+            return new ScanCommand
+            {
+                ScanId = 2,
+                MsnLevel = activations.Length + 1,
+                NumStages = activations.Length,
+                Stages = stages,
+                Analyzer = "Orbitrap",
+                ScanDescription = "!!!E",
+                FirstMass = 150,
+                LastMass = 2000,
+                OrbitrapResolution = 120000,
+                AgcTarget = 500000,
+                MaxIt = 100,
+            };
+        }
+
+        /// <summary>
+        /// An ETD stage at reaction time 0 must reach the instrument as a real 0.
+        ///
+        /// This is the exploration baseline: the sweep's un-fragmented reference point, and under
+        /// reaction_time_min: 0 also the sweep's own first variant. The old
+        /// <c>if (reactionTimes.Any(v =&gt; v &gt; 0))</c> guard dropped the entire ReactionTime key
+        /// for it, so the instrument substituted whatever default its own method carried while the
+        /// engine logged 0 -- the logged value and the commanded value disagreed, invisibly, and the
+        /// ETD sweep appeared to begin at the method default instead of at reaction_time_min.
+        ///
+        /// Under the old guard this fails with the key absent, not with a wrong value.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void ReactionTime_IsEmittedAsZero_ForEtdStage()
+        {
+            var v = Build(MsnCommand("ETD"));
+
+            Assert.IsTrue(v.ContainsKey("ReactionTime"),
+                "an ETD stage gives reaction time meaning, so 0 is a real commanded value and the "
+                + "key must be sent -- exactly as CollisionEnergy 0 is sent for an HCD stage");
+            Assert.AreEqual("0", v["ReactionTime"]);
+        }
+
+        /// <summary>
+        /// The other half of the contract: a pure HCD scan still omits the key entirely, so an
+        /// activation that has no ion-ion reaction defers to the instrument method (ADR-0009).
+        ///
+        /// Guards against a "fix" that simply unguards the emit — which would start sending
+        /// ReactionTime 0 on every HCD scan, something this instrument path has never done.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void ReactionTime_IsOmitted_ForHcdOnlyScan()
+        {
+            var v = Build(MsnCommand("HCD"));
+
+            Assert.IsFalse(v.ContainsKey("ReactionTime"),
+                "HCD has no ion-ion reaction, so reaction_time 0 means 'not applicable' and the key "
+                + "must stay absent rather than commanding a literal 0");
+        }
+
+        /// <summary>
+        /// Positional integrity across a cascade: one element per stage, still, and the presence of
+        /// a single ETD stage is what carries the whole array onto the wire. A per-stage filter here
+        /// would emit "0" alone and bind the ETD stage's reaction time to stage 0.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void ReactionTime_IsPositional_WhenOnlyOneStageIsEtd()
+        {
+            var cmd = MsnCommand("HCD", "ETD");
+            cmd.Stages[1].ReactionTime = 5;
+
+            var v = Build(cmd);
+
+            Assert.IsTrue(v.ContainsKey("ReactionTime"), "one ETD stage carries the key for the cascade");
+            Assert.AreEqual("0;5", v["ReactionTime"],
+                "one element per stage, in stage order -- position is the only thing binding a "
+                + "value to its stage");
+        }
+
+        /// <summary>
+        /// Drift guard, C# half. The engine's <c>needsReactionTime</c> (OpenMS Config.cpp) is the
+        /// other half, pinned by <c>Config_SchemaProjection_test</c>'s
+        /// <c>activation_coupling_predicates_are_the_declared_set</c>.
+        ///
+        /// These two sets decide whether the ReactionTime key is sent at all, so a set that drifts
+        /// from the engine's silently changes what the instrument is told without changing anything
+        /// the engine logs. Case sensitivity is part of the contract, not an accident.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void NeedsReactionTime_MatchesEngineActivationSet()
+        {
+            Assert.IsTrue(ScanFactory.NeedsReactionTime("ETD"));
+            Assert.IsTrue(ScanFactory.NeedsReactionTime("EThcD"));
+
+            Assert.IsFalse(ScanFactory.NeedsReactionTime("HCD"));
+            Assert.IsFalse(ScanFactory.NeedsReactionTime("CID"));
+            Assert.IsFalse(ScanFactory.NeedsReactionTime("UVPD"));
+            Assert.IsFalse(ScanFactory.NeedsReactionTime(""));
+            Assert.IsFalse(ScanFactory.NeedsReactionTime("etd"),
+                "ordinal and case-sensitive: the C++ side compares literals and the schema is "
+                + "exact-case, so 'etd' is not an ETD scan on either side of the bridge");
+        }
     }
 }
