@@ -476,11 +476,22 @@ namespace Flash
         /// Must be handed to <c>scanControl.SetFusionCustomScan</c> DIRECTLY, never via
         /// <see cref="SendCustomScan"/>, which would overwrite RunningNumber with ++currentNumber.
         ///
-        /// ⚠ Known defect, deliberately not fixed here: <c>IsAGC: true</c> with no AGCgroup means
-        /// this control scan lands in PAGC group 1 - the group every real acquisition uses - while
-        /// commanding neither the configured source region nor a FAIMS CV. So a cheap IonTrap probe
-        /// acts as the flux prescan gain-correcting the first real scans of every run. Two-character
-        /// fix (an explicit group), but it changes acquisition behaviour and wants its own evidence.
+        /// <c>AGCgroup: 2</c> is load-bearing. With the default group this control scan landed in
+        /// PAGC group 1 - the group every real acquisition uses, since
+        /// <see cref="ScanFactory.BuildFromCommand"/> hardcodes 1 - while commanding neither the
+        /// configured source region nor a FAIMS CV. It is bit-identical to the engine's real
+        /// prescan (<c>ScanCommandQueue::makeAGC</c>) in everything that makes the instrument treat
+        /// it as one - IonTrap/Turbo, AGC 30000, MaxIT 1, one microscan - and different in every
+        /// parameter that decides WHICH IONS ARRIVE. So it measured flux through the instrument
+        /// method's source region and FAIMS state, and that estimate gain-corrected the first real
+        /// scans of every run, which are acquired through ours.
+        ///
+        /// Group 2 has no other members, which is the point: nothing consumes this measurement.
+        ///
+        /// <c>IsAGC</c> stays <c>true</c> deliberately. This scan is submitted BEFORE custom control
+        /// exists, and a handshake that fails to latch is a run that acquires nothing - ADR-0008
+        /// records that happening once already. Moving the group is the smaller change with the
+        /// known blast radius. See docs/adr/0032.
         /// </remarks>
         private static IFusionCustomScan BuildHandshakeScan()
         {
@@ -496,7 +507,7 @@ namespace Flash
                     Microscans = 1,
                     DataType = "Profile",
                     ScanType = "Full",
-                }, id: HandshakeJobNumber, IsAGC: true, delay: 3);
+                }, id: HandshakeJobNumber, IsAGC: true, AGCgroup: 2, delay: 3);
         }
 
         /// <summary>
