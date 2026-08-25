@@ -178,7 +178,8 @@
       "enabled": true,
       "value_ms": 30001
     },
-    "agc_interval_seconds": 29
+    "agc_interval_seconds": 29,
+    "target_depth": 3
   },
   "files": {
     "target_logs": [],
