@@ -589,15 +589,31 @@ namespace Flash
             //One rule, no ownership protocol: we never dispose a scan.
             if (inCustom)
             {
+                //An UNCOMMANDED scan is not ingested EITHER, and the reason is measured rather than
+                //assumed. The engine does not reject these cheaply: its first gate is
+                //`desc.size() < 3` (FLASHIda.cpp:88), and on the 2026-08-25 Eclipse run the
+                //instrument method's own scans came back with a description of three BLANK
+                //characters, which clears it. Each one therefore ran the full snapshot on this
+                //thread, allocated two double[], crossed the P/Invoke bridge, took analysis_mutex_,
+                //and printed "[TRACK-RESOLVE] id=<blank> status=not_found" with std::endl - a stdout
+                //flush, under the lock, ~13.7 times a second, racing log4net's ConsoleAppender on
+                //this thread for the same console. 45 709 of them in that run's remaining gradient.
+                //
+                //Same predicate and same FAIL-OPEN direction as the answer half below: every way of
+                //misreading the trailer lands on "push it", which is merely the old behaviour.
+                //
+                //Placement is load-bearing. The snapshot stays BEFORE the drain so the IMsScan is
+                //still live when ScanData.From reads it - moving it after would reintroduce the
+                //use-after-release that has already cost two runs (FlashIDA/CLAUDE.md).
+                //
                 //a rejected Post means the scan is DROPPED, not deferred - never silent
-                if (!dataPipe.Push(msScan))
+                if (scanId != "0" && !dataPipe.Push(msScan))
                 {
                     log.Error(String.Format("Scan {0} was rejected by the pipeline and will NOT be processed", scanId));
                 }
 
-                //An UNCOMMANDED scan (CONTEXT.md) is ingested and NOT answered. "0" is the iAPI's
-                //reserved job number, so it is never one of ours; the ingest half above already
-                //rejects it engine-side, and this is the half that used to buy it a command anyway.
+                //An UNCOMMANDED scan (CONTEXT.md) is NOT answered. "0" is the iAPI's reserved job
+                //number, so it is never one of ours; this is the half that used to buy it a command.
                 //Every one we answered deepened the instrument's queue by one, permanently --
                 //depth = 1 + uncommanded arrivals, with no path that decrements it. docs/adr/0032.
                 //
