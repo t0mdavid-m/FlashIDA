@@ -626,26 +626,54 @@ namespace Flash
                 else log.Warn(String.Format("Uncommanded scan #{0} - not answering it (depth {1})",
                                             msScan.Header["Scan"], outstanding));
 
-                if (outstanding <= 0)
+                //`< targetDepth`, not `<= 0`. At depth 1 the instrument's queue is provably empty
+                //between EVERY pair of scans, and a Tribrid does not sit idle waiting for us -- it
+                //runs its own method. On the 2026-08-25 Eclipse run that gap was ~186 ms per scan
+                //and the method's own ITMS 110-130 filled all of it: 144 scans against our 47,
+                //53% of the duty cycle, and an operator watching a display of nothing but ion-trap
+                //scans. Keeping one command queued BEHIND the one executing leaves no gap.
+                //
+                //This is the clause docs/adr/0033 amends in docs/adr/0032. What 0032 removed was a
+                //monotonic RATCHET -- depth climbing 2, 4, 9, 11 with no path down - and that stays
+                //removed: the count is still derived from arrivals and still incremented only
+                //inside the success path, so it cannot grow past the target. Default 2;
+                //scheduling.target_depth: 1 restores 0032's behaviour exactly, with no rebuild.
+                //
+                //A LOOP, and it has to be. One send per arrival can only ever oscillate depth
+                //between 0 and 1 -- it can never REACH 2, so a single `if` here would read like
+                //the fix and change nothing. Topping up to the target is what bootstraps it: the
+                //first arrival sends twice, every arrival after that sends once and holds.
+                //
+                //Clamped at 1 so a config of 0 or a negative cannot make this body unreachable.
+                //That failure is absorbing -- no send, no arrival, no next chance to send.
+                int targetDepth = Math.Max(1, methodParams.Config.Scheduling.TargetDepth);
+
+                //BOUNDED TWICE, and neither bound is redundant. `outstanding < targetDepth` is the
+                //intent; `sent < targetDepth` is the guard, because outstanding is incremented only
+                //inside the success path below -- so a throwing BuildFromCommand would spin this
+                //loop forever on the instrument event thread. Note GetNextScanCommand never returns
+                //0 for an empty queue (it mints an idle survey instead), so it is no bound at all.
+                for (int sent = 0; outstanding < targetDepth && sent < targetDepth; sent++)
                 {
                     var cmd = new ScanCommand();
-                    if (wrapper.GetNextScanCommand(ref cmd) == 1)
+                    if (wrapper.GetNextScanCommand(ref cmd) != 1) break;   //0 means the wrapper caught an exception
+
+                    //BuildFromCommand refuses a command whose stage geometry is incomplete rather
+                    //than emitting a request the instrument would bind to the wrong stage. Caught
+                    //HERE so it cannot escape onto the instrument event thread, where an unhandled
+                    //exception does not crash the process the usual way but leaves the API in a
+                    //weird state (see the InstrumentConnected remarks).
+                    try
                     {
-                        //BuildFromCommand refuses a command whose stage geometry is incomplete rather
-                        //than emitting a request the instrument would bind to the wrong stage. Caught
-                        //HERE so it cannot escape onto the instrument event thread, where an unhandled
-                        //exception does not crash the process the usual way but leaves the API in a
-                        //weird state (see the InstrumentConnected remarks).
-                        try
-                        {
-                            SendCustomScan(scanFactory.BuildFromCommand(cmd));
-                            outstanding++;   //ONLY on success. A throw here leaves depth low so the
-                                             //next arrival re-sends, instead of stranding the run at 0.
-                        }
-                        catch (InvalidOperationException ex)
-                        {
-                            log.Fatal(String.Format("Refused to send scan {0}: {1}", cmd.ScanId, ex.Message));
-                        }
+                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
+                        outstanding++;   //ONLY on success. A throw here leaves depth low so the
+                                         //next arrival re-sends, instead of stranding the run at 0.
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        log.Fatal(String.Format("Refused to send scan {0}: {1}", cmd.ScanId, ex.Message));
+                        break;   //one report per arrival; retrying the same bad command targetDepth
+                                 //times would just multiply the log line. The next arrival retries.
                     }
                 }
             }

@@ -226,7 +226,8 @@ namespace Flash
                         enabled = c.Scheduling.ScanTimeout.Enabled,
                         value_ms = c.Scheduling.ScanTimeout.ValueMs
                     },
-                    agc_interval_seconds = c.Scheduling.AgcIntervalSeconds
+                    agc_interval_seconds = c.Scheduling.AgcIntervalSeconds,
+                    target_depth = c.Scheduling.TargetDepth
                 },
                 characterization = new JsonCharacterizationConfig
                 {
@@ -347,6 +348,11 @@ namespace Flash
             sb.AppendFormat("Developer: AllCharges={0}, MaxCVSkip={1}\n",
                 c.PrecursorSelection.ConsiderAllChargeStates, c.Faims.MaxCVSkip);
             sb.AppendFormat("FAIMS: CV=[{0}]\n", String.Join(",", c.Faims.CVValues));
+            //Both of these decide how much of the instrument's time FLASHIda actually gets, and
+            //neither was reported anywhere before -- so the 2026-08-25 run's logs could not be read
+            //back to the settings that produced them. Cheap to print, expensive to reconstruct.
+            sb.AppendFormat("Scheduling: TargetDepth={0}, AGCInterval={1}s\n",
+                c.Scheduling.TargetDepth, c.Scheduling.AgcIntervalSeconds);
             var ms1 = c.MsSettings.MS1;
             sb.AppendFormat("MS1: {0} {1}k, mz=[{2},{3}], AGC={4}, MaxIT={5}ms\n",
                 ms1.Analyzer, ms1.OrbitrapResolution / 1000, ms1.FirstMass, ms1.LastMass,
@@ -570,6 +576,7 @@ namespace Flash
             c.Scheduling.ScanTimeout.Enabled = true;
             c.Scheduling.ScanTimeout.ValueMs = 30001;
             c.Scheduling.AgcIntervalSeconds = 29;
+            c.Scheduling.TargetDepth = 3;   //deliberately NOT the default, so the round-trip proves the key survives
 
             c.PrecursorSelection.RankBy = "qscore";
             c.PrecursorSelection.MaxPrecursors = 3;

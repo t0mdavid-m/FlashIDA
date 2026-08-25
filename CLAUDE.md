@@ -72,8 +72,19 @@ Thermo MsScanArrived  ──► ProcessSpectrum(IMsScan)          [instrument ev
                                  │   (false ⇒ DROPPED, logged)       └─► UnifiedScanProcessor.ProcessMS
                                  │                                        └─► FLASHIdaWrapper.ProcessScan
                                  │                                   (nobody disposes the scan)
-                                 └─ ONE GetNextScanCommand ─► ScanFactory.BuildFromCommand ─► SendCustomScan
+                                 └─ TOP UP to scheduling.target_depth (default 2)
+                                      └─ GetNextScanCommand ─► ScanFactory.BuildFromCommand ─► SendCustomScan
 ```
+
+⚠️ **An uncommanded arrival (`Access ID == "0"`) is neither ingested nor answered.** Both halves
+key on the same fail-open predicate. The ingest half was added after the 2026-08-25 Eclipse run,
+where the instrument method's own scans came back with a **three-blank-character** description —
+which clears `processScan`'s `size() < 3` gate — so each one crossed the bridge, took
+`analysis_mutex_`, and flushed `[TRACK-RESOLVE] id=<blank> status=not_found` to stdout ~13.7×/s
+against log4net's `ConsoleAppender` on the arrival thread. **An AGC prescan is still pushed** (only
+`resolvePending` erases its pending-map entry, and only `processScan` reaches it) but pushed
+**empty**: `ScanData.From` skips the centroid enumeration when `description[3] == 'A'`, because the
+engine discards those peaks unread and there are ~12 000 of them per prescan.
 
 Five things this diagram exists to correct:
 
@@ -88,8 +99,17 @@ Five things this diagram exists to correct:
   construction. (The contact-closure path once built the handshake from `GetNextScanCommand`, which
   stamped the engine's first tracking id — `0` — so the latch never fired and the run acquired
   nothing. See ADR-0008.)
-- **The drain is one command per arriving scan, not a loop.** A burst of commands from one
-  `processScan` drains across subsequent scans. (It *must* be bounded — see the ABI note below.)
+- **The drain tops the instrument up to `scheduling.target_depth`** (default **2**), in a loop
+  bounded by that target — *not* one command per arriving scan, which is what it was until
+  ADR-0033. One send per arrival can only oscillate the count between 0 and 1; it can never
+  **reach** 2, so a single `if` there reads like the fix and changes nothing. At depth 1 the
+  instrument's queue is empty after every scan and a Tribrid does not wait — it acquires its own
+  method. Measured on hardware: **53 % of the duty cycle**, 144 method scans against our 47 in
+  17 s. `target_depth: 1` restores ADR-0032's behaviour with no rebuild.
+  The loop carries a **second, independent bound on attempts**: `outstanding` is incremented only
+  inside the success path, so a throwing `BuildFromCommand` would otherwise spin it forever on the
+  instrument event thread. `GetNextScanCommand` is no bound at all — it never returns 0 (see below).
+  A burst of commands from one `processScan` still drains across subsequent arrivals.
 - **Nobody disposes the `IMsScan`.** It is a handle to *framework-owned* shared memory that the
   iAPI releases by itself once the next scan replaces it as the container's `LastScan`
   (`dependencies/API-2.0.xml`, `IMsScan`). This has now been got wrong in both directions, each

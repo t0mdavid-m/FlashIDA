@@ -315,6 +315,24 @@ namespace Flash
         [JsonKey("agc_interval_seconds")]
         [Description("Interval between scheduled AGC prescans, in seconds")]
         public double AgcIntervalSeconds { get; set; } = 1;
+
+        // How many commands the instrument may hold at once. HOST-SIDE ONLY -- the engine parses
+        // this key and does nothing with it; the queue it describes belongs to the instrument, and
+        // Flash.cs:ProcessSpectrum is the only thing that can size it.
+        //
+        // 1 is ADR-0032's behaviour exactly: submit, wait for the echo, submit again. It is also
+        // why the instrument idles between EVERY pair of scans -- on the 2026-08-25 Eclipse run
+        // that gap was ~186 ms and the instrument filled all of it with its own method's scans,
+        // 53% of the whole duty cycle. 2 keeps one command queued behind the one executing, so
+        // there is no gap to fill. See docs/adr/0033.
+        //
+        // Bounded, and DERIVED rather than accumulated, which is the distinction ADR-0032 turns
+        // on: the pathology it removed was a monotonic ratchet (2 -> 4 -> 9 -> 11 with no path
+        // down), not a steady depth. Raise this only with instrument evidence -- the symptom to
+        // watch for is MS1 injection time railing at its max_it ceiling.
+        [JsonKey("target_depth")]
+        [Description("Commands the instrument may hold at once; 1 = submit-and-wait (ADR-0032)")]
+        public int TargetDepth { get; set; } = 2;
     }
 
     /// <summary>
@@ -675,6 +693,12 @@ namespace Flash
         public JsonCycleTimeConfig cycle_time { get; set; }
         public JsonScanTimeoutConfig scan_timeout { get; set; }
         public double agc_interval_seconds { get; set; }
+
+        //Emitted although the engine ignores it. ToCppJson is what generates
+        //test-data/config_schema_reference.json, and ConfigSchemaParity_test parses that file
+        //through the C++ Config, which hard-rejects unknown keys (ADR-0007) -- so a host-only key
+        //that is not emitted here and accepted there breaks that ctest. Both sides, one commit.
+        public int target_depth { get; set; }
     }
 
     public class JsonExplorationConfig
