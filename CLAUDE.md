@@ -166,6 +166,21 @@ exception was caught, never "queue empty".
     the other's slots (ADR‑0019). `Notch` is 24 bytes and deliberately has **no** CollisionEnergy or
     ActivationType field. The three caps are named consts on `ScanFactory`, mirroring the C++ ones;
     `MaxNotchesPerStage + 1` and `MaxIsolationStages` are **different tens** on different axes.
+  - **`ReactionTime` is gated on the stage's ACTIVATION, never on its value** (ADR‑0030).
+    `reaction_time == 0` means two different things — "not applicable" on an HCD/CID stage,
+    "a literal zero reaction time" on an ETD-family one, which is what an exploration baseline
+    commands. The old `if (reactionTimes.Any(v => v > 0))` conflated them and dropped the whole key,
+    so an ETD scan at reaction time 0 silently inherited whatever default the instrument method
+    carried while the engine logged 0 — a logged-vs-commanded disagreement with nothing to notice it.
+    A pure HCD/CID scan still omits the key, so ADR‑0009's defer-to-the-method rule survives for every
+    activation with no ion-ion reaction. The **Reagent keys deliberately keep their `> 0` gate**: a
+    zero reagent AGC target or max IT has no useful meaning. `ScanFactory.NeedsReactionTime` is the C#
+    half of a mirrored pair with the engine's `needsReactionTime`; both are pinned as **exact sets**
+    (`ScanFactoryTests` ∥ `Config_SchemaProjection_test`), because an over-broad predicate starts
+    commanding a reaction time on scans that have none and no other assertion would see it.
+    ⚠️ This hop is **invisible to every golden**: the five log streams are written by the C++
+    `IdaLogger`, so a defect between the `ScanCommand` struct and the `Values` dictionary can only be
+    caught by a `ScanFactoryTests`-style assertion on the built scan.
   - **`FillParameters` is `protected`, and `MockScanFactory` calls it.** It used to be `private` with a
     hand-copied twin in the mock, so every test asserting on `Values` was checking the copy rather
     than production — and the two had drifted on exactly the number formatting above.
