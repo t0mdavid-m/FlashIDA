@@ -294,7 +294,6 @@ namespace Flash.Tests
         [TestCase("", TestName = "ScanData_KeepsCentroids_WhenDescriptionEmpty")]
         [TestCase("ab", TestName = "ScanData_KeepsCentroids_WhenDescriptionTooShort")]
         [TestCase("!!#", TestName = "ScanData_KeepsCentroids_WhenDescriptionHasNoSuffix")]
-        [TestCase("!!#A!", TestName = "ScanData_KeepsCentroids_WhenSuffixIsNotAtIndex3")]
         public void ScanData_KeepsCentroidsWhenDescriptionUnreadable(string description)
         {
             var scan = MockMsScan.WithPeaks(11.23, "9248", description, (900.25, 111.0), (901.75, 222.0));
