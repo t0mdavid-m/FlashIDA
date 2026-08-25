@@ -241,8 +241,8 @@ namespace Flash
     /// Instrument scan parameters, and nothing else. No key in here decides WHETHER a scan happens —
     /// that is what the two decision sections are for.
     ///
-    /// All three levels are bare objects, so the common case (31 of 33 committed configs have exactly
-    /// one MS2; all 33 have exactly one MS3) needs no naming at all. Extra MS2 configs — a second
+    /// All three levels are bare objects, so the common case (38 of 41 committed configs have exactly
+    /// one MS2; all 41 have exactly one MS3) needs no naming at all. Extra MS2 configs — a second
     /// unconditional MS2, or a block backing a tagging/quantification follow-up — go in
     /// additional_ms2 under a name, and are reached by reference:
     ///
@@ -267,7 +267,7 @@ namespace Flash
         [JsonKey("ms3")]
         public MS3Parameters MS3 { get; set; }
 
-        // Absent in 30 of 33 committed configs. Keys are user-authored, so they cannot be
+        // Absent in 38 of 41 committed configs. Keys are user-authored, so they cannot be
         // allowlisted the way a fixed schema is; they are validated as identifiers instead
         // (^[a-z][a-z0-9_]{0,31}$, reserved words rejected) and their VALUES are validated against
         // the normal 17-key scan allowlist.

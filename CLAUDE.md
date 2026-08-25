@@ -121,11 +121,23 @@ deconvolution.** That is the always-on MS1 gate, and it is why tests cannot fabr
 
 ### `GetNextScanCommand` never returns 0 — bound every drain loop
 
-The engine returns `1` on every path; an empty queue produces a fabricated idle AGC command, not
-a `0`. A bare `while (GetNextScanCommand(ref cmd) == 1)` **spins forever**. Each sanctioned
-driver carries its own stop condition: `PushScan` breaks on `cmd.IsAgc == 1`;
-`PushScanAndDrainFull` bounds on `idle >= 3` plus `maxIters`. A `0` from the C# wrapper means an
-exception was caught, never "queue empty".
+The engine returns `1` on every path; an empty queue produces a fabricated **idle survey** — an MS1
+at priority 3 — not a `0`. A bare `while (GetNextScanCommand(ref cmd) == 1)` **spins forever**. Each
+sanctioned driver carries its own stop condition: `PushScan` and the two offline-harness loops in
+`FLASHIdaWrapper` break on `cmd.MsnLevel == 1 && cmd.Priority == 3`; `PushScanAndDrainFull` bounds on
+`idle >= 3` plus `maxIters`. A `0` from the C# wrapper means an exception was caught, never
+"queue empty".
+
+⚠️ **`IsAgc` is not a stop condition** (ADR-0031). The idle path used to fabricate an AGC prescan,
+which is what those three loops broke on; it no longer does, and a loop still testing `IsAgc` hangs.
+Prescans now come only from `scheduling.agc_interval_seconds` — production default **1 s**, and all
+41 committed test configs pin it at `9999999` so golden capture cannot depend on wall clock. Because
+a *scheduled* prescan can arrive mid-drain, breaking on `IsAgc` would also **truncate** the drain and
+drop the MS2 commands behind it; a prescan falls through the `MsnLevel == 2` guard and costs one
+harmless iteration instead. Priority 3 works as the sentinel because `makeMS1()` sets it and every
+other caller overrides to 0 (cycle-time, CV-transition), while MS2 is 2 and MS3 is 1. Pinned on both
+CI paths — `IdleSurveySentinelTests` (C#) ∥
+`FLASHIda_ProcessScan_test::only_the_idle_survey_is_emitted_at_priority_3` (C++).
 
 ### Key components
 
@@ -216,7 +228,7 @@ exception was caught, never "queue empty".
     caught rather than thrown because `Push`'s caller is the instrument event thread.
   - **The `ActionBlock` must never fault, and no statement may sit outside its `try/catch`.** An
     escaping exception faults it *permanently*, severing the link while `GetNextScanCommand` keeps
-    handing the instrument idle AGC scans — a silent, total loss of acquisition. It is invisible
+    handing the instrument idle survey MS1s — a silent, total loss of acquisition. It is invisible
     from every side: `Post` still returns `true`, so the producer never learns, and `Completion` is
     otherwise awaited only by tests. The delegate therefore catches, logs FATAL and invokes the
     required `onFailure` callback (which ends the run) — **and that catch body is itself guarded**,
