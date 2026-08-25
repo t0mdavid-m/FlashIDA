@@ -190,6 +190,28 @@ namespace Flash
             for (int i = 0; i < count; i++) yield return cmd.Notches[begin + i];
         }
 
+        /// <summary>
+        /// Does <paramref name="activation"/> give an ion-ion reaction time meaning? Mirrors the
+        /// engine's <c>needsReactionTime</c> (OpenMS <c>Config.h</c> / <c>Config.cpp</c>).
+        /// </summary>
+        /// <remarks>
+        /// <c>public</c>, not <c>internal</c>, for the same reason the three caps above are: it is
+        /// half of a cross-language contract that a test in Flash.Tests must assert against, and
+        /// there is no InternalsVisibleTo in this assembly. Ordinal and case-sensitive on purpose:
+        /// the C++ side compares string literals and the config schema is exact-case throughout, so
+        /// <c>"etd"</c> is not an ETD scan on either side of the bridge.
+        ///
+        /// This is the C# half of a mirrored pair. It decides whether the ReactionTime key is sent
+        /// at all, so a set that drifts from the engine's silently changes what the instrument is
+        /// told. Pinned on both CI paths — <c>ScanFactoryTests.NeedsReactionTime_MatchesEngineActivationSet</c>
+        /// here and <c>Config_SchemaProjection_test</c>'s
+        /// <c>activation_coupling_predicates_are_the_declared_set</c> in C++.
+        /// </remarks>
+        public static bool NeedsReactionTime(string activation)
+        {
+            return activation == "ETD" || activation == "EThcD";
+        }
+
         private static string Fmt(object value)
         {
             IFormattable formattable = value as IFormattable;
@@ -292,6 +314,9 @@ namespace Flash
                 var reactionTimes = new List<double>();
                 var reagentMaxIts = new List<double>();
                 var reagentAgcTargets = new List<int>();
+                // Whether the ReactionTime key is emitted at all is decided by the ACTIVATIONS
+                // present, not by the values collected -- see the emit site below.
+                bool anyStageUsesReactionTime = false;
 
                 // Array POSITION is the only thing binding a value to a stage: element i -> stage i.
                 // A stage must therefore contribute an element to EVERY array it appears in, or each
@@ -350,6 +375,7 @@ namespace Flash
                     collisionEnergies.Add((int)Math.Round(stage.CollisionEnergy));
                     activationTypes.Add(stage.ActivationType);
                     reactionTimes.Add(stage.ReactionTime);
+                    if (NeedsReactionTime(stage.ActivationType)) anyStageUsesReactionTime = true;
                     reagentMaxIts.Add(stage.ReagentMaxIt);
                     reagentAgcTargets.Add(stage.ReagentAgcTarget);
                 }
@@ -359,7 +385,22 @@ namespace Flash
                 p.CollisionEnergy = collisionEnergies.ToArray();
                 p.ActivationType = activationTypes.ToArray();
                 p.ChargeStates = chargeStates.ToArray();
-                if (reactionTimes.Any(v => v > 0)) p.ReactionTime = reactionTimes.ToArray();
+                // ACTIVATION-GATED, not value-gated (ADR-0030). `reaction_time == 0` carries two
+                // different meanings and only the stage's activation separates them: on an HCD/CID
+                // stage it means "not applicable", on an ETD-family stage it means a literal zero
+                // reaction time -- which is exactly what an exploration baseline commands.
+                //
+                // The old `Any(v => v > 0)` conflated the two and dropped the whole key, so an ETD
+                // scan at reaction time 0 silently inherited whatever default the instrument method
+                // carried while the engine logged 0. That is the failure Config.cpp's
+                // activation-coupling note describes, and it is why the sweep appeared to start at
+                // the method's default rather than at reaction_time_min.
+                //
+                // A pure HCD/CID scan still omits the key entirely, so ADR-0009's "a wholly unused
+                // parameter defers to the instrument method default" is preserved. The Reagent keys
+                // below deliberately keep their value gate: a zero reagent AGC target or max IT has
+                // no useful meaning, so 0 there really does mean "defer to the method".
+                if (anyStageUsesReactionTime) p.ReactionTime = reactionTimes.ToArray();
                 if (reagentMaxIts.Any(v => v > 0)) p.ReagentMaxIT = reagentMaxIts.ToArray();
                 if (reagentAgcTargets.Any(v => v > 0)) p.ReagentAGCTarget = reagentAgcTargets.ToArray();
             }
