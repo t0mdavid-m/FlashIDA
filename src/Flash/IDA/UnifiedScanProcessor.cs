@@ -24,7 +24,8 @@ namespace Flash.IDA
             //the call site rather than silently discarded - but do not escalate it to a run abort.
             //0 is a normal gate rejection (AGC scans, the handshake scan) and is not an error.
             int rc = wrapper.ProcessScan(scan.Mzs, scan.Intensities, scan.RetentionTime,
-                                         scan.MsLevel, scan.ScanDescription, scan.FaimsCv);
+                                         scan.MsLevel, scan.ScanDescription, scan.FaimsCv,
+                                         scan.InstrumentScanNumber);
             if (rc == -1) log.Error("ProcessScan was not successful (bridge returned -1)");
         }
     }

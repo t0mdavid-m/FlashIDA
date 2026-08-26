@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using Thermo.Interfaces.SpectrumFormat_V1;
 using Flash.DataObjects;
 using System.IO;
+using System.Text.RegularExpressions;
 using log4net;
 
 namespace Flash.IDA
@@ -150,11 +151,16 @@ namespace Flash.IDA
         [DllImport(dllName)]
         static private extern void DisposeFLASHIda(IntPtr pTestClassObject);
 
+        //instrument_scan_number is APPENDED, never inserted. On x64 there is one calling convention
+        //and arguments 5+ are on the stack, so a stale 8-parameter OpenMS.dll ignores argument 9 and
+        //degrades to the engine's tracking-id logging; inserting it ahead of faims_cv would instead
+        //have that DLL read an int as a double and command the wrong FAIMS CV on every scan. This
+        //matters here specifically because dll/OpenMS.dll is committed and already stale.
         [DllImport(dllName, CharSet = CharSet.Ansi)]
         static private extern int ProcessScan(
             IntPtr pObject, double[] mzs, double[] ints, int length,
             double rt_min, int ms_level, string scan_description,
-            double faims_cv);
+            double faims_cv, int instrument_scan_number);
 
         [DllImport(dllName)]
         static private extern int GetNextScanCommand(IntPtr pObject, ref ScanCommand output);
@@ -223,11 +229,13 @@ namespace Flash.IDA
         /// <summary>
         /// Process an incoming scan: deconvolve (MS1) or resolve tracking (MS2), enqueue commands.
         /// </summary>
-        public int ProcessScan(double[] mzs, double[] ints, double rt, int msLevel, string scanDesc, double faimsCv = 0.0)
+        public int ProcessScan(double[] mzs, double[] ints, double rt, int msLevel, string scanDesc,
+            double faimsCv = 0.0, int instrumentScanNumber = 0)
         {
             try
             {
-                return ProcessScan(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, scanDesc ?? "", faimsCv);
+                return ProcessScan(m_pNativeObject, mzs, ints, mzs.Length, rt, msLevel, scanDesc ?? "",
+                                   faimsCv, instrumentScanNumber);
             }
             catch (Exception ex)
             {
@@ -427,7 +435,16 @@ namespace Flash.IDA
                 }
             }
 
-            w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, msLevel, desc);
+            //An offline run has no instrument, but the fixture names the ORIGINAL scan in its
+            //"Spec scan=N" header — the same value the C++ harness parses into ScanData::scan_id and
+            //the C# mocks put in Header["Scan"]. Using it keeps an offline ida.log joinable against
+            //the mzML the fixture was cut from. 0 when the header names none, which the engine reads
+            //as "not supplied" and answers by falling back to the tracking id (ADR-0035).
+            int offlineScanNumber = 0;
+            Match scanNumMatch = Regex.Match(scanName ?? "", @"scan=(\d+)");
+            if (scanNumMatch.Success) int.TryParse(scanNumMatch.Groups[1].Value, out offlineScanNumber);
+
+            w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, msLevel, desc, 0.0, offlineScanNumber);
 
             double scoreSum = 0.0;
             var cmd = new ScanCommand();

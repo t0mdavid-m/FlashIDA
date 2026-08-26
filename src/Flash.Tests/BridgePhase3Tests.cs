@@ -22,9 +22,16 @@ namespace Flash.Tests
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         private static extern void DisposeFLASHIda(IntPtr ptr);
 
+        // This declaration is a SECOND, independent P/Invoke of the same export — it does not go
+        // through FLASHIdaWrapper — so it has to be kept in step with the native signature by hand,
+        // and it had already drifted: `double faims_cv` was added natively and never added here, so
+        // this declared 7 parameters against the native 8. Both are corrected together.
+        // Note the CI "Verify bridge smoke tests" gate does NOT cover this — it filters on the
+        // BridgeSmokeTests classname, which declares only CreateFLASHIda/DisposeFLASHIda.
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         private static extern int ProcessScan(IntPtr obj, double[] mzs, double[] ints,
-            int length, double rt_min, int ms_level, string scan_description);
+            int length, double rt_min, int ms_level, string scan_description,
+            double faims_cv, int instrument_scan_number);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         private static extern int GetNextScanCommand(IntPtr obj, ref ScanCommand output);
@@ -86,7 +93,7 @@ namespace Flash.Tests
         {
             double[] mzs = { 500.0, 600.0, 700.0, 800.0, 900.0 };
             double[] ints = { 1000.0, 2000.0, 3000.0, 4000.0, 5000.0 };
-            int result = ProcessScan(nativePtr, mzs, ints, mzs.Length, 1.5, 1, "test_scan");
+            int result = ProcessScan(nativePtr, mzs, ints, mzs.Length, 1.5, 1, "test_scan", 0.0, 1);
             Assert.AreEqual(0, result, "ProcessScan should return 0 for synthetic peaks with no charge envelopes");
         }
 
@@ -126,7 +133,7 @@ namespace Flash.Tests
             // Enqueue an MS1 scan: ProcessScan must return 0 (enqueue success).
             double[] mzs = { 500.0 };
             double[] ints = { 1000.0 };
-            int processResult = ProcessScan(nativePtr, mzs, ints, 1, 1.0, 1, "export_test");
+            int processResult = ProcessScan(nativePtr, mzs, ints, 1, 1.0, 1, "export_test", 0.0, 1);
             Assert.That(processResult, Is.EqualTo(0), "ProcessScan should return 0 on enqueue");
 
             // Drain a command: GetNextScanCommand must report one was filled (1 — even when the

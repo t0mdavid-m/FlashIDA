@@ -29,8 +29,8 @@ namespace Flash
     /// timeout - and its pending-map entry leaks, since resolvePending is the only eraser and is
     /// reached only from processScan. Copying is cheap; losing a scan is not.
     ///
-    /// Six fields, because six is exactly what crosses the bridge. Immutable, so a queued snapshot
-    /// cannot be perturbed by anything that happens after it was taken.
+    /// Seven fields, because seven is exactly what crosses the bridge. Immutable, so a queued
+    /// snapshot cannot be perturbed by anything that happens after it was taken.
     /// </remarks>
     public class ScanData
     {
@@ -41,8 +41,18 @@ namespace Flash
         public readonly string ScanDescription;
         public readonly double FaimsCv;
 
+        /// <summary>
+        /// The number the INSTRUMENT assigned this scan. 0 = it did not say (ADR-0035).
+        /// </summary>
+        /// <remarks>
+        /// A THIRD identity channel, distinct from both channels ADR-0008 named. We neither mint it
+        /// nor request it — it exists only on the scan coming back — and it is the only one of the
+        /// three that survives into the converted mzML, which is exactly why FLASHDeconv joins on it.
+        /// </remarks>
+        public readonly int InstrumentScanNumber;
+
         private ScanData(double[] mzs, double[] intensities, double retentionTime,
-            int msLevel, string scanDescription, double faimsCv)
+            int msLevel, string scanDescription, double faimsCv, int instrumentScanNumber)
         {
             Mzs = mzs;
             Intensities = intensities;
@@ -50,6 +60,7 @@ namespace Flash
             MsLevel = msLevel;
             ScanDescription = scanDescription;
             FaimsCv = faimsCv;
+            InstrumentScanNumber = instrumentScanNumber;
         }
 
         /// <summary>
@@ -57,9 +68,9 @@ namespace Flash
         /// received it, before returning from the arrival callback.
         /// </summary>
         /// <remarks>
-        /// This is the ONLY place an IMsScan is read. Anything that needs a seventh value adds it
+        /// This is the ONLY place an IMsScan is read. Anything that needs an eighth value adds it
         /// here, not at the consumer - a field read lazily from the handle later would reintroduce
-        /// exactly the defect this type exists to remove.
+        /// exactly the defect this type exists to remove. (InstrumentScanNumber was the seventh.)
         ///
         /// One pass over Centroids, not two. The old consumer ran two separate Select().ToArray()
         /// projections; the values are identical either way, but this now runs on the instrument
@@ -74,6 +85,20 @@ namespace Flash
             string cvStr;
             if (msScan.Trailer.TryGetValue("FAIMS CV", out cvStr))
                 double.TryParse(cvStr, out faimsCv);
+
+            //The instrument's own scan number, for ida.log's "MS1 Scan#" and scan_results.tsv. This is
+            //the value FLASHDeconv matches against the mzML native id, and the pre-port C# writer read
+            //it from exactly here (IDAScanProcessor.cs:84 on main) before the port replaced it with the
+            //engine's tracking id and made the join unsatisfiable. ADR-0035.
+            //
+            //TryParse, NOT Parse, and the asymmetry with the two Parse calls below is deliberate. A
+            //throw inside From routes to DataPipe's onFailure, which ENDS THE RUN — that is the right
+            //response to an unreadable m/z array or MS order, and the wrong one for a field used only
+            //for logging. 0 means "not supplied" and the engine falls back to the tracking id.
+            int instrumentScanNumber = 0;
+            string scanNumStr;
+            if (msScan.Header.TryGetValue("Scan", out scanNumStr))
+                int.TryParse(scanNumStr, out instrumentScanNumber);
 
             //An AGC prescan's peaks are DEAD WEIGHT. The engine identifies one by the 4th character
             //of the description and returns before looking at the spectrum at all
@@ -110,7 +135,8 @@ namespace Flash
                 double.Parse(msScan.Header["StartTime"]),
                 int.Parse(msScan.Header["MSOrder"]),
                 scanDescription ?? "",
-                faimsCv);
+                faimsCv,
+                instrumentScanNumber);
         }
     }
 

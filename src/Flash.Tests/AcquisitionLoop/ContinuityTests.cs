@@ -1151,7 +1151,7 @@ namespace Flash.Tests.AcquisitionLoop
                     double[] ints = { 1000.0, 2000.0, 3000.0 };
                     double rt = 1.0 + i * 0.01;
 
-                    int processResult = wrapper.ProcessScan(mzs, ints, rt, 1, "stress_" + i);
+                    int processResult = wrapper.ProcessScan(mzs, ints, rt, 1, "stress_" + i, 0.0, i + 1);
                     Assert.AreEqual(0, processResult,
                         string.Format("ProcessScan should return 0 at iteration {0}", i));
 
@@ -1218,7 +1218,8 @@ namespace Flash.Tests.AcquisitionLoop
                                 double[] ints = { 1000.0 };
 
                                 wrapper.ProcessScan(mzs, ints, 1.0 + i * 0.01, 1,
-                                    string.Format("thread{0}_scan{1}", threadId, i));
+                                    string.Format("thread{0}_scan{1}", threadId, i),
+                                    0.0, threadId * 1000 + i + 1);
 
                                 var cmd = new ScanCommand();
                                 wrapper.GetNextScanCommand(ref cmd);
