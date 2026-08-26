@@ -67,7 +67,7 @@ Thermo MsScanArrived  ──► ProcessSpectrum(IMsScan)          [instrument ev
                             └─ if (inCustom):
                                  dataPipe.Push(scan)
                                  │   └─ ScanData.From(scan)  ◄── the handle is read HERE, on this
-                                 │        (6 owned values)        thread, while it is still live
+                                 │        (7 owned values)        thread, while it is still live
                                  │   ─────────► BufferBlock<ScanData> ─► ActionBlock  [pool thread]
                                  │   (false ⇒ DROPPED, logged)       └─► UnifiedScanProcessor.ProcessMS
                                  │                                        └─► FLASHIdaWrapper.ProcessScan
@@ -226,7 +226,7 @@ CI paths — `IdleSurveySentinelTests` (C#) ∥
   because the engine leans on it — `processScan` is serialized against itself by this block and by
   nothing else, which is why `analysis_mutex_` only has to defend against the drain.
   - **The queue holds a `ScanData` snapshot, not the `IMsScan`.** `Push` takes the handle and copies
-    the six values the engine needs (`ScanData.From`) **on the caller's thread**, i.e. while the
+    the seven values the engine needs (`ScanData.From`) **on the caller's thread**, i.e. while the
     handle is still live. An `IMsScan` is a window onto framework-owned memory the iAPI releases as
     soon as the next scan replaces it as `LastScan`, so a queued *handle* is only safe while the
     queue is ~1 deep — which it was, by accident, because the command drain blocked behind the
