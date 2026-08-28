@@ -103,26 +103,28 @@
       "activation": "CID",
       "collision_energy": 25
     },
-    "additional_ms2": {
-      "quant_follow_up": {
-        "analyzer": "Orbitrap",
-        "first_mass": 100,
-        "last_mass": 2000,
-        "resolution": 120000,
-        "agc_target": 500000,
-        "max_it": 100,
-        "microscans": 4,
-        "data_type": "Centroid",
-        "activation": "HCD",
-        "collision_energy": 30
-      }
+    "ms2_quant": {
+      "analyzer": "Orbitrap",
+      "first_mass": 100,
+      "last_mass": 2000,
+      "resolution": 120000,
+      "agc_target": 500000,
+      "max_it": 100,
+      "microscans": 4,
+      "data_type": "Centroid",
+      "activation": "HCD",
+      "collision_energy": 30
     }
   },
   "tagging": {},
   "quantification": {
     "enabled": true,
+    "labelling": "tmt6plex",
     "reporter_mz_tol": 0.002,
     "fold_change_threshold": 1.4,
-    "follow_up_scan": "quant_follow_up"
+    "conditions": [
+      { "name": "control", "channels": ["126", "127", "128"] },
+      { "name": "treated", "channels": ["129", "130", "131"] }
+    ]
   }
 }

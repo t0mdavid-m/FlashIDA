@@ -124,12 +124,13 @@ namespace Flash.Tests
             RunCase("exploration_etd", "method_exploration_etd.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
         }
 
-        // F8-quant: feed the REAL TMT-reporter MS2 (ms2_quant_tmt.txt) instead of the inert ms2_hcd_fragment.txt,
-        // so isDifferentiallyAbundant fires and a quant follow-up ('F') is actually generated. minFollowUps:1
-        // fail-closes: the old reporter-less fixture produced 0 'F' commands -> the golden proved nothing.
+        // F8-quant: feed the REAL TMT-reporter MS2 (ms2_quant_tmt.txt) instead of the inert
+        // ms2_hcd_fragment.txt, so the quantification scan's reporter channels actually resolve and a
+        // Differential verdict BUYS an identification scan. minBoughtIdScans:1 fail-closes on the old
+        // reporter-less fixture, which bought nothing and made the golden prove nothing (ADR-0038).
         [Test, Category("Tier2")]
         public void Golden_Quant() =>
-            RunCase("quant", "method_quant.json", "ms1_standard.txt", "ms2_quant_tmt.txt", minFollowUps: 1);
+            RunCase("quant", "method_quant.json", "ms1_standard.txt", "ms2_quant_tmt.txt", minBoughtIdScans: 1);
 
         [Test, Category("Tier2")]
         public void Golden_TagTargeting() =>
@@ -1484,7 +1485,7 @@ namespace Flash.Tests
 
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
             bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
-            int minMs2Commands = 0, int minFollowUps = 0,
+            int minMs2Commands = 0, int minBoughtIdScans = 0,
             Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
@@ -1555,20 +1556,29 @@ namespace Flash.Tests
                     "target did not drive selection (wrong mass -> silent DDA fall-through / strict 0-match).");
             }
 
-            // F8-quant fail-closed gate: a quant case must emit >= minFollowUps quant follow-up ('F') commands.
-            // On the pre-fix inert fixture (an MS2 with no TMT reporter ions), isDifferentiallyAbundant was
-            // never true and 0 'F' follow-ups fired -> this guard refuses to capture/compare a golden that
-            // proves nothing about the quant follow-up path. 'F' is the scan_description suffix (index 3).
-            if (minFollowUps > 0)
+            // F8-quant fail-closed gate: a quant case must BUY at least minBoughtIdScans identification
+            // scans. Counting the bought scan rather than the quantification scan is the whole point --
+            // after ADR-0038 the 'Q' quantification scans are ROSTERED, so they are emitted whether or
+            // not anything is differentially abundant and counting them would prove nothing. What proves
+            // the path worked is that a verdict came back Differential and bought something.
+            //
+            // In a quant config the roster's primary slot is the 'Q', so every 'R' at MS2 level is by
+            // construction a bought identification scan. On the pre-fix inert fixture (an MS2 with no TMT
+            // reporter ions) no verdict was ever Differential, nothing was bought, and this guard refuses
+            // to capture or compare a golden that proves nothing.
+            if (minBoughtIdScans > 0)
             {
                 var cmdRowsParsed = ParseTsv(commandsPath, out var cmdHeader);
                 int descCol = Array.IndexOf(cmdHeader, "scan_description");
+                int lvlCol = Array.IndexOf(cmdHeader, "ms_level");
                 Assert.That(descCol, Is.GreaterThanOrEqualTo(0), "scan_description column present in scan_commands");
-                int followUps = cmdRowsParsed.Count(r => descCol < r.Length &&
-                                                         r[descCol].Length >= 4 && r[descCol][3] == 'F');
-                Assert.That(followUps, Is.GreaterThanOrEqualTo(minFollowUps),
-                    $"Case '{caseName}' produced {followUps} quant follow-up ('F') command(s) (< {minFollowUps}) — " +
-                    "the quant fixture has no TMT reporter ions, so no differential-abundance follow-up fired.");
+                Assert.That(lvlCol, Is.GreaterThanOrEqualTo(0), "ms_level column present in scan_commands");
+                int bought = cmdRowsParsed.Count(r => descCol < r.Length && lvlCol < r.Length &&
+                                                      r[descCol].Length >= 4 && r[descCol][3] == 'R' &&
+                                                      r[lvlCol] == "2");
+                Assert.That(bought, Is.GreaterThanOrEqualTo(minBoughtIdScans),
+                    $"Case '{caseName}' bought {bought} identification scan(s) (< {minBoughtIdScans}) — " +
+                    "no quantification scan came back differentially abundant, so the quant path is unproven.");
             }
 
             // ADDITIONAL fail-closed guard (does NOT alter the golden comparison below): no captured
