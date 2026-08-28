@@ -176,10 +176,21 @@ namespace Flash
                 quantification = new JsonQuantificationConfig
                 {
                     enabled = c.Quantification.Active,
+                    labelling = c.Quantification.Labelling,
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
                     fold_change_threshold = c.Quantification.FoldChangeThreshold,
-                    follow_up_scan = string.IsNullOrEmpty(c.Quantification.FollowUpScan)
-                        ? null : c.Quantification.FollowUpScan
+                    // Null (not an empty list) when unauthored, so SerializeValue skips the key and
+                    // the 40 configs that never quantify emit exactly what they emit today. C++
+                    // requires conditions only when enabled, so an absent key is legal there.
+                    conditions = (c.Quantification.Conditions == null || c.Quantification.Conditions.Count == 0)
+                        ? null
+                        : c.Quantification.Conditions.ConvertAll(cond => new JsonQuantCondition
+                          {
+                              name = cond.Name,
+                              channels = cond.Channels
+                          }),
+                    correction_matrix = (c.Quantification.CorrectionMatrix == null || c.Quantification.CorrectionMatrix.Count == 0)
+                        ? null : c.Quantification.CorrectionMatrix
                 },
                 faims = new JsonFaimsConfig
                 {
@@ -205,6 +216,11 @@ namespace Flash
                         scan_rate = c.MsSettings.MS1.ScanRate ?? ""
                     },
                     ms2 = ToJsonScanConfig(c.MsSettings.MS2, c.MsSettings.MS1),
+                    // Null when unset -> key omitted, so nothing changes for the 40 configs that
+                    // have no quantification scan. Source-region parameters inherit from the survey
+                    // through the same ToJsonScanConfig path as every other scan (ADR-0011).
+                    ms2_quant = c.MsSettings.MS2Quant.HasValue
+                        ? ToJsonScanConfig(c.MsSettings.MS2Quant.Value, c.MsSettings.MS1) : null,
                     ms3 = ToJsonScanConfig(c.MsSettings.MS3, c.MsSettings.MS1),
                     // Emit nothing at all when there are no extras, so the 30 configs without any
                     // stay byte-for-byte the length they are today.
@@ -509,10 +525,30 @@ namespace Flash
             c.Tagging.ConditionalMS2 = false;
             c.Tagging.FollowUpScan = "tagging_reference";
 
+            // Active stays FALSE deliberately, and it is the one key in this section whose binding
+            // the parity tests cannot verify (a binding hardwired to false would pass). Enabling it
+            // here would invert the level-2 roster per ADR-0038, so cfg.level(2).scans[0] would
+            // become ms2_quant and ConfigSchemaParity_test's ms_settings.ms2 block -- which asserts
+            // all 17 keys against scans[0] -- would compare the wrong scan. The roster inversion is
+            // behaviour, not schema, and is pinned in Config_SchemaProjection_test instead.
             c.Quantification.Active = false;
+            c.Quantification.Labelling = "tmt10plex";   // non-default: the default is tmt6plex
             c.Quantification.ReporterMZTol = 0.0031;
             c.Quantification.FoldChangeThreshold = 1.7;
-            c.Quantification.FollowUpScan = "quant_reference";
+            // Channel names must be valid for the labelling above, or Config throws at load.
+            // tmt10plex's N/C channels are used on purpose: they only exist in the 10-plex+ schemes,
+            // so a reference that silently fell back to tmt6plex would fail here rather than pass.
+            c.Quantification.Conditions = new List<QuantConditionConfig>
+            {
+                new QuantConditionConfig { Name = "reference_a", Channels = new List<string> { "126", "127N" } },
+                new QuantConditionConfig { Name = "reference_b", Channels = new List<string> { "130C", "131" } }
+            };
+            c.Quantification.CorrectionMatrix = new List<string>
+            {
+                "0.0/0.0/1.1/0.0", "0.0/0.0/1.2/0.0", "0.0/0.3/1.3/0.0", "0.0/0.4/1.4/0.0",
+                "0.5/0.0/1.5/0.0", "0.6/0.0/1.6/0.0", "0.7/0.0/1.7/0.0", "0.8/0.0/0.0/0.0",
+                "0.9/0.0/0.0/0.0", "1.0/0.0/0.0/0.0"
+            };
 
             c.Faims.CVValues = new double[] { -41, -52, -63 };
             c.Faims.MaxCVSkip = 2;
@@ -538,6 +574,16 @@ namespace Flash
                 DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
                 ScanRate = "Normal", RFLens = 33, SourceCID = 18, SourceCIDScaling = 0.13
             };
+            // ADR-0038: the quantification scan is a bare slot, so it belongs here beside ms2/ms3
+            // rather than in additional_ms2. These are the values the retired "quant_reference"
+            // entry carried, moved verbatim so the reference keeps asserting the same 17 keys.
+            c.MsSettings.MS2Quant = new MS2Parameters
+            {
+                Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003,
+                AGCTarget = 400003, MaxIT = 103, FirstMass = 153, LastMass = 2003, Microscans = 3,
+                DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                ScanRate = "Enhanced", RFLens = 35, SourceCID = 20, SourceCIDScaling = 0.15
+            };
             // Two named entries, one backing each follow-up reference, and BOTH referenced.
             //
             // There is deliberately no third "dispatched extra" here. It would have to be listed in
@@ -561,14 +607,11 @@ namespace Flash
                         AGCTarget = 400002, MaxIT = 102, FirstMass = 152, LastMass = 2002, Microscans = 2,
                         DataType = "Centroid", ReactionTime = 12, ReagentMaxIT = 202, ReagentAGCTarget = 700002,
                         ScanRate = "Zoom", RFLens = 34, SourceCID = 19, SourceCIDScaling = 0.14
-                    } },
-                { "quant_reference", new MS2Parameters
-                    {
-                        Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 28, OrbitrapResolution = 15003,
-                        AGCTarget = 400003, MaxIT = 103, FirstMass = 153, LastMass = 2003, Microscans = 3,
-                        DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
-                        ScanRate = "Enhanced", RFLens = 35, SourceCID = 20, SourceCIDScaling = 0.15
                     } }
+                // "quant_reference" is gone (ADR-0038). Quantification no longer references
+                // additional_ms2 at all -- its two scans are the bare ms_settings.ms2_quant and
+                // ms_settings.ms2 slots -- and leaving the entry here would make it an unreferenced
+                // definition, which the engine warns about precisely because it never fires.
             };
 
             c.Scheduling.CycleTime.Enabled = true;

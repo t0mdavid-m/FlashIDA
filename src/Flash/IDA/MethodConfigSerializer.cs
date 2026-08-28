@@ -209,6 +209,30 @@ namespace Flash
                     + "mass-keyed; re-selecting one mass at a different charge on a LATER survey has no "
                     + "replacement."
                 },
+                {
+                    "quantification.follow_up_scan",
+                    "quantification.follow_up_scan was removed (ADR-0038). It named the scan a "
+                    + "differential verdict BOUGHT -- which the engine then never measured -- while the "
+                    + "scan it DID measure was the base MS2, whose activation could not release the "
+                    + "reporter ion. The two roles are now explicit slots: ms_settings.ms2_quant is the "
+                    + "quantification scan (rostered once per precursor, and the only scan measured), "
+                    + "and ms_settings.ms2 is the identification scan a differential verdict buys. Move "
+                    + "the block you referenced here into ms_settings.ms2_quant."
+                },
+                {
+                    "quantification.only_one_condition",
+                    "quantification.only_one_condition was removed (ADR-0038). It was never reachable -- "
+                    + "no emit DTO ever carried it, so the C++ branch behind it could not run -- and its "
+                    + "intent is now unconditional: a condition whose channels are ALL empty reports "
+                    + "\"differential\", because a species present in one condition and absent in the "
+                    + "other is the strongest result the experiment can produce. Delete the key."
+                },
+                {
+                    // Renamed in FlashIDA 79caf4b and landed without a hint, so a config older than
+                    // that got a bare "unknown key" with nothing pointing at the replacement.
+                    "quantification.active",
+                    "quantification.active was renamed to quantification.enabled."
+                },
             };
 
         /// <summary>Recurse a raw JSON node against its model type, collecting unknown keys.</summary>

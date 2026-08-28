@@ -212,13 +212,35 @@ namespace Flash
         [Description("Fold-change threshold for differential quantification")]
         public double FoldChangeThreshold { get; set; }
 
-        [JsonKey("only_one_condition")]
-        [Description("Only quantify targets present in one condition")]
-        public bool OnlyOneCondition { get; set; }
+        [JsonKey("labelling")]
+        [Description("Isobaric labelling scheme: itraq4plex, itraq8plex, tmt6plex, tmt10plex, tmt11plex, tmt16plex or tmt18plex")]
+        public string Labelling { get; set; } = "tmt6plex";
 
-        [JsonKey("follow_up_scan")]
-        [Description("Name of an ms_settings.additional_ms2 entry to acquire as the quantification ('F') follow-up MS2")]
-        public string FollowUpScan { get; set; } = "";
+        // ADR-0038. Exactly two, and the ORDER IS THE RATIO DIRECTION:
+        // fold_change = mean(conditions[0]) / mean(conditions[1]). A list rather than a dictionary
+        // because a dictionary has no order, and the numerator must not depend on how the author
+        // happened to name their groups.
+        [JsonKey("conditions")]
+        [Description("The two experimental conditions, by reporter channel name. Order is the ratio direction")]
+        public List<QuantConditionConfig> Conditions { get; set; } = new List<QuantConditionConfig>();
+
+        [JsonKey("correction_matrix")]
+        [Description("Isotope-impurity correction matrix, one entry per channel; omit to use the labelling scheme's stock matrix")]
+        public List<string> CorrectionMatrix { get; set; } = new List<string>();
+    }
+
+    /// One of the two conditions the fold change is taken over. Channels are named
+    /// (e.g. "126", "127N"); the engine resolves them to ordinals at load, so a typo is a load
+    /// error rather than a silently wrong intensity.
+    public class QuantConditionConfig
+    {
+        [JsonKey("name")]
+        [Description("Condition label, e.g. control or treated")]
+        public string Name { get; set; } = "";
+
+        [JsonKey("channels")]
+        [Description("Reporter channel names belonging to this condition")]
+        public List<string> Channels { get; set; } = new List<string>();
     }
 
     [JsonKey("faims")]
@@ -263,6 +285,17 @@ namespace Flash
 
         [JsonKey("ms2")]
         public MS2Parameters MS2 { get; set; }
+
+        // ADR-0038. A bare slot beside ms1/ms2/ms3 rather than a name reference, the same shape
+        // characterization already uses with ms3: the decision section holds no scan config, and
+        // this supplies the parameters with no key pointing at it. Required when
+        // quantification.enabled, permitted and inert otherwise.
+        // NULLABLE deliberately: MS2Parameters is a struct, so a plain field could not express
+        // "unauthored" -- it would always emit, has_quant_scan would always be true C++-side, and the
+        // "enabled without ms2_quant" throw could never fire. The reflective serializer unwraps
+        // Nullable<T> at MethodConfigSerializer.cs:241/293/377, so this costs nothing.
+        [JsonKey("ms2_quant")]
+        public MS2Parameters? MS2Quant { get; set; }
 
         [JsonKey("ms3")]
         public MS3Parameters MS3 { get; set; }
@@ -605,12 +638,23 @@ namespace Flash
         public double duration { get; set; }
     }
 
+    // EVERY authorable field must appear here. A field on QuantificationConfig with no counterpart
+    // in this DTO is unreachable from method.json no matter how completely C++ supports it -- that
+    // is exactly how only_one_condition spent its whole life bound, documented and inert (ADR-0038).
     public class JsonQuantificationConfig
     {
         public bool enabled { get; set; }
+        public string labelling { get; set; }
         public double reporter_mz_tol { get; set; }
         public double fold_change_threshold { get; set; }
-        public string follow_up_scan { get; set; }
+        public List<JsonQuantCondition> conditions { get; set; }
+        public List<string> correction_matrix { get; set; }
+    }
+
+    public class JsonQuantCondition
+    {
+        public string name { get; set; }
+        public List<string> channels { get; set; }
     }
 
     public class JsonFaimsConfig
@@ -670,6 +714,9 @@ namespace Flash
     {
         public JsonMs1Config ms1 { get; set; }
         public JsonMs2Config ms2 { get; set; }
+        // Null when unset, and SerializeValue skips nulls -- so the 40 configs with no
+        // quantification scan stay exactly as short as they are today.
+        public JsonMs2Config ms2_quant { get; set; }
         public JsonMs2Config ms3 { get; set; }
         // Omitted from the emitted JSON when there are no extras (SerializeValue skips nulls), so the
         // 30 configs with none stay exactly as short as they are today.
