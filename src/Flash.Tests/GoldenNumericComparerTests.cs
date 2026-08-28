@@ -86,8 +86,12 @@ namespace Flash.Tests
         // position between non-deterministic CI builds. Canonicalizing BOTH sides (as CompareOne does) must
         // make a pure REORDER Equivalent while any value / count / integer change still FAILS.
         //
-        // Each input is a header line + ONE data row with the REAL column count (scan_results 29,
-        // identification 32). The header carries the REAL column NAMES at the tuple positions so the
+        // Each input is a header line + ONE data row. The width is SYNTHETIC and need not track the live
+        // writer: the same header is passed as the canonicalizer's reference, so the permute is an
+        // identity and PermuteColumnsToReference's width check compares the header against itself. (An
+        // earlier note here claimed the width "is the real scan_results column count"; it was wrong even
+        // then -- the code said 32 against a real 29 -- and ADR-0038's quant block has since taken the
+        // real width to 36. Do not chase it.) The header carries the REAL column NAMES at the tuple positions so the
         // name-based canonicalizer resolves them; every other column is a unique placeholder name with a
         // "px" data value (identical on both sides so GoldenNumericComparer's skeleton check passes). The
         // same header is passed as the canonicalizer's reference (an identity permute for these rows).
@@ -128,7 +132,7 @@ namespace Flash.Tests
         // deconv_masses), then deconv_charges / deconv_intensities — the per-charge pair that replaced
         // deconv_min_charge / deconv_max_charge and the summed intensity. Only the NAMES matter here:
         // the canonicalizer resolves the tuple by name, so these synthetic indices need not match the
-        // live writer's, but the width (29) is the real scan_results column count.
+        // live writer's, and neither need the width -- see the note above.
         private static string[] BuildResultsHeader()
         {
             var h = MakeHeader(32);
