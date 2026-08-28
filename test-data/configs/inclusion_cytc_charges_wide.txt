@@ -1,0 +1,2 @@
+mass	charge	rt_start	rt_end	priority
+12351.3	12;13;14;15;16;17;18	0	120	1
