@@ -232,6 +232,12 @@ namespace Flash
     /// One of the two conditions the fold change is taken over. Channels are named
     /// (e.g. "126", "127N"); the engine resolves them to ordinals at load, so a typo is a load
     /// error rather than a silently wrong intensity.
+    ///
+    /// The class-level [JsonKey] is REQUIRED, not decoration: ConvertValue recognises a nested
+    /// config class by `targetType.GetCustomAttribute<JsonKeyAttribute>() != null` on the CLASS.
+    /// Without it a QuantConditionConfig falls through to Convert.ChangeType and throws
+    /// "Object must implement IConvertible" for every config that authors conditions.
+    [JsonKey("conditions")]
     public class QuantConditionConfig
     {
         [JsonKey("name")]

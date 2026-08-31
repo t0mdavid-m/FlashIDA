@@ -475,6 +475,29 @@ namespace Flash
                 return result;
             }
 
+            // Generic List<T> where T is itself a nested config class.
+            //
+            // Deliberately placed AFTER the explicit double[] / List<string> / List<MS2Parameters>
+            // branches, so it is purely additive and changes nothing that already worked. Without
+            // it a List<SomeConfig> falls all the way through to Convert.ChangeType and throws
+            // "Object must implement IConvertible" -- which is exactly what ADR-0038's
+            // List<QuantConditionConfig> did, on every config that authored conditions. The three
+            // branches above are a hand-maintained per-type list; this is the general case so the
+            // next nested-list key does not have to discover the same failure.
+            if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                Type elemType2 = targetType.GetGenericArguments()[0];
+                if (elemType2.GetCustomAttribute<JsonKeyAttribute>() != null)
+                {
+                    var result = (IList)Activator.CreateInstance(targetType);
+                    var list = rawValue as ArrayList;
+                    if (list != null)
+                        foreach (object item in list)
+                            result.Add(ConvertValue(item, elemType2));
+                    return result;
+                }
+            }
+
             // Nested config class (has [JsonKey] on the class)
             if (targetType.IsClass && !targetType.IsPrimitive
                 && targetType != typeof(string)
