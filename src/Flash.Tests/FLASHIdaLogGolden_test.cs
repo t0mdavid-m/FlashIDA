@@ -132,6 +132,47 @@ namespace Flash.Tests
         public void Golden_Quant() =>
             RunCase("quant", "method_quant.json", "ms1_standard.txt", "ms2_quant_tmt.txt", minBoughtIdScans: 1);
 
+        // ADR-0040. The three quantification-GROUP modes. All three use ms1_cytc.txt rather than
+        // ms1_standard.txt because the group needs a species that RESOLVES several charges -- the
+        // cytC survey gives ten, capped to three by max_charge_states so the golden stays reviewable.
+        //
+        // minBoughtIdScans:1 fail-closes on the failure these modes exist to catch: a group that
+        // never completes buys nothing, and without this the golden would happily record N screens
+        // and zero identifications as if that were the answer.
+
+        // Every member agrees, so the vote is unanimous and one 'R' is bought for the whole group --
+        // the plumbing (fan-out, join, completion, aggregate, ID-charge pick, all five columns)
+        // without the dissent path.
+        [Test, Category("Tier2")]
+        public void Golden_QuantSeparate() =>
+            RunCase("quant_separate", "method_quant_separate.json", "ms1_cytc.txt",
+                    "ms2_quant_tmt.txt", minBoughtIdScans: 1);
+
+        // The dissent path. The charge map hands ONE member the mirrored fixture -- Differential
+        // enriched in CONTROL where the others are enriched in TREATED -- so the vote must discard it
+        // and still buy exactly one 'R', at a charge drawn from the AGREEING set.
+        //
+        // Same verdict, opposite direction: a vote keyed on the verdict alone would call this
+        // unanimous, which is the silent failure the directional ballot exists to prevent.
+        [Test, Category("Tier2")]
+        public void Golden_QuantSeparateChimeric()
+        {
+            var byCharge = BuildQuantChargeMap(SpectraDir);
+            Assert.That(byCharge.Count, Is.GreaterThanOrEqualTo(2),
+                "Requires ms2_quant_tmt.txt and ms2_quant_tmt_treated_absent.txt.");
+            RunCase("quant_separate_chimeric", "method_quant_separate.json", "ms1_cytc.txt",
+                    "ms2_quant_tmt.txt", minBoughtIdScans: 1, ms2ChargeMap: byCharge,
+                    postDriveAssert: AssertQuantGroupDissented);
+        }
+
+        // One co-isolated 'Q' carrying >= min_charge_states charges: a single blended measurement, so
+        // agreement is 1/1 and no vote occurs. multiplexed CANNOT detect chimericity -- that is
+        // inherent, not an omission -- and this mode pins that it still measures and still buys.
+        [Test, Category("Tier2")]
+        public void Golden_QuantMultiplexed() =>
+            RunCase("quant_multiplexed", "method_quant_multiplexed.json", "ms1_cytc.txt",
+                    "ms2_quant_tmt.txt", minBoughtIdScans: 1);
+
         [Test, Category("Tier2")]
         public void Golden_TagTargeting() =>
             RunCase("tag", "method_tag_targeting.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
@@ -629,6 +670,65 @@ namespace Flash.Tests
         /// maps to ms2_cytc_ce&lt;CE&gt;.txt. Only fixtures present on disk are added, so a missing one surfaces
         /// as a count mismatch in the caller (loud), never a silent skip.
         /// </summary>
+        /// ADR-0040. Charge-keyed MS2 fixtures for the chimeric quantification-group mode.
+        ///
+        /// The map has NO FALLBACK by design, so it must cover every charge the run can command --
+        /// and which charges the cytC survey resolves is not knowable when the map is built. So it
+        /// spans a generous range and splits it by PARITY: even charges get the mirrored fixture
+        /// (Differential enriched in CONTROL), odd charges the ordinary one (enriched in TREATED).
+        ///
+        /// Parity rather than a named charge because naming one that never gets acquired would give
+        /// a silently UNANIMOUS run -- a golden that records the dissent path while never taking it.
+        /// AssertQuantGroupDissented below is what makes that failure loud instead: it fails closed
+        /// unless a group actually recorded agreeing &lt; ballots.
+        private static Dictionary<int, string> BuildQuantChargeMap(string spectraDir)
+        {
+            string majority = Path.Combine(spectraDir, "ms2_quant_tmt.txt");
+            string dissent  = Path.Combine(spectraDir, "ms2_quant_tmt_treated_absent.txt");
+            var map = new Dictionary<int, string>();
+            if (!File.Exists(majority) || !File.Exists(dissent)) return map;
+            for (int z = 1; z <= 60; z++) map[z] = (z % 2 == 0) ? dissent : majority;
+            return map;
+        }
+
+        /// ADR-0040 fail-closed guard for the chimeric mode: at least one completed group must have
+        /// recorded a DISSENT. Reads consensus_agreement ("agreeing/ballots") from the produced
+        /// scan_results.tsv and requires one row where the two differ.
+        ///
+        /// Without this the mode degrades silently: if every acquired charge happened to land on one
+        /// side of the parity split, the run is unanimous and the golden pins the wrong path while
+        /// looking entirely healthy.
+        private static void AssertQuantGroupDissented(string caseDir)
+        {
+            string p = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
+            Assert.That(File.Exists(p), Is.True, "quant_separate_chimeric produced no scan_results.tsv");
+            var lines = File.ReadAllLines(p);
+            Assert.That(lines.Length, Is.GreaterThan(1), "scan_results.tsv has no rows");
+
+            var headers = lines[0].Split('\t');
+            int col = Array.IndexOf(headers, "consensus_agreement");
+            Assert.That(col, Is.GreaterThanOrEqualTo(0), "no consensus_agreement column");
+
+            bool dissented = false, anyConsensus = false;
+            foreach (var line in lines.Skip(1))
+            {
+                var f = line.Split('\t');
+                if (col >= f.Length || string.IsNullOrEmpty(f[col])) continue;
+                var parts = f[col].Split('/');
+                if (parts.Length != 2) continue;
+                anyConsensus = true;
+                if (parts[0] != parts[1]) dissented = true;
+            }
+            Assert.That(anyConsensus, Is.True,
+                "no group reached a consensus at all -- the fan-out or the completion is broken, "
+                + "not merely the dissent");
+            Assert.That(dissented, Is.True,
+                "every group was UNANIMOUS: the parity charge split never straddled an acquired "
+                + "charge set, so this mode is pinning the agreeing path under a chimeric name. "
+                + "Widen or re-key BuildQuantChargeMap against the charges this survey actually "
+                + "acquires (scan_commands.tsv, charge column).");
+        }
+
         private static Dictionary<int, string> BuildMs2CeMap(string spectraDir)
         {
             var map = new Dictionary<int, string>();
@@ -1486,7 +1586,10 @@ namespace Flash.Tests
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
             bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
             int minMs2Commands = 0, int minBoughtIdScans = 0,
-            Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null)
+            Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null,
+            // ADR-0040: charge-keyed MS2 feed, so one quantification group's members can be given
+            // different reporter ratios and the majority vote has something to out-vote.
+            Dictionary<int, string> ms2ChargeMap = null)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -1524,7 +1627,8 @@ namespace Flash.Tests
                     Path.Combine(SpectraDir, ms1File),
                     Path.Combine(SpectraDir, ms2File),
                     ms3Sel,
-                    ms2CeMap: ms2CeMap);
+                    ms2CeMap: ms2CeMap,
+                    ms2ChargeMap: ms2ChargeMap);
             } // Dispose() closes the C++ engine and flushes/closes the log streams
 
             // Fail-closed: a case that produced no scan commands is broken, never a valid golden.

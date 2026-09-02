@@ -180,10 +180,17 @@ namespace Flash.Tests.Mocks
         //   throws InvalidOperationException naming the CE + available keys (a silent single-spectrum fall-through
         //   would collapse the sweep and defeat the test). When null, the single ms2Path is fed for every MS2
         //   command (existing behaviour, all other modes unaffected). C# twin of the C++ runInterleaved ms2_ce_map.
+        // ms2ChargeMap (ADR-0040): optional CHARGE-keyed MS2-spectrum source map. Same shape and same
+        //   no-fallback rule as ms2CeMap, but keyed on the command's stage-0 charge state — so the
+        //   members of one quantification group can be given DIFFERENT reporter ratios and the
+        //   majority vote has something to out-vote. A silent fall-through would make every member
+        //   agree, and the chimericity case would pass while testing nothing. Applied only when
+        //   ms2CeMap is null: both select the same feed, so a run that swept CE *and* voted would be
+        //   ambiguous. C# twin of the C++ runInterleaved ms2_charge_map.
         public void PushScanAndDrainFull(string ms1Path, string ms2Path,
             Func<ScanCommand, string> ms3FixtureFor = null, int maxIters = 600,
             int maxMs2Responses = -1, Action<ContinuityTestHarness> onFirstMs2Response = null,
-            Dictionary<int, string> ms2CeMap = null)
+            Dictionary<int, string> ms2CeMap = null, Dictionary<int, string> ms2ChargeMap = null)
         {
             // Feed each TSV MS1 scan exactly once (nMs1 = scan count); any further MS1 survey is an idle tick.
             int nMs1;
@@ -270,6 +277,14 @@ namespace Flash.Tests.Mocks
                             throw new InvalidOperationException(
                                 $"PushScanAndDrainFull: MS2 command collision energy {ce} has no CE-map fixture " +
                                 $"(available keys: {string.Join(",", ms2CeMap.Keys.OrderBy(k => k))}).");
+                    }
+                    else if (ms2ChargeMap != null)
+                    {
+                        // ADR-0040: charge-keyed feed, so one quantification group's members can disagree.
+                        if (!ms2ChargeMap.TryGetValue(Math.Abs(z), out ms2Src))
+                            throw new InvalidOperationException(
+                                $"PushScanAndDrainFull: MS2 command charge {Math.Abs(z)} has no charge-map fixture " +
+                                $"(available keys: {string.Join(",", ms2ChargeMap.Keys.OrderBy(k => k))}).");
                     }
                     response = MockMsScan.FromTsvAsMSn(ms2Src, level, cmd.ScanDescription, precMz, z);
                     ms2Responded++;
