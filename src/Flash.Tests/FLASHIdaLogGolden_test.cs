@@ -698,8 +698,14 @@ namespace Flash.Tests
         /// Without this the mode degrades silently: if every acquired charge happened to land on one
         /// side of the parity split, the run is unanimous and the golden pins the wrong path while
         /// looking entirely healthy.
-        private static void AssertQuantGroupDissented(string caseDir)
+        // Takes the scan_commands.tsv PATH, not the case dir: RunCase invokes postDriveAssert as
+        // postDriveAssert?.Invoke(commandsPath), and every other consumer opens by deriving the
+        // directory from it. Treating the argument as a directory silently looks for scan_results.tsv
+        // *under* a path ending in scan_commands.tsv and reports a healthy run as having produced
+        // nothing.
+        private static void AssertQuantGroupDissented(string commandsPath)
         {
+            string caseDir = Path.GetDirectoryName(commandsPath);
             string p = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
             Assert.That(File.Exists(p), Is.True, "quant_separate_chimeric produced no scan_results.tsv");
             var lines = File.ReadAllLines(p);
