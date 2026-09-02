@@ -119,6 +119,18 @@ namespace Flash
         [Description("How many charge states of a selected precursor ONE MS2 acquires: \"single\" (the representative charge), \"separate\" (one MS2 per charge state, each its own precursor), or \"multiplexed\" (one MS2 co-isolating the whole SNR-positive set as notches). This is the only thing that decides acquisition geometry; exclusion is mass-keyed.")]
         public string PrecursorCharges { get; set; } = "single";
 
+        [JsonKey("snr_threshold")]
+        [Description("Minimum signal-to-noise for a charge state to be admitted: the anchor's own bar and the co-isolation notch gate. Hardcoded at 1.0 and unauthorable before ADR-0040.")]
+        public double SnrThreshold { get; set; } = 1.0;
+
+        [JsonKey("max_charge_states")]
+        [Description("Upper bound on the acquisition charge set (anchor + co-isolated notches) of one species; 0 = no bound. Under \"separate\" this bounds the SCAN COUNT per species. Cannot exceed the instrument's 10 windows per fragmentation stage.")]
+        public int MaxChargeStates { get; set; } = 0;
+
+        [JsonKey("min_charge_states")]
+        [Description("Minimum acquisition charge set size for a species to be selected; 1 = no floor. Inert under precursor_charges \"single\", where the set is always size 1. A species below the floor costs no max_precursors slot.")]
+        public int MinChargeStates { get; set; } = 1;
+
         // --- moved here from selection_strategy.ms1 ---
 
         [JsonKey("rank_by")]
@@ -625,6 +637,9 @@ namespace Flash
         public bool strict_inclusion { get; set; }
         public double tie_threshold { get; set; }
         public string precursor_charges { get; set; }
+        public double snr_threshold { get; set; }
+        public int max_charge_states { get; set; }
+        public int min_charge_states { get; set; }
         public string rank_by { get; set; }
         public int max_precursors { get; set; }
         public int min_precursor_charge { get; set; }
