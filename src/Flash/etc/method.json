@@ -122,6 +122,21 @@
       "reagent_max_it": 0,
       "reagent_agc_target": 0
     },
+    "ms2_quant": {
+      "analyzer": "Orbitrap",
+      "activation": "HCD",
+      "collision_energy": 30,
+      "resolution": 120000,
+      "agc_target": 500000,
+      "max_it": 100,
+      "first_mass": 100,
+      "last_mass": 2000,
+      "microscans": 4,
+      "data_type": "Profile",
+      "reaction_time": 0,
+      "reagent_max_it": 0,
+      "reagent_agc_target": 0
+    },
     "ms3": {
       "analyzer": "Orbitrap",
       "activation": "CID",
@@ -141,8 +156,13 @@
   "tagging": {},
   "quantification": {
     "enabled": false,
+    "labelling": "tmt6plex",
     "reporter_mz_tol": 0.003,
-    "fold_change_threshold": 2
+    "fold_change_threshold": 2,
+    "conditions": [
+      { "name": "control", "channels": ["126", "127", "128"] },
+      { "name": "treated", "channels": ["129", "130", "131"] }
+    ]
   },
   "runtime": {
     "log_dir": "logs"
