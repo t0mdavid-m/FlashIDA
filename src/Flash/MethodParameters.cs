@@ -179,6 +179,10 @@ namespace Flash
                     labelling = c.Quantification.Labelling,
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
                     fold_change_threshold = c.Quantification.FoldChangeThreshold,
+                    // ADR-0039. Always a real string -- see the DTO comment: a null here would throw
+                    // on the C++ side for every config that leaves the key alone.
+                    identify = c.Quantification.Identify,
+                    enriched_in = c.Quantification.EnrichedIn,
                     // Null (not an empty list) when unauthored, so SerializeValue skips the key and
                     // the 40 configs that never quantify emit exactly what they emit today. C++
                     // requires conditions only when enabled, so an absent key is legal there.
@@ -535,6 +539,13 @@ namespace Flash
             c.Quantification.Labelling = "tmt10plex";   // non-default: the default is tmt6plex
             c.Quantification.ReporterMZTol = 0.0031;
             c.Quantification.FoldChangeThreshold = 1.7;
+            // ADR-0039, both NON-DEFAULT on purpose: a key emitted at its default value proves only
+            // that it round-trips, not that the emitter carries the authored one. Their mutual
+            // constraint (enriched_in restricts only identify: "differential") is a [CONFIG-WARN]
+            // rather than a throw, and is gated on `enabled` besides -- which is false here -- so
+            // both can be non-default at once and the reference stays loadable.
+            c.Quantification.Identify = "quantified";       // non-default: the default is differential
+            c.Quantification.EnrichedIn = "reference_b";    // non-default: the default is either
             // Channel names must be valid for the labelling above, or Config throws at load.
             // tmt10plex's N/C channels are used on purpose: they only exist in the 10-plex+ schemes,
             // so a reference that silently fell back to tmt6plex would fail here rather than pass.

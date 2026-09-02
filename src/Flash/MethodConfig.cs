@@ -216,6 +216,26 @@ namespace Flash
         [Description("Isobaric labelling scheme: itraq4plex, itraq8plex, tmt6plex, tmt10plex, tmt11plex, tmt16plex or tmt18plex")]
         public string Labelling { get; set; } = "tmt6plex";
 
+        // ADR-0039. The OBJECTIVE: which verdicts buy the identification scan (ms_settings.ms2).
+        // Until this key existed the answer was hardcoded to "differential" in the engine.
+        [JsonKey("identify")]
+        [Description("Which quantification verdicts buy the identification scan ms_settings.ms2: "
+            + "differential (only differentially abundant species -- the default, and the behaviour "
+            + "before this key existed), quantified (anything cleanly measured, differential or not), "
+            + "all (every screened precursor, verdict irrelevant), or none (quantify only, never "
+            + "identify). Unknown values are rejected, not defaulted.")]
+        public string Identify { get; set; } = "differential";
+
+        // Named by CONDITION, never as up/down: fold_change = mean(conditions[0]) / mean(conditions[1]),
+        // so "up" would mean enriched in whichever condition happens to be listed first, and would
+        // invert silently if someone reordered the array.
+        [JsonKey("enriched_in")]
+        [Description("Condition a species must be ENRICHED IN for a differential verdict to buy the "
+            + "identification scan -- one of the two names in `conditions`, or \"either\" for either "
+            + "direction (the default). Restricts only identify: \"differential\"; under the other "
+            + "objectives it is inert and the engine says so at load.")]
+        public string EnrichedIn { get; set; } = "either";
+
         // ADR-0038. Exactly two, and the ORDER IS THE RATIO DIRECTION:
         // fold_change = mean(conditions[0]) / mean(conditions[1]). A list rather than a dictionary
         // because a dictionary has no order, and the numerator must not depend on how the author
@@ -653,6 +673,13 @@ namespace Flash
         public string labelling { get; set; }
         public double reporter_mz_tol { get; set; }
         public double fold_change_threshold { get; set; }
+        // ADR-0039. Emitted UNCONDITIONALLY as real strings, unlike `conditions` below which is
+        // nulled when unauthored. The null-skip trick is right for a genuinely-absent list and wrong
+        // for a string with a default: SerializeValue would emit `"identify": null`, and C++
+        // .value() on a present-but-null string throws a type_error -- the exact failure `conditions`
+        // caused for all 41 committed configs. Nothing compares the emitted JSON, so always-emit is free.
+        public string identify { get; set; }
+        public string enriched_in { get; set; }
         public List<JsonQuantCondition> conditions { get; set; }
         public List<string> correction_matrix { get; set; }
     }

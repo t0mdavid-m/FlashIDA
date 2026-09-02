@@ -65,6 +65,8 @@
     "labelling": "tmt10plex",
     "reporter_mz_tol": 0.0031,
     "fold_change_threshold": 1.7,
+    "identify": "quantified",
+    "enriched_in": "reference_b",
     "conditions": [
       {
         "name": "reference_a",
