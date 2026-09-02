@@ -515,6 +515,14 @@ namespace Flash
             c.PrecursorSelection.StrictInclusion = true;
             c.PrecursorSelection.TieThreshold = 0.13;
             c.PrecursorSelection.PrecursorCharges = "multiplexed";
+            // ADR-0040. Deliberately NON-DEFAULT (1.0 / 0 / 1), like every value in this block: the
+            // reference exists to prove the emitter carries the AUTHORED value, and a key sitting at
+            // its default cannot tell that apart from the emitter simply emitting a default.
+            // min 2 <= max 6, so Config::validate()'s unsatisfiable-bounds throw is not tripped, and
+            // PrecursorCharges "multiplexed" above keeps min_charge_states live rather than inert.
+            c.PrecursorSelection.SnrThreshold = 1.7;
+            c.PrecursorSelection.MaxChargeStates = 6;
+            c.PrecursorSelection.MinChargeStates = 2;
 
             c.FlashTnT.MinLength = 4;
             c.FlashTnT.MaxLength = 9;
