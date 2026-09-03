@@ -91,9 +91,13 @@ engine discards those peaks unread and there are ~12 000 of them per prescan.
 Five things this diagram exists to correct:
 
 - **`Flash.cs` has no acquisition loop.** Its only loop is a do-nothing busy-wait
-  `while (!stopRequest) { }` on the Main thread (`Flash.cs:191-197`) that burns a core and does
+  `while (!stopRequest) { }` on the Main thread (`Flash.cs:287-290`) that burns a core and does
   no work. Acquisition is entirely event-driven — the "loop" is the chain of `MsScanArrived`
   callbacks, each doing one ingest plus one drain.
+  **What follows that loop is the run's teardown** (ADR-0041), and it is the whole reason the loop
+  is worth finding: `Main`'s tail unsubscribes `MsScanArrived`, calls `IScans.CancelCustomScan`, and
+  logs the depth it stopped at. It runs on the Main thread, once, in written order — not inside
+  `RequestStop`, which is called from four different threads and would race this.
 - **Nothing happens until the handshake latch fires.** `inCustom` is set only when a scan comes
   *back* with `Trailer["Access ID"] == HandshakeJobNumber` — the echo is what proves the instrument
   entered custom control, so it can never be latched at send time. **Both** startup paths must send
@@ -112,6 +116,16 @@ Five things this diagram exists to correct:
   inside the success path, so a throwing `BuildFromCommand` would otherwise spin it forever on the
   instrument event thread. `GetNextScanCommand` is no bound at all — it never returns 0 (see below).
   A burst of commands from one `processScan` still drains across subsequent arrivals.
+  It also reads `!stopRequest`, which is the **latch** half of latch-then-cancel (ADR-0041): a
+  `CancelCustomScan` with no latch in front of it is undone by the very next arrival, and the iAPI
+  guarantees arrivals continue after an acquisition closes.
+  ⚠️ **"Success" means the instrument ACCEPTED it, not that nothing threw.** `SetFusionCustomScan`
+  returns a `bool` and that return was discarded for years, so a declined command was counted as
+  outstanding while nothing would ever arrive to discharge it — two of those and the real queue sits
+  at 0 while the counter reads `target_depth`, which is **absorbing**: no queued command, no
+  commanded arrival, no decrement, and the loop never fires again for the rest of the run. A refusal
+  now `break`s (one attempt per arrival, so a return value that *lies* parks the real queue at depth
+  1 instead of ratcheting), and the decrement is clamped at 0.
 - **Nobody disposes the `IMsScan`.** It is a handle to *framework-owned* shared memory that the
   iAPI releases by itself once the next scan replaces it as the container's `LastScan`
   (`dependencies/API-2.0.xml`, `IMsScan`). This has now been got wrong in both directions, each
@@ -268,11 +282,18 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
     > The `finally { scan.Dispose(); }` that used to live here is precisely how this happened for
     > real. Adding *anything* outside the `try/catch` re-opens it.
   - Only `DataPipeTests` exercises the async path — the NUnit continuity harness calls `ProcessMS`
-    directly. `Complete()`/`WaitForCompletion()` are called only from tests: production never drains
-    the pipeline, never disposes the wrapper (`DisposeFLASHIda` runs on the finalizer, if ever), and
-    never unsubscribes. Shutdown is `RequestStop(reason)`, one-shot, setting a `volatile`
-    `stopRequest` that releases `Main`'s spin-wait. It survives only because `IdaLogger` flushes
-    after every row.
+    directly. `Complete()`/`WaitForCompletion()` are called only from tests: production still never
+    drains the pipeline and never disposes the wrapper (`DisposeFLASHIda` runs on the finalizer, if
+    ever). **Both omissions are now deliberate rather than incidental** (ADR-0041): every one of the
+    engine's five streams `.flush()`es per row and `FLASHIda::~FLASHIda()` is `= default`, so there
+    is nothing to lose by exiting and nothing for a join to wait for — and because teardown disposes
+    nothing, there is no use-after-free for a pipeline join to prevent either.
+    Shutdown is `RequestStop(reason)`, one-shot, returning whether **this** call latched. It records
+    the reason and *then* publishes the `volatile` `stopRequest` in a `finally`, because that flag
+    releases `Main` into a teardown that returns from the process — publish it first and the line
+    saying why the run stopped can lose the race. `Main`'s tail then **does** unsubscribe
+    `MsScanArrived` and cancel the instrument's outstanding custom scans; `AcquisitionStreamClosing`
+    (armed on `inCustom`) and `Console.CancelKeyPress` join the duration timer as triggers.
 - **`MethodConfig.cs` / `MethodParameters.cs` / `IDA/MethodConfigSerializer.cs`** — see *Config*.
 
 `ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs` and
