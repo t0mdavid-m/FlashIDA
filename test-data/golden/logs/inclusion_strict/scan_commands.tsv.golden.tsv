@@ -1,7 +1,7 @@
 tracking_id	scan_type	ms_level	parent_tracking_id	precursor_id	priority	mono_mass	charge	precursor_mz	isolation_width	qscore	charge_cos	charge_snr	iso_cos	snr	charge_score	activation	collision_energy	hcd_energy	reaction_time	reagent_max_it	reagent_agc_target	ppm_error	precursor_intensity	peakgroup_intensity	ion_type	ion_index	ms3_proteoform	scan_description	faims_cv	faims_enabled	first_mass	last_mass	enqueue_ts
 T0	survey	1		0	3	0	0	0	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0		0		T0S	0	0	500.0000	2000.0000	<TS>
 T1	survey	1		0	3	0	0	0	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0		0		T1S	0	0	500.0000	2000.0000	<TS>
-T2	recording	2	T1	1	2	12351.4	15	824.967	1.86287	0.979871	0.999386	8338.64	0.999263	4911.72	0.963506	ETD	0	0	7	200	700000	2.18409	4.35643e+07	2.52384e+08		0		T2R12.3514k@15	0	0	100.0000	2000.0000	<TS>
+T2	recording	2	T1	1	2	12351.4	15	824.967	1.86287	0.979871	0.999386	8337.83	0.999263	4911.73	0.963506	ETD	0	0	7	200	700000	2.18409	4.35643e+07	2.52384e+08		0		T2R12.3514k@15	0	0	100.0000	2000.0000	<TS>
 T3	survey	1		0	3	0	0	0	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0		0		T3S	0	0	500.0000	2000.0000	<TS>
 T4	survey	1		0	3	0	0	0	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0		0		T4S	0	0	500.0000	2000.0000	<TS>
 T5	survey	1		0	3	0	0	0	0	0	0	0	0	0	0	none	0	0	0	0	0	0	0	0		0		T5S	0	0	500.0000	2000.0000	<TS>

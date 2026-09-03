@@ -99,5 +99,5 @@ AllMass=4297.1774
 MS1 Scan# <SCAN> RT 0.3743 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.3821 (Access ID <ID>) - 1 targets
-Mass=2135.7138	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504521,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=0
+Mass=2135.7138	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=0
 AllMass=2135.7138
