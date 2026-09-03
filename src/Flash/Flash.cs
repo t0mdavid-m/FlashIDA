@@ -560,7 +560,13 @@ namespace Flash
         /// Method to send custom scan request to instrument
         /// </summary>
         /// <param name="scan">Scan request</param>
-        private static void SendCustomScan(IFusionCustomScan scan)
+        /// <returns>
+        /// Whether the INSTRUMENT accepted the command. SetFusionCustomScan is documented as
+        /// "true if the command has been sent to the instrument, false otherwise"
+        /// (dependencies/API-2.0.xml:1747-1768). This return used to be discarded, which is what
+        /// let a declined command be counted as outstanding forever - see docs/adr/0041.
+        /// </returns>
+        private static bool SendCustomScan(IFusionCustomScan scan)
         {
             if (scan != null)
             {
@@ -577,11 +583,15 @@ namespace Flash
                         scan.Values["PrecursorMass"], scan.Values["ChargeStates"], currentNumber));
                 }
 
-                scanControl.SetFusionCustomScan(scan);
+                bool accepted = scanControl.SetFusionCustomScan(scan);
+                if (!accepted)
+                    log.Error(String.Format("Instrument did not accept scan ID {0}", currentNumber));
+                return accepted;
             }
             else
             {
                 log.Debug("Sending NULL - Nothing to do");
+                return false;
             }
         }
 
@@ -696,7 +706,20 @@ namespace Flash
                 //behaviour. A range check or a tracking-id check would fail CLOSED instead, and
                 //depth 0 is ABSORBING -- the instrument then acquires only its own scans, so every
                 //further arrival is uncommanded and we would never send again.
-                if (scanId != "0") outstanding--;
+                //NESTED, not folded into the condition as `scanId != "0" && outstanding > 0`.
+                //That version sends a COMMANDED scan arriving at depth 0 into the else, where it
+                //logs itself as uncommanded.
+                //
+                //The clamp is INERT today - nothing could drive the count negative while every send
+                //incremented. It goes live with the `break` on a refusal below: a return value that
+                //lies stops the increments while the commands still come back, and a count left at
+                //-10 makes the loop send its whole allowance every arrival while one executes -- a
+                //recovered instrument then behaving worse than a broken one. Bounded here to a
+                //one-time overshoot of targetDepth+1, then steady. docs/adr/0041.
+                if (scanId != "0")
+                {
+                    if (outstanding > 0) outstanding--;
+                }
                 else log.Warn(String.Format("Uncommanded scan #{0} - not answering it (depth {1})",
                                             msScan.Header["Scan"], outstanding));
 
@@ -749,9 +772,19 @@ namespace Flash
                     //weird state (see the InstrumentConnected remarks).
                     try
                     {
-                        SendCustomScan(scanFactory.BuildFromCommand(cmd));
-                        outstanding++;   //ONLY on success. A throw here leaves depth low so the
-                                         //next arrival re-sends, instead of stranding the run at 0.
+                        //BREAK, not continue - and it mirrors the InvalidOperationException path
+                        //below deliberately. One attempt per arrival means one command sent per
+                        //arrival and one arrival per command, so a return value that LIES ("false"
+                        //for a command that did go) parks the real queue at depth 1 rather than
+                        //ratcheting it upward. Retrying inside the same arrival is what would
+                        //ratchet. docs/adr/0041.
+                        if (!SendCustomScan(scanFactory.BuildFromCommand(cmd))) break;
+                        outstanding++;   //ONLY on success -- which now means "the instrument took
+                                         //it", not merely "nothing threw". A declined command used
+                                         //to be counted here and nothing ever arrived to discharge
+                                         //it: two of those and this loop never fires again.
+                                         //A throw also leaves depth low so the next arrival
+                                         //re-sends, instead of stranding the run at 0.
                     }
                     catch (InvalidOperationException ex)
                     {
