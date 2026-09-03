@@ -243,6 +243,18 @@ namespace Flash
             // First point at which `log` exists; these two lines used to sit next to the load.
             log.Info(String.Format("Logging to {0}", runFolder));
 
+            // Earliest possible stop trigger: registered as soon as `log` exists, so a Ctrl+C during
+            // instrument connection is still an orderly stop rather than a kill.
+            // ONE-SHOT via RequestStop's own latch (docs/adr/0041) - the first press returns true
+            // and we keep the process alive for teardown; the second returns false, e.Cancel stays
+            // false, and the runtime terminates us. Always-true would make a blocked teardown
+            // swallow every further Ctrl+C.
+            // CancelKeyPress ONLY. ProcessExit would add console-close coverage under a short,
+            // version-dependent budget, and would give teardown a second entry point that can
+            // interleave with Main's own. Closing the console window, taskkill /F and an unhandled
+            // exception therefore still leave the queue behind - an accepted, stated gap.
+            Console.CancelKeyPress += (s, e) => e.Cancel = RequestStop("Ctrl+C");
+
             // The copy lands here rather than beside Directory.CreateDirectory above because `log`
             // does not exist until XmlConfigurator has run, and a warning needs somewhere to go.
             if (!LogPathResolver.TryCopyMethodFile(cliArgs.MethodPath, runFolder, out string copyError))
@@ -277,7 +289,36 @@ namespace Flash
                 
             }
 
-            log.Info("Exiting");
+            //TEARDOWN (docs/adr/0041). HERE, on the main thread - not inside RequestStop, because
+            //stopRequest is the same flag the loop above exits on, so teardown in RequestStop would
+            //race Main's own unwind, across four different calling threads. RequestStop latches;
+            //Main tears down. One thread, ordered by construction, and the Ctrl+C path inherits it
+            //for free. RequestStop publishes its latch LAST, so the stop reason is already written
+            //by the time we get here.
+            //
+            //Each step null-guarded and separately caught: scanControl/msscans are null if the
+            //instrument never connected - a Ctrl+C during connection falls straight through the
+            //loop above, and so does -t test mode - and an exception on an iAPI call "does not
+            //crash the software the usual way, but lead[s] to weird behavior" (see the
+            //InstrumentConnected remarks).
+
+            //Redundant against the latch on the normal path, and kept for the case that is not
+            //normal: if an iAPI FOREGROUND thread keeps this process alive after Main returns, this
+            //is the only thing that stops ProcessSpectrum ingesting - and the engine appending to
+            //five log files - indefinitely, with no run and nobody watching.
+            //Does not un-dispatch a callback already in flight; it is not a barrier.
+            try { if (msscans != null) msscans.MsScanArrived -= ProcessSpectrum; }
+            catch (Exception ex) { log.Error(String.Format("Unsubscribe failed: {0}", ex.Message)); }
+
+            //The CANCEL half. Vendor semantics at depth 2 are undefined in exactly the way
+            //SetCustomScan's are (docs/adr/0033): CancelCustomScan is documented against a
+            //one-outstanding-command model, so it may clear one command or both and will not say
+            //which. The latch is what bounds the damage either way.
+            try { if (scanControl != null) scanControl.CancelCustomScan(); }
+            catch (Exception ex) { log.Error(String.Format("CancelCustomScan failed: {0}", ex.Message)); }
+
+            //Depth at stop, free forensics - there was no record of it anywhere.
+            log.Info(String.Format("Exiting (depth {0})", outstanding));
         }
 
         /// <summary>
@@ -298,6 +339,11 @@ namespace Flash
 
             //subscribe for Status Changes
             acquisition.StateChanged += OnStateChanged;
+
+            //The instrument's acquisition ending is TERMINAL for this run - docs/adr/0041 and
+            //CONTEXT.md "Acquisition stop". Plain EventHandler; Thermo's own sample wires it that
+            //way (dependencies/API-2.0.xml:2318).
+            acquisition.AcquisitionStreamClosing += OnAcquisitionStreamClosing;
 
             //switch the acquisition on if necessary
             if (acquisition.State.SystemMode == SystemMode.Off || acquisition.State.SystemMode == SystemMode.Standby)
@@ -548,6 +594,34 @@ namespace Flash
         }
 
         /// <summary>
+        /// The instrument's acquisition ended. Terminal for this run - docs/adr/0041.
+        /// </summary>
+        /// <remarks>
+        /// ARMED ON <c>inCustom</c>, and that guard is the whole safety of this handler. The event
+        /// carries no identity, and FLASHIda never calls StartAcquisition, so it has no handle on
+        /// "its own" acquisition to compare against. Unarmed, a PREVIOUS sample's stream closing
+        /// while we sit waiting for contact closure stops a run that has not started - and the log
+        /// line would be perfectly true, just about somebody else's acquisition.
+        ///
+        /// Fails in the safe direction, like every other predicate on this path: if the handshake
+        /// never echoes we never honour a Closing, which is exactly the old behaviour.
+        ///
+        /// NOT a proof of quiet. The iAPI states that scans keep arriving after this fires, and
+        /// that an open rawfile may still gather them (dependencies/API-2.0.xml:194-207). It is a
+        /// signal to stop, nothing more.
+        /// </remarks>
+        private static void OnAcquisitionStreamClosing(object sender, EventArgs e)
+        {
+            if (!inCustom)
+            {
+                log.Info("Acquisition stream closed before custom control latched - ignoring");
+                return;
+            }
+
+            RequestStop("Acquisition ended");
+        }
+
+        /// <summary>
         /// Processing routine for each scans received from the instrument
         /// Scan is contained in event arhs <paramref name="e"/>
         /// </summary>
@@ -653,7 +727,17 @@ namespace Flash
                 //inside the success path below -- so a throwing BuildFromCommand would spin this
                 //loop forever on the instrument event thread. Note GetNextScanCommand never returns
                 //0 for an empty queue (it mints an idle survey instead), so it is no bound at all.
-                for (int sent = 0; outstanding < targetDepth && sent < targetDepth; sent++)
+                //
+                //!stopRequest is the LATCH half of latch-then-cancel (docs/adr/0041). Without it
+                //Main's CancelCustomScan buys nothing: the very next arrival tops the queue straight
+                //back up to targetDepth, and the iAPI guarantees arrivals continue after an
+                //acquisition closes.
+                //
+                //Gates the SEND only, deliberately not the whole handler. Ingestion stays on because
+                //teardown disposes nothing - every engine log stream flushes per row and
+                //~FLASHIda is `= default` - so there is no use-after-free to outrun and no tail
+                //worth waiting for.
+                for (int sent = 0; !stopRequest && outstanding < targetDepth && sent < targetDepth; sent++)
                 {
                     var cmd = new ScanCommand();
                     if (wrapper.GetNextScanCommand(ref cmd) != 1) break;   //0 means the wrapper caught an exception
@@ -704,17 +788,42 @@ namespace Flash
         /// </summary>
         /// <param name="reason">Why the run is stopping - logged verbatim, so never pass a fixed
         /// string on an error path (an abort logging "Time is over" is actively misleading).</param>
-        private static void RequestStop(string reason)
+        /// <returns>
+        /// <c>true</c> if THIS call latched the stop, <c>false</c> if one was already requested.
+        /// The Ctrl+C handler keys on it: the first press keeps the process alive to run teardown,
+        /// the second lets the runtime kill us. Without that, a teardown that blocked would swallow
+        /// every subsequent Ctrl+C and leave no way out short of Task Manager.
+        /// </returns>
+        private static bool RequestStop(string reason)
         {
             //fully qualified: 'using System.Threading' would make the Timer in 'static Timer duration'
             //ambiguous against System.Timers.Timer (CS0104).
-            if (System.Threading.Interlocked.Exchange(ref stopRequested, 1) != 0) return;
+            if (System.Threading.Interlocked.Exchange(ref stopRequested, 1) != 0) return false;
 
-            //set the flag FIRST: a throw in the logging or timer teardown below must not be able to
-            //strand the run in the Main spin loop.
-            stopRequest = true;
-            log.Info(reason);
-            if (duration != null) duration.Close();
+            //REASON FIRST, LATCH IN THE FINALLY -- and this inverts the order the comment here used
+            //to argue for, because what that comment was written against changed. Setting the flag
+            //no longer only ends the spin loop: it RELEASES Main into teardown, which unsubscribes,
+            //cancels and RETURNS. So anything after the flag races a process on its way out, and
+            //the statement that loses that race is the one recording WHY the run stopped -- the
+            //only line the operator gets on the Ctrl+C path.
+            //
+            //The finally keeps exactly what the old ordering was protecting: a throwing logger or a
+            //throwing Close() still latches, so a systemic logging failure cannot strand the run in
+            //Main's spin loop. Nothing is traded away.
+            //
+            //Cost: the latch is delayed by one log call, during which ProcessSpectrum may send once
+            //more. That is precisely the old behaviour, so the failure direction is "no worse".
+            try
+            {
+                log.Info(reason);
+                if (duration != null) duration.Close();
+            }
+            finally
+            {
+                stopRequest = true;
+            }
+
+            return true;
         }
 
         // CheckLogPath is DELETED. It appended a timestamp only ON COLLISION, and by concatenation
