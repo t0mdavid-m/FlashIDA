@@ -65,6 +65,8 @@ because it is.
 Thermo MsScanArrived  ──► ProcessSpectrum(IMsScan)          [instrument event thread]
                             │
                             ├─ if Trailer["Access ID"] == HandshakeJobNumber ──► inCustom = true  (latch)
+                            │                                                     └─ ArmRunClock() restarts
+                            │                                                        the run clock (ADR-0043)
                             │
                             └─ if (inCustom):
                                  dataPipe.Push(scan)
@@ -293,7 +295,17 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
     releases `Main` into a teardown that returns from the process — publish it first and the line
     saying why the run stopped can lose the race. `Main`'s tail then **does** unsubscribe
     `MsScanArrived` and cancel the instrument's outstanding custom scans; `AcquisitionStreamClosing`
-    (armed on `inCustom`) and `Console.CancelKeyPress` join the duration timer as triggers.
+    (armed on `inCustom`) and `Console.CancelKeyPress` join the **run clock** as triggers.
+    ⚠️ **The run clock is armed at startup but does not START until the handshake echoes**
+    (ADR-0043). `ArmRunClock` serves three sites with two meanings, told apart by `duration == null`:
+    both startup paths arm it *before* the handshake goes out — so a handshake that never echoes
+    still bounds the run, which is load-bearing because the send is wrapped in a `catch` that logs
+    and carries on and `AcquisitionStreamClosing` is armed on `inCustom`, leaving this timer as the
+    only stop trigger besides `^C` — and the latch restarts it, so `global.duration` is measured
+    from the echo. It is deliberately **not** keyed to `AcquisitionStreamOpening`, the event
+    actually named for "the acquisition started": a scan executes and echoes with no acquisition
+    open at all, and `InstrumentConnected` commands exactly that state via `SetMode(CreateOnMode())`
+    a few lines earlier. Worst-case process lifetime is `duration + (send → echo)`.
 - **`MethodConfig.cs` / `MethodParameters.cs` / `IDA/MethodConfigSerializer.cs`** — see *Config*.
 
 `ScanScheduler.cs`, `IDA/FAIMSScanProcessor.cs`, `IDA/IDAScanProcessor.cs` and
