@@ -167,7 +167,7 @@ sanctioned driver carries its own stop condition: `PushScan` and the two offline
 ⚠️ **`IsAgc` is not a stop condition** (ADR-0031). The idle path used to fabricate an AGC prescan,
 which is what those three loops broke on; it no longer does, and a loop still testing `IsAgc` hangs.
 Prescans now come only from `scheduling.agc_interval_seconds` — production default **1 s**, and all
-41 committed test configs pin it at `9999999` so golden capture cannot depend on wall clock. Because
+43 committed test configs pin it at `9999999` so golden capture cannot depend on wall clock. Because
 a *scheduled* prescan can arrive mid-drain, breaking on `IsAgc` would also **truncate** the drain and
 drop the MS2 commands behind it; a prescan falls through the `MsnLevel == 2` guard and costs one
 harmless iteration instead. Priority 3 works as the sentinel because `makeMS1()` sets it and every
