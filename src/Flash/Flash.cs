@@ -447,11 +447,11 @@ namespace Flash
                 try
                 {
                     scanControl.SetFusionCustomScan(BuildHandshakeScan());
-                    log.Info("Sent the first magic scan");
+                    log.Info("Sent the handshake scan");
                 }
                 catch (Exception ex)
                 {
-                    log.Error(String.Format("First magic scan failed: {0}\n{1}", ex.Message, ex.StackTrace));
+                    log.Error(String.Format("Handshake scan failed: {0}\n{1}", ex.Message, ex.StackTrace));
                 }
             }
             else
@@ -488,16 +488,16 @@ namespace Flash
             try
             {
                 scanControl.SetFusionCustomScan(BuildHandshakeScan());
-                log.Info("Sent the first magic scan");
+                log.Info("Sent the handshake scan");
             }
             catch (Exception ex)
             {
-                log.Error(String.Format("First magic scan failed: {0}\n{1}", ex.Message, ex.StackTrace));
+                log.Error(String.Format("Handshake scan failed: {0}\n{1}", ex.Message, ex.StackTrace));
             }
         }
 
         /// <summary>
-        /// Build the handshake ("magic") scan that switches the instrument into custom control.
+        /// Build the handshake scan that switches the instrument into custom control.
         /// </summary>
         /// <remarks>
         /// Both startup paths (contact closure and -o/--nocc) MUST send this exact scan - it is the
