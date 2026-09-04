@@ -426,6 +426,24 @@ namespace Flash.IDA
                 for (int i = 0; i < 16; i++)
                 {
                     if (w.GetNextScanCommand(ref survey) != 1) break;
+                    //A MONITOR scan is an MS1 with IsAgc == 0, so it satisfies the survey test below
+                    //and MUST be excluded first (ADR-0042). Two failures if it is not:
+                    //  * stamping this spectrum with a monitor id makes the engine OBSERVE the survey
+                    //    instead of selecting from it, so the offline run acquires nothing at all; and
+                    //  * skipping the command without answering it LEAKS its pending_scan_map_ entry,
+                    //    because processScan is that map's only eraser.
+                    //So feed it back with this same spectrum -- which is exactly what a monitor scan
+                    //wants, a reading of the source it decides nothing from. The instrument scan number
+                    //is 0 deliberately: a monitor scan writes no ida.log entry, the only consumer of it.
+                    //The bare 'M' literal mirrors DataPipe.cs's bare 'A'; the C++ role table is
+                    //deliberately NOT duplicated here, to avoid a live bidirectional drift surface.
+                    if (!String.IsNullOrEmpty(survey.ScanDescription) && survey.ScanDescription.Length >= 4
+                        && survey.ScanDescription[3] == 'M')
+                    {
+                        w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, 1, survey.ScanDescription, 0.0, 0);
+                        survey = new ScanCommand();
+                        continue;
+                    }
                     if (survey.IsAgc == 0 && survey.MsnLevel == 1 && !String.IsNullOrEmpty(survey.ScanDescription))
                     {
                         desc = survey.ScanDescription;

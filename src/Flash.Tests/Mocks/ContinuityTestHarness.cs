@@ -207,6 +207,30 @@ namespace Flash.Tests.Mocks
                 Factory.BuildFromCommand(cmd);
 
                 int level = cmd.MsnLevel;
+                // MONITOR scan (ADR-0042) — lockstep twin of C++ runInterleaved's branch, and it must be
+                // classified BEFORE the idle predicate for the same two reasons: with fixtures left it would
+                // consume one the drive still owes the engine, and with fixtures exhausted it satisfies
+                // `ms1Fed >= nMs1` so three in a row would truncate the drive. Re-feed the spectrum the last
+                // survey used, do not advance ms1Fed, and leave idle untouched — a monitor scan is neither
+                // progress nor stagnation.
+                if (!string.IsNullOrEmpty(cmd.ScanDescription) && cmd.ScanDescription.Length >= 4
+                    && cmd.ScanDescription[3] == 'M')
+                {
+                    var mon = MockMsScan.FromTsvAllScans(ms1Path);
+                    int monPick = ms1Fed > 0 ? ms1Fed - 1 : 0;
+                    if (monPick < mon.Count)
+                    {
+                        var monResponse = mon[monPick];
+                        monResponse.SetScanDescription(cmd.ScanDescription);
+                        if (cmd.FaimsCv != 0.0) monResponse.SetFaimsCv(cmd.FaimsCv);
+                        for (int i = 0; i < mon.Count; i++) if (i != monPick) mon[i].Dispose();
+                        // Same feed path and the same no-Dispose contract as every other response below.
+                        Processor.ProcessMS(ScanData.From(monResponse));
+                    }
+                    else { foreach (var s in mon) s.Dispose(); }
+                    cmd = new ScanCommand();
+                    continue;
+                }
                 // Idle tick (mirror of C++ runFullAcquisition): an AGC, an empty-descriptor command, or an MS1
                 // re-survey after we've fed all nMs1 scans. 3 consecutive idle ticks => the real queue is drained.
                 if (cmd.IsAgc != 0 || string.IsNullOrEmpty(cmd.ScanDescription) || (level <= 1 && ms1Fed >= nMs1))
