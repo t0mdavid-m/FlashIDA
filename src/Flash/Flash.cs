@@ -81,8 +81,12 @@ namespace Flash
         //Method parameters
         static MethodParameters methodParams;
 
-        //Duration timer
+        //Run clock. Armed before the handshake is sent, restarted when it echoes - docs/adr/0043.
         static Timer duration;
+
+        //Monotonic base for the "armed but not charged" figure the restart logs. A wall-clock
+        //DateTime can step under NTP or DST; this cannot.
+        static System.Diagnostics.Stopwatch sinceArmed;
 
         //Spectrum running number
         static int currentNumber;
@@ -435,12 +439,9 @@ namespace Flash
                 //subscribe for new scans from the instruments
                 msscans.MsScanArrived += ProcessSpectrum;
 
-                //start method
-                duration = new Timer(methodParams.Config.Global.Duration * 60000); //Timer acepts milliseconds, but the duration is in minutes
-                duration.Elapsed += StopExecution; //run StopExecution when the time is up
-                duration.AutoReset = false;
-                duration.Start();
-                log.Info("Method started");
+                //Arm the run clock BEFORE the handshake goes out, so a handshake that never echoes
+                //still bounds the run. The latch in ProcessSpectrum restarts it - docs/adr/0043.
+                ArmRunClock();
 
                 //send the first custom scan (the handshake one)
                 try
@@ -475,13 +476,10 @@ namespace Flash
             //subscribe for new scans from the instruments
             msscans.MsScanArrived += ProcessSpectrum;
 
-            //start method
-            duration = new Timer(methodParams.Config.Global.Duration * 60000);
-            duration.Elapsed += StopExecution;
-            duration.AutoReset = false;
-            duration.Start();
-            log.Info("Method started");
-            
+            //Arm the run clock BEFORE the handshake goes out, so a handshake that never echoes
+            //still bounds the run. The latch in ProcessSpectrum restarts it - docs/adr/0043.
+            ArmRunClock();
+
             //send the first custom scan (the handshake one).
             //MUST be the same handshake scan the OverrideCC branch sends: it carries the
             //HandshakeJobNumber the latch in ProcessSpectrum keys on. Building it from
@@ -660,7 +658,15 @@ namespace Flash
             //when handshake scan received switch to custom control mode
             if (scanId == HandshakeJobNumber.ToString())
             {
-                if (!inCustom) inCustom = true;
+                if (!inCustom)
+                {
+                    inCustom = true;
+
+                    //The echo is the first moment the instrument is under our control, so
+                    //global.duration is measured from HERE - docs/adr/0043. One-shot by
+                    //construction: the !inCustom guard means a stray re-echo cannot extend the run.
+                    ArmRunClock();
+                }
                 currentNumber = HandshakeJobNumber;
             }
 
@@ -805,6 +811,65 @@ namespace Flash
         private static void HandleAcqError(object sender, AcquisitionErrorsArrivedEventArgs e)
         {
             log.Error(String.Format("Aquisition Error: {0}", String.Join("; ", e.Errors.Select(err => err.Content)).Trim()));
+        }
+
+        /// <summary>
+        /// Arm the run clock, or restart it if it is already armed.
+        /// </summary>
+        /// <remarks>
+        /// THREE call sites, TWO meanings, told apart by <c>duration == null</c>:
+        ///
+        ///   * both startup paths call it BEFORE the handshake is sent, which ARMS it. That is what
+        ///     bounds a run whose handshake never echoes - the send is wrapped in a catch that logs
+        ///     and carries on, and OnAcquisitionStreamClosing is armed on inCustom, so if the latch
+        ///     never fires this timer is the ONLY stop trigger left besides Ctrl+C.
+        ///
+        ///   * the handshake latch in ProcessSpectrum calls it again, which RESTARTS it.
+        ///     global.duration is measured from the ECHO - the first moment the instrument is under
+        ///     our control (CONTEXT.md "Custom control mode") - so the wait for control is not
+        ///     charged against the run. Worst-case process lifetime is duration + (send -> echo).
+        ///
+        /// NOT keyed to IAcquisition.AcquisitionStreamOpening, which is the event actually NAMED for
+        /// "the acquisition started". A scan executes and echoes with no acquisition open at all -
+        /// "Scans may be created without an explicite acquisition if the instrument is 'just' set to
+        /// running" (dependencies/API-2.0.xml:179-192) - and InstrumentConnected commands exactly
+        /// that state ~90 lines above, via SetMode(CreateOnMode()). See docs/adr/0043.
+        ///
+        /// Guards, in order:
+        ///   * stopRequest - a stop already latched must never be extended by a late echo. The iAPI
+        ///     goes on delivering scans after a stop (docs/adr/0041), and Main does not unsubscribe
+        ///     ProcessSpectrum until after the spin loop releases, so a late echo is reachable.
+        ///   * ObjectDisposedException - that check cannot be made atomic against RequestStop's
+        ///     duration.Close(), and this runs on the arrival thread, where an unhandled exception
+        ///     "does not crash the software the usual way, but lead[s] to weird behavior".
+        /// </remarks>
+        private static void ArmRunClock()
+        {
+            if (stopRequest) return;
+
+            try
+            {
+                if (duration == null)
+                {
+                    //Timer accepts milliseconds, but the duration is in minutes
+                    duration = new Timer(methodParams.Config.Global.Duration * 60000);
+                    duration.Elapsed += StopExecution; //run StopExecution when the time is up
+                    duration.AutoReset = false;
+                    duration.Start();
+                    sinceArmed = System.Diagnostics.Stopwatch.StartNew();
+                    log.Info(String.Format("Run clock armed ({0} min)", methodParams.Config.Global.Duration));
+                    return;
+                }
+
+                duration.Stop();
+                duration.Start();
+                log.Info(String.Format("Run clock restarted at the custom control latch - {0:f1} s armed but not charged",
+                                       sinceArmed.Elapsed.TotalSeconds));
+            }
+            catch (ObjectDisposedException)
+            {
+                log.Debug("Run clock already closed - a stop was requested during the handshake");
+            }
         }
 
         /// <summary>
