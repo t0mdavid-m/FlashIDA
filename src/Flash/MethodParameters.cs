@@ -670,10 +670,17 @@ namespace Flash
                 RemainingPrecursorTarget = 0.12,
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
                 TolerancePpm = 14,
-                // ADR-0042. Deliberately NON-DEFAULT on both fields (defaults are false / 30000), so
-                // the reference proves the emitter carries the AUTHORED value rather than merely
-                // round-tripping a default. A defaulted value here would hide a dropped key.
-                MonitorMs1 = new MonitorMs1Config { Enabled = true, IntervalMs = 12345 }
+                // ADR-0042. THE ONE DELIBERATE EXCEPTION to this builder's every-value-non-default
+                // rule: `enabled` stays at its default `false`, by owner decision, so that no file
+                // in the tree shows source monitoring switched on.
+                //
+                // `interval_ms` is still non-default, and that is what keeps the parity test from
+                // going vacuous: if ToCppJson ever stopped emitting the monitor_ms1 block, or emitted
+                // it with defaults, the reference would lose this 12345 and Reference_IsNeverStale
+                // would catch it. The narrowed gap is a bug that drops `enabled` alone while keeping
+                // `interval_ms` -- which no plausible edit to ToJsonMonitorMs1 produces, since it
+                // writes both fields or neither.
+                MonitorMs1 = new MonitorMs1Config { Enabled = false, IntervalMs = 12345 }
             };
             // Distinctive, deliberately non-default (defaults are 3 / 50000): the reference exists so
             // that a DROPPED key is detectable, which a defaulted value would hide. These are the same
@@ -696,10 +703,10 @@ namespace Flash
                 RemainingPrecursorTarget = 0.13,
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
                 TolerancePpm = 15,
-                // Non-default, and DIFFERENT from the level-2 block above: the two are independent
-                // knobs, so identical values would let a projection that collapsed them onto one
-                // level pass the parity test.
-                MonitorMs1 = new MonitorMs1Config { Enabled = true, IntervalMs = 23456 }
+                // `enabled` off for the same reason as the level-2 block above. `interval_ms` stays
+                // non-default AND DIFFERENT from level 2's: the two are independent knobs, so
+                // identical values would let a projection that collapsed them onto one level pass.
+                MonitorMs1 = new MonitorMs1Config { Enabled = false, IntervalMs = 23456 }
             };
 
             // runtime was the ONE section this builder never touched, so the reference carried ""

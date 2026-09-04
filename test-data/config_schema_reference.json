@@ -42,7 +42,11 @@
       "reaction_time_max": 0,
       "reaction_time_step": 1,
       "activations": null,
-      "tolerance_ppm": 14
+      "tolerance_ppm": 14,
+      "monitor_ms1": {
+        "enabled": false,
+        "interval_ms": 12345
+      }
     },
     "tag_expansion": {
       "max_ptm_count": 5,
@@ -238,7 +242,11 @@
       "reaction_time_max": 0,
       "reaction_time_step": 1,
       "activations": null,
-      "tolerance_ppm": 15
+      "tolerance_ppm": 15,
+      "monitor_ms1": {
+        "enabled": false,
+        "interval_ms": 23456
+      }
     }
   },
   "conditional_ms2": false,
