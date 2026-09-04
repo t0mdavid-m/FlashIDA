@@ -312,7 +312,14 @@ namespace Flash
                     metric = "none", ce_min = 20, ce_max = 40, ce_step = 5,
                     overrides = null, remaining_precursor_target = 0.1,
                     reaction_time_min = 0, reaction_time_max = 0, reaction_time_step = 1,
-                    activations = null, tolerance_ppm = 0
+                    activations = null, tolerance_ppm = 0,
+                    // ADR-0042: forwarded even on the "none" branch, which discards every other
+                    // authored value. This is the one case the engine's [CONFIG-WARN] exists for --
+                    // "monitor_ms1 is enabled but this level never sweeps" -- and dropping the key
+                    // here would make that warning unreachable, leaving the operator with an inert
+                    // setting and no feedback at all. Behaviour is unchanged either way: a level
+                    // that never sweeps can never emit a monitor scan.
+                    monitor_ms1 = ToJsonMonitorMs1(e?.MonitorMs1)
                 };
             }
 
@@ -328,8 +335,18 @@ namespace Flash
                 reaction_time_max = e.ReactionTimeMax,
                 reaction_time_step = e.ReactionTimeStep,
                 activations = e.Activations,
-                tolerance_ppm = e.TolerancePpm
+                tolerance_ppm = e.TolerancePpm,
+                monitor_ms1 = ToJsonMonitorMs1(e.MonitorMs1)
             };
+        }
+
+        /// ADR-0042. Emitted unconditionally, defaults included: C++ .value(key, default) fallbacks
+        /// are dead in production precisely because this side always writes the key, and a missing
+        /// key here would leave the two sides' defaults free to disagree unnoticed.
+        private static JsonMonitorMs1Config ToJsonMonitorMs1(MonitorMs1Config m)
+        {
+            if (m == null) return new JsonMonitorMs1Config { enabled = false, interval_ms = 30000 };
+            return new JsonMonitorMs1Config { enabled = m.Enabled, interval_ms = m.IntervalMs };
         }
 
         public string ToLogString()
@@ -652,7 +669,11 @@ namespace Flash
                 Metric = "mass_count", CEMin = 21, CEMax = 39, CEStep = 5,
                 RemainingPrecursorTarget = 0.12,
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
-                TolerancePpm = 14
+                TolerancePpm = 14,
+                // ADR-0042. Deliberately NON-DEFAULT on both fields (defaults are false / 30000), so
+                // the reference proves the emitter carries the AUTHORED value rather than merely
+                // round-tripping a default. A defaulted value here would hide a dropped key.
+                MonitorMs1 = new MonitorMs1Config { Enabled = true, IntervalMs = 12345 }
             };
             // Distinctive, deliberately non-default (defaults are 3 / 50000): the reference exists so
             // that a DROPPED key is detectable, which a defaulted value would hide. These are the same
@@ -674,7 +695,11 @@ namespace Flash
                 Metric = "fragment_count", CEMin = 16, CEMax = 34, CEStep = 2,
                 RemainingPrecursorTarget = 0.13,
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
-                TolerancePpm = 15
+                TolerancePpm = 15,
+                // Non-default, and DIFFERENT from the level-2 block above: the two are independent
+                // knobs, so identical values would let a projection that collapsed them onto one
+                // level pass the parity test.
+                MonitorMs1 = new MonitorMs1Config { Enabled = true, IntervalMs = 23456 }
             };
 
             // runtime was the ONE section this builder never touched, so the reference carried ""

@@ -475,6 +475,36 @@ namespace Flash
         public string PtmList { get; set; } = "";
     }
 
+    // ADR-0042. A periodic MS1 acquired WHILE THIS BLOCK'S LEVEL IS SWEEPING, so the operator can
+    // watch the source -- spray stability, contamination, whether the sample is still eluting.
+    // It is deconvolved and logged and it decides nothing: it selects no precursor, excludes no
+    // mass, and no later acquisition decision reads anything it wrote.
+    //
+    // Nested under EACH exploration block rather than under `scheduling`, because the two blocks are
+    // authored separately and their sweeps differ in length by an order of magnitude. An MS3 sweep
+    // is max_targets x (points + 2) scans and is the one that leaves the operator blind; an MS2
+    // sweep is often over in seconds. Enabling it on characterization.exploration alone is the
+    // intended production shape.
+    //
+    // DECLARED ABOVE the [JsonKey("exploration")] below, not between it and its class: an attribute
+    // binds to the next type declaration, so putting this class there gave it BOTH keys and the
+    // build failed with CS0579 "duplicate attribute JsonKey".
+    [JsonKey("monitor_ms1")]
+    public class MonitorMs1Config
+    {
+        [JsonKey("enabled")]
+        [Description("Acquire a periodic neutral MS1 while this level is sweeping, for source monitoring")]
+        public bool Enabled { get; set; }
+
+        // Wall clock, and the engine THROWS on <= 0 when enabled: a monitor scan would then be due on
+        // every drain, minting a priority-0 MS1 ahead of the sweep indefinitely so the sweep could
+        // never progress. At production ms_settings.ms1 (240k, 4 microscans) each reading costs ~2 s,
+        // so this is a switch-it-on-while-investigating feature, not a leave-it-on one.
+        [JsonKey("interval_ms")]
+        [Description("Milliseconds between monitor MS1 scans while this level is sweeping")]
+        public double IntervalMs { get; set; } = 30000;
+    }
+
     [JsonKey("exploration")]
     public class ExplorationBlockConfig
     {
@@ -529,6 +559,11 @@ namespace Flash
         [JsonKey("activations")]
         [Description("Activation types to sweep (e.g. HCD, ETD, CID, EThcD)")]
         public List<string> Activations { get; set; }
+
+        // ADR-0042. See MonitorMs1Config for why this is per exploration block rather than a single
+        // key under `scheduling`.
+        [JsonKey("monitor_ms1")]
+        public MonitorMs1Config MonitorMs1 { get; set; } = new MonitorMs1Config();
     }
 
     // selection_strategy and its ms1/ms2/ms3 sub-blocks are DELETED.
@@ -805,6 +840,15 @@ namespace Flash
 
     // --- Phase 7: JSON serialization classes for selection_strategy ---
 
+    // ADR-0042. Emit DTO for MonitorMs1Config. Both properties are emitted unconditionally, like
+    // every other key in ToCppJson -- C++ .value(key, default) fallbacks are dead in production
+    // precisely because this side always writes the key.
+    public class JsonMonitorMs1Config
+    {
+        public bool enabled { get; set; }
+        public double interval_ms { get; set; }
+    }
+
     public class JsonExplorationBlockConfig
     {
         public string metric { get; set; }
@@ -818,6 +862,7 @@ namespace Flash
         public double reaction_time_step { get; set; }
         public List<string> activations { get; set; }
         public double tolerance_ppm { get; set; }
+        public JsonMonitorMs1Config monitor_ms1 { get; set; }
     }
 
     // JsonMsLevelConfig / JsonSelectionStrategyConfig are DELETED along with the section they emitted.

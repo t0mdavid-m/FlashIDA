@@ -78,7 +78,11 @@
       "ce_step": 5,
       "activations": [
         "CID"
-      ]
+      ],
+      "monitor_ms1": {
+        "enabled": false,
+        "interval_ms": 30000
+      }
     }
   },
   "ms_settings": {
