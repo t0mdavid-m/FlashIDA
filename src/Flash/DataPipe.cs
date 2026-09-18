@@ -46,8 +46,9 @@ namespace Flash
         /// </summary>
         /// <remarks>
         /// A THIRD identity channel, distinct from both channels ADR-0008 named. We neither mint it
-        /// nor request it — it exists only on the scan coming back — and it is the only one of the
-        /// three that survives into the converted mzML, which is exactly why FLASHDeconv joins on it.
+        /// nor request it — it exists only on the scan coming back. It survives into the converted
+        /// mzML, as the tracking id also does (inside the scan description); the scan number places
+        /// a spectrum in the acquisition's order, the tracking id ties it to its command (ADR-0046).
         /// </remarks>
         public readonly int InstrumentScanNumber;
 
@@ -86,10 +87,10 @@ namespace Flash
             if (msScan.Trailer.TryGetValue("FAIMS CV", out cvStr))
                 double.TryParse(cvStr, out faimsCv);
 
-            //The instrument's own scan number, for ida.log's "MS1 Scan#" and scan_results.tsv. This is
-            //the value FLASHDeconv matches against the mzML native id, and the pre-port C# writer read
+            //The instrument's own scan number, for ida.log's "MS1 Scan#". The pre-port C# writer read
             //it from exactly here (IDAScanProcessor.cs:84 on main) before the port replaced it with the
-            //engine's tracking id and made the join unsatisfiable. ADR-0035.
+            //engine's tracking id. ADR-0035. (scan_results.tsv never carried it -- that ADR's decision 7
+            //was not implemented -- and FLASHDeconv no longer joins on it: ADR-0046 joins by tracking id.)
             //
             //TryParse, NOT Parse, and the asymmetry with the two Parse calls below is deliberate. A
             //throw inside From routes to DataPipe's onFailure, which ENDS THE RUN — that is the right
