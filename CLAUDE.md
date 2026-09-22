@@ -385,6 +385,18 @@ gate is what forces interleaved driving, and it is pinned by
 > not by deconvolution behaviour**. CT31 is deliberately left as a raw loop to pin the
 > never-returns-0 ABI invariant.
 
+### The CE map feeds EVERY MS2 command, the follow-up included
+
+`PushScanAndDrainFull`'s `ms2CeMap` is consulted for every `level == 2` command, keyed on
+`(int)Math.Round(Stages[0].CollisionEnergy)`, with no marker filter and **no fallback** — so the `'R'`
+production follow-up at a sweep's winning CE is fed that CE's fixture too, and a winning CE with no
+map key throws. That is why `Golden_Exploration_IonTrap_CytC` can identify its follow-up from the
+same six real fixtures its pre-scans use. `MockMsScan.FromTsvAsMSn` stamps every response
+`MassAnalyzer = "FTMS"` regardless of the config: the fixture cannot express a trap readout, and it
+does not need to — the engine decides on the *command's* `analyzer` (ADR-0045). The
+`ms2_cytc_z17_*` / `ms1_cytc_z17.txt` fixtures were cut from a real run with
+`test-scripts/cut_mzml_fixture.py`; their provenance is in `test-data/spectra/FIXTURES.md`.
+
 ### Two capture channels, different fidelity
 
 - `harness.CapturedRecords` — `ScanCommandRecord.FromScanCommand`, the **raw struct** including
