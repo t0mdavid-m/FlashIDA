@@ -588,6 +588,80 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map);
         }
 
+        // ADR-0044/0045: the first golden a TRAP pre-scan has ever had. An MS2 remaining_precursor HCD sweep whose
+        // six pre-scans (CE-0 baseline + 20/25/30/35/40) are read out by the ion trap at ms2's full 150-2000 range,
+        // then the Orbitrap follow-up at the winning CE. Fixtures are the REAL 2026-09-06 cytC sweep (z=17,
+        // m/z 727.9, test-data/spectra/FIXTURES.md): the depletion curve crosses the 0.1 target between NCE 30 and
+        // 35, so the winner is a decision -- the older ms2_cytc_ce* set gives a flat 0.0002 and would crown a
+        // 7th-decimal coin flip. The harness feeds EVERY MS2 command through ms2CeMap, so the 'R' follow-up at
+        // the winning CE gets that CE's Orbitrap fixture and is identified against the cytC sequence.
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_IonTrap_CytC()
+        {
+            var ms2CeMap = BuildMs2CeMap(SpectraDir, "ms2_cytc_z17_ce");
+            Assert.That(ms2CeMap.Count, Is.EqualTo(6),
+                "Requires ms2_cytc_z17_ce{0,20,25,30,35,40}.txt (cut from the 2026-09-06 cytC sweep).");
+
+            RunCase("exploration_iontrap", "method_exploration_iontrap.json", "ms1_cytc_z17.txt", "ms2_cytc_z17_ce35.txt",
+                    ms2CeMap: ms2CeMap, minMs2Commands: 7, postDriveAssert: AssertTrapSweepMeasuredNeverIdentified);
+        }
+
+        // The four things the mode exists to pin, asserted outright so a golden recapture cannot quietly absorb them:
+        // ADR-0044 (the pre-scans carry the LEVEL's range), the authored anchor charge, ADR-0045 (E rows are measured,
+        // never identified; the R row is), and that no trap variant reaches identification.tsv or the pooled model.
+        private static void AssertTrapSweepMeasuredNeverIdentified(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            var cmds = ParseTsv(commandsPath, out var ch);
+            int cType = Array.IndexOf(ch, "scan_type"), cLvl = Array.IndexOf(ch, "ms_level"), cId = Array.IndexOf(ch, "tracking_id"),
+                cFirst = Array.IndexOf(ch, "first_mass"), cLast = Array.IndexOf(ch, "last_mass"), cZ = Array.IndexOf(ch, "charge"),
+                cCe = Array.IndexOf(ch, "collision_energy");
+            var e = cmds.Where(r => r[cType] == "exploration" && r[cLvl] == "2").ToList();
+            var rr = cmds.Where(r => r[cType] == "recording" && r[cLvl] == "2").ToList();
+            Assert.That(e.Count, Is.EqualTo(6), "6 trap pre-scans: CE-0 baseline + CE 20/25/30/35/40");
+            Assert.That(rr.Count, Is.EqualTo(1), "exactly one Orbitrap follow-up");
+
+            // ADR-0044: a pre-scan reads out its LEVEL's range -- ms2's 150/2000, not a ~2 Th window.
+            foreach (var r in e)
+            {
+                Assert.That(double.Parse(r[cFirst], CultureInfo.InvariantCulture), Is.EqualTo(150.0).Within(1e-6), "pre-scan first_mass");
+                Assert.That(double.Parse(r[cLast], CultureInfo.InvariantCulture), Is.EqualTo(2000.0).Within(1e-6), "pre-scan last_mass");
+            }
+            // The anchor is the authored charge: the fixtures were isolated at z=17 / m/z 727.9. Any other charge means
+            // the window sum read a region nothing isolated, and the sweep de-referenced instead of deciding.
+            foreach (var r in e.Concat(rr)) Assert.That(r[cZ], Is.EqualTo("17"), "anchor charge");
+            // The winner is one of the swept energies and the follow-up carries it.
+            double winnerCe = double.Parse(rr[0][cCe], CultureInfo.InvariantCulture);
+            Assert.That(new[] { 20.0, 25.0, 30.0, 35.0, 40.0 }, Does.Contain(winnerCe), "follow-up CE is a swept energy");
+
+            // ADR-0045: E rows are measured (a remaining_ratio) and never identified (no masses, no fragments);
+            // the R row is deconvolved and identified.
+            var res = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.ResultsName), out var rh);
+            int rId = Array.IndexOf(rh, "tracking_id"), rMass = Array.IndexOf(rh, "mass_count"), rFrag = Array.IndexOf(rh, "fragment_count"),
+                rRatio = Array.IndexOf(rh, "remaining_ratio"), rDeconv = Array.IndexOf(rh, "deconv_masses");
+            var eIds = new HashSet<string>(e.Select(r => r[cId]));
+            foreach (var r in res.Where(r => eIds.Contains(r[rId])))
+            {
+                Assert.That(r[rMass], Is.EqualTo("0"), $"trap pre-scan {r[rId]} must not be deconvolved");
+                Assert.That(r[rDeconv], Is.Empty, $"trap pre-scan {r[rId]} must carry no deconvolved masses");
+                Assert.That(double.Parse(r[rRatio], CultureInfo.InvariantCulture), Is.GreaterThanOrEqualTo(0.0),
+                    $"trap pre-scan {r[rId]} is measured: a remaining_ratio exists");
+            }
+            var rRow = res.Single(r => r[rId] == rr[0][cId]);
+            Assert.That(int.Parse(rRow[rMass]), Is.GreaterThan(0), "the follow-up IS deconvolved");
+            Assert.That(int.Parse(rRow[rFrag]), Is.GreaterThan(0), "and identified against the cytC sequence");
+
+            // No trap variant reaches identification.tsv or the pooled trajectory (id lists join with a SPACE).
+            var ids = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.IdentificationName), out var ih);
+            int iId = Array.IndexOf(ih, "tracking_id");
+            Assert.That(ids.Select(r => r[iId]).Where(eIds.Contains), Is.Empty, "a trap pre-scan must leave no identification row");
+            var pooled = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.PooledName), out var ph);
+            int pIds = Array.IndexOf(ph, "contributing_scan_ids");
+            foreach (var r in pooled)
+                foreach (var id in r[pIds].Split(' '))
+                    Assert.That(eIds, Does.Not.Contain(id), "a trap pre-scan must not contribute to the pooled model");
+        }
+
         // I4: MS3-level EXPLORATION golden. A two-level MS2->MS3 CE-sweep cascade — the MS2-exploration
         // winner triggers an MS3-exploration sweep over the selected fragment ions (mirrors C++
         // ms2_then_ms3_exploration_acquires_ms3) — driven by the repurposed inclusion-pinned
@@ -735,12 +809,12 @@ namespace Flash.Tests
                 + "acquires (scan_commands.tsv, charge column).");
         }
 
-        private static Dictionary<int, string> BuildMs2CeMap(string spectraDir)
+        private static Dictionary<int, string> BuildMs2CeMap(string spectraDir, string prefix = "ms2_cytc_ce")
         {
             var map = new Dictionary<int, string>();
             foreach (int ce in new[] { 0, 20, 25, 30, 35, 40 })
             {
-                string path = Path.Combine(spectraDir, $"ms2_cytc_ce{ce}.txt");
+                string path = Path.Combine(spectraDir, $"{prefix}{ce}.txt");
                 if (File.Exists(path)) map[ce] = path;
             }
             return map;
