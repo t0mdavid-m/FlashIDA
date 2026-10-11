@@ -46,7 +46,8 @@
       "monitor_ms1": {
         "enabled": false,
         "interval_ms": 12345
-      }
+      },
+      "kinetic_model": null
     },
     "tag_expansion": {
       "max_ptm_count": 5,
@@ -232,7 +233,7 @@
     "min_target_mass": 617.5,
     "fragment_charges": "separate",
     "exploration": {
-      "metric": "fragment_count",
+      "metric": "kinetic_model",
       "ce_min": 16,
       "ce_max": 34,
       "ce_step": 2,
@@ -246,6 +247,11 @@
       "monitor_ms1": {
         "enabled": false,
         "interval_ms": 23456
+      },
+      "kinetic_model": {
+        "k2": {
+          "CID": 0.0123
+        }
       }
     }
   },

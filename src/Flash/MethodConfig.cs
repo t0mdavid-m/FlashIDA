@@ -505,11 +505,24 @@ namespace Flash
         public double IntervalMs { get; set; } = 30000;
     }
 
+    // ADR-0047. The Kinetic Model's one authored input: k2, the overfragmentation rate per NCE, BY
+    // ACTIVATION. There is no default -- k2 differs by an order of magnitude between activations and
+    // is unmeasured at MS3 -- so the C++ loader throws when the swept activation has no entry, and
+    // when this object is authored under any other metric (nothing would read it). Declared above
+    // ExplorationBlockConfig for the same CS0579 reason MonitorMs1Config is.
+    [JsonKey("kinetic_model")]
+    public class KineticModelConfig
+    {
+        [JsonKey("k2")]
+        [Description("Overfragmentation rate per NCE, by activation (e.g. {\"HCD\": 0.0388}). Required for every swept activation when metric is kinetic_model; never defaulted (ADR-0047).")]
+        public Dictionary<string, double> K2 { get; set; }
+    }
+
     [JsonKey("exploration")]
     public class ExplorationBlockConfig
     {
         [JsonKey("metric")]
-        [Description("Exploration metric: none, qscore, or intensity")]
+        [Description("Exploration metric: none, mass_count, remaining_precursor, fragment_count, kinetic_model")]
         public string Metric { get; set; } = "none";
 
         [JsonKey("ce_min")]
@@ -529,7 +542,7 @@ namespace Flash
         public Dictionary<string, string> Overrides { get; set; }
 
         [JsonKey("remaining_precursor_target")]
-        [Description("Target remaining precursor ratio for exploration (0.1 = 10%)")]
+        [Description("Target precursor share (anchor-window signal over the whole scan's, same scan) for the remaining_precursor metric; 0.1 = 10% of the signal still precursor (ADR-0048)")]
         public double RemainingPrecursorTarget { get; set; } = 0.1;
 
         // Renamed from rt_min/rt_max/rt_step. These are ion-ion REACTION time in ms; "rt" elsewhere
@@ -564,6 +577,12 @@ namespace Flash
         // key under `scheduling`.
         [JsonKey("monitor_ms1")]
         public MonitorMs1Config MonitorMs1 { get; set; } = new MonitorMs1Config();
+
+        // ADR-0047. Null by default and emitted as JSON null when unauthored, which the C++ parser
+        // treats as absent -- so every config that does not sweep by the Kinetic Model crosses the
+        // bridge exactly as before, and a kinetic_model metric without this block is refused there.
+        [JsonKey("kinetic_model")]
+        public KineticModelConfig KineticModel { get; set; }
     }
 
     // selection_strategy and its ms1/ms2/ms3 sub-blocks are DELETED.
@@ -849,6 +868,12 @@ namespace Flash
         public double interval_ms { get; set; }
     }
 
+    // ADR-0047. Emitted as null when unauthored (the C++ parser reads null as absent).
+    public class JsonKineticModelConfig
+    {
+        public Dictionary<string, double> k2 { get; set; }
+    }
+
     public class JsonExplorationBlockConfig
     {
         public string metric { get; set; }
@@ -863,6 +888,7 @@ namespace Flash
         public List<string> activations { get; set; }
         public double tolerance_ppm { get; set; }
         public JsonMonitorMs1Config monitor_ms1 { get; set; }
+        public JsonKineticModelConfig kinetic_model { get; set; }
     }
 
     // JsonMsLevelConfig / JsonSelectionStrategyConfig are DELETED along with the section they emitted.

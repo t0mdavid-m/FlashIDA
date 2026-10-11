@@ -319,7 +319,9 @@ namespace Flash
                     // here would make that warning unreachable, leaving the operator with an inert
                     // setting and no feedback at all. Behaviour is unchanged either way: a level
                     // that never sweeps can never emit a monitor scan.
-                    monitor_ms1 = ToJsonMonitorMs1(e?.MonitorMs1)
+                    monitor_ms1 = ToJsonMonitorMs1(e?.MonitorMs1),
+                    // ADR-0047: a level that does not sweep has no Kinetic Model; null = absent in C++.
+                    kinetic_model = null
                 };
             }
 
@@ -336,7 +338,14 @@ namespace Flash
                 reaction_time_step = e.ReactionTimeStep,
                 activations = e.Activations,
                 tolerance_ppm = e.TolerancePpm,
-                monitor_ms1 = ToJsonMonitorMs1(e.MonitorMs1)
+                monitor_ms1 = ToJsonMonitorMs1(e.MonitorMs1),
+                // ADR-0047. Forwarded verbatim when authored, null when not: the C++ side decides
+                // whether the block is required (metric kinetic_model) or refused (any other metric),
+                // and a k2 map that reached it with a value the operator never wrote would be the
+                // stomped-key shape ADR-0040 removed. So nothing is synthesized here.
+                kinetic_model = e.KineticModel == null
+                    ? null
+                    : new JsonKineticModelConfig { k2 = e.KineticModel.K2 }
             };
         }
 
@@ -699,14 +708,20 @@ namespace Flash
             c.Characterization.FragmentCharges = "separate";
             c.Characterization.Exploration = new ExplorationBlockConfig
             {
-                Metric = "fragment_count", CEMin = 16, CEMax = 34, CEStep = 2,
+                // ADR-0047. kinetic_model at level 3 (level 2 stays mass_count: a kinetic_model block
+                // there would be refused and the reference must load). The k2 value is distinctive and
+                // non-default -- there IS no default -- and keyed on CID because that is
+                // ms_settings.ms3.activation in this reference: the C++ loader requires an entry for
+                // the swept activation, so any other key would fail Config::validate.
+                Metric = "kinetic_model", CEMin = 16, CEMax = 34, CEStep = 2,
                 RemainingPrecursorTarget = 0.13,
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
                 TolerancePpm = 15,
                 // `enabled` off for the same reason as the level-2 block above. `interval_ms` stays
                 // non-default AND DIFFERENT from level 2's: the two are independent knobs, so
                 // identical values would let a projection that collapsed them onto one level pass.
-                MonitorMs1 = new MonitorMs1Config { Enabled = false, IntervalMs = 23456 }
+                MonitorMs1 = new MonitorMs1Config { Enabled = false, IntervalMs = 23456 },
+                KineticModel = new KineticModelConfig { K2 = new Dictionary<string, double> { { "CID", 0.0123 } } }
             };
 
             // runtime was the ONE section this builder never touched, so the reference carried ""
