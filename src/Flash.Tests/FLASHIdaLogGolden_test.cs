@@ -599,8 +599,8 @@ namespace Flash.Tests
         public void Golden_Exploration_IonTrap_CytC()
         {
             var ms2CeMap = BuildMs2CeMap(SpectraDir, "ms2_cytc_z17_ce");
-            Assert.That(ms2CeMap.Count, Is.EqualTo(6),
-                "Requires ms2_cytc_z17_ce{0,20,25,30,35,40}.txt (cut from the 2026-09-06 cytC sweep).");
+            foreach (int ce in new[] { 0, 20, 25, 30, 35, 40 })
+                Assert.That(ms2CeMap.ContainsKey(ce), $"Requires ms2_cytc_z17_ce{ce}.txt (cut from the 2026-09-06 cytC sweep).");
 
             RunCase("exploration_iontrap", "method_exploration_iontrap.json", "ms1_cytc_z17.txt", "ms2_cytc_z17_ce35.txt",
                     ms2CeMap: ms2CeMap, minMs2Commands: 7, postDriveAssert: AssertTrapSweepMeasuredNeverIdentified);
@@ -809,13 +809,17 @@ namespace Flash.Tests
                 + "acquires (scan_commands.tsv, charge column).");
         }
 
+        // Every `<prefix><N>.txt` with an integer N is mapped, so a sweep fixture set of any density resolves
+        // (the full 1..50 sets cut for ADR-0047 as well as the six-point sets). Which energies a mode needs is
+        // the test's own precondition, asserted at the call site.
         private static Dictionary<int, string> BuildMs2CeMap(string spectraDir, string prefix = "ms2_cytc_ce")
         {
             var map = new Dictionary<int, string>();
-            foreach (int ce in new[] { 0, 20, 25, 30, 35, 40 })
+            if (string.IsNullOrEmpty(spectraDir) || !Directory.Exists(spectraDir)) return map;
+            foreach (var path in Directory.GetFiles(spectraDir, prefix + "*.txt"))
             {
-                string path = Path.Combine(spectraDir, $"{prefix}{ce}.txt");
-                if (File.Exists(path)) map[ce] = path;
+                string stem = Path.GetFileNameWithoutExtension(path).Substring(prefix.Length);
+                if (int.TryParse(stem, NumberStyles.None, CultureInfo.InvariantCulture, out int ce)) map[ce] = path;
             }
             return map;
         }
