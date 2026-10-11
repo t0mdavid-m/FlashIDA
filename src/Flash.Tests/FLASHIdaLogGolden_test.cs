@@ -618,7 +618,7 @@ namespace Flash.Tests
                 cCe = Array.IndexOf(ch, "collision_energy");
             var e = cmds.Where(r => r[cType] == "exploration" && r[cLvl] == "2").ToList();
             var rr = cmds.Where(r => r[cType] == "recording" && r[cLvl] == "2").ToList();
-            Assert.That(e.Count, Is.EqualTo(6), "6 trap pre-scans: CE-0 baseline + CE 20/25/30/35/40");
+            Assert.That(e.Count, Is.EqualTo(5), "5 trap pre-scans: CE 20/25/30/35/40 -- no CE-0 reference under any metric (ADR-0048)");
             Assert.That(rr.Count, Is.EqualTo(1), "exactly one Orbitrap follow-up");
 
             // ADR-0044: a pre-scan reads out its LEVEL's range -- ms2's 150/2000, not a ~2 Th window.
@@ -634,18 +634,18 @@ namespace Flash.Tests
             double winnerCe = double.Parse(rr[0][cCe], CultureInfo.InvariantCulture);
             Assert.That(new[] { 20.0, 25.0, 30.0, 35.0, 40.0 }, Does.Contain(winnerCe), "follow-up CE is a swept energy");
 
-            // ADR-0045: E rows are measured (a remaining_ratio) and never identified (no masses, no fragments);
-            // the R row is deconvolved and identified.
+            // ADR-0045: E rows are measured (a precursor share, ADR-0048) and never identified (no masses, no
+            // fragments); the R row is deconvolved and identified.
             var res = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.ResultsName), out var rh);
             int rId = Array.IndexOf(rh, "tracking_id"), rMass = Array.IndexOf(rh, "mass_count"), rFrag = Array.IndexOf(rh, "fragment_count"),
-                rRatio = Array.IndexOf(rh, "remaining_ratio"), rDeconv = Array.IndexOf(rh, "deconv_masses");
+                rShare = Array.IndexOf(rh, "precursor_share"), rDeconv = Array.IndexOf(rh, "deconv_masses");
             var eIds = new HashSet<string>(e.Select(r => r[cId]));
             foreach (var r in res.Where(r => eIds.Contains(r[rId])))
             {
                 Assert.That(r[rMass], Is.EqualTo("0"), $"trap pre-scan {r[rId]} must not be deconvolved");
                 Assert.That(r[rDeconv], Is.Empty, $"trap pre-scan {r[rId]} must carry no deconvolved masses");
-                Assert.That(double.Parse(r[rRatio], CultureInfo.InvariantCulture), Is.GreaterThanOrEqualTo(0.0),
-                    $"trap pre-scan {r[rId]} is measured: a remaining_ratio exists");
+                Assert.That(double.Parse(r[rShare], CultureInfo.InvariantCulture), Is.InRange(0.0, 1.0),
+                    $"trap pre-scan {r[rId]} is measured: a precursor share exists");
             }
             var rRow = res.Single(r => r[rId] == rr[0][cId]);
             Assert.That(int.Parse(rRow[rMass]), Is.GreaterThan(0), "the follow-up IS deconvolved");
@@ -660,6 +660,182 @@ namespace Flash.Tests
             foreach (var r in pooled)
                 foreach (var id in r[pIds].Split(' '))
                     Assert.That(eIds, Does.Not.Contain(id), "a trap pre-scan must not contribute to the pooled model");
+        }
+
+        // ADR-0047: the Kinetic Model decides by the MODELED maximum. Six trap pre-scans at HCD 1/11/21/31/41/50 on
+        // the cytC 17+ sweep -- no CE-0 reference (ADR-0048) -- each read for its precursor share, then ONE Orbitrap
+        // follow-up at the integer argmax of the fragment pool: an energy no pre-scan ran at. Every CE 0..50 is mapped
+        // so the follow-up resolves wherever the fit lands (no fallback). The expected energy on these centroided
+        // reads is cut_sweep_expected.tsv's cytc_z17 ce_star_centroid, computed by the vendored study pipeline on the
+        // same fixture files; the engine's lattice fit IS that pipeline's, so the two agree to within the stated +-1.
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_Kinetic_CytC()
+        {
+            var ms2CeMap = BuildMs2CeMap(SpectraDir, "ms2_cytc_z17_ce");
+            for (int ce = 0; ce <= 50; ce++)
+                Assert.That(ms2CeMap.ContainsKey(ce), $"Requires ms2_cytc_z17_ce{ce}.txt (the full 1..50 cut of the 2026-09-06 cytC sweep).");
+
+            RunCase("exploration_kinetic", "method_exploration_kinetic.json", "ms1_cytc_z17.txt", "ms2_cytc_z17_ce31.txt",
+                    ms2CeMap: ms2CeMap, minMs2Commands: 7, postDriveAssert: AssertKineticSweep);
+        }
+
+        // ce_star_centroid for one cut set, from test-data/kinetic/cut_sweep_expected.tsv (two '#' header lines,
+        // then: set protein charge mz_lo mz_hi k2 n_points p0 ce_max_s width ce_star_centroid ce_star_profile ...).
+        private static int ExpectedCeStarCentroid(string set)
+        {
+            string path = Path.Combine(TestDataDir, "kinetic", "cut_sweep_expected.tsv");
+            Assert.That(File.Exists(path), $"Requires {path} (test-scripts/kinetic/make_kinetic_tables.py --cut-sweeps).");
+            foreach (var line in File.ReadAllLines(path))
+            {
+                if (line.Length == 0 || line[0] == '#') continue;
+                var f = line.Split('\t');
+                if (f[0] == set) return int.Parse(f[10], CultureInfo.InvariantCulture);
+            }
+            Assert.Fail($"cut_sweep_expected.tsv has no row for set '{set}'");
+            return -1;
+        }
+
+        // What the mode exists to pin, asserted outright so a recapture cannot absorb a regression: the grid with
+        // its top edge and no reference scan (ADR-0047 d.8 / ADR-0048), the share on every pre-scan, the fit on
+        // exactly ONE pre-scan row and on nothing else, no winner anywhere, the follow-up at the modeled energy, and
+        // that energy within +-1 of the study pipeline's on the same reads.
+        private static void AssertKineticSweep(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            var cmds = ParseTsv(commandsPath, out var ch);
+            int cType = Array.IndexOf(ch, "scan_type"), cLvl = Array.IndexOf(ch, "ms_level"), cId = Array.IndexOf(ch, "tracking_id"),
+                cZ = Array.IndexOf(ch, "charge"), cCe = Array.IndexOf(ch, "collision_energy");
+            var e = cmds.Where(r => r[cType] == "exploration" && r[cLvl] == "2").ToList();
+            var rr = cmds.Where(r => r[cType] == "recording" && r[cLvl] == "2").ToList();
+            Assert.That(e.Select(r => (int)Math.Round(double.Parse(r[cCe], CultureInfo.InvariantCulture))).OrderBy(x => x).ToArray(),
+                Is.EqualTo(new[] { 1, 11, 21, 31, 41, 50 }), "six pre-scans: 1..50 step 10 with the top edge acquired, no CE-0 reference");
+            Assert.That(rr.Count, Is.EqualTo(1), "exactly one follow-up");
+            foreach (var r in e.Concat(rr)) Assert.That(r[cZ], Is.EqualTo("17"), "anchor charge");
+
+            var res = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.ResultsName), out var rh);
+            int rId = Array.IndexOf(rh, "tracking_id"), rMass = Array.IndexOf(rh, "mass_count"), rFrag = Array.IndexOf(rh, "fragment_count"),
+                rShare = Array.IndexOf(rh, "precursor_share"), rDeconv = Array.IndexOf(rh, "deconv_masses"),
+                rFit = Array.IndexOf(rh, "fit_points"), rModeled = Array.IndexOf(rh, "modeled_ce"), rSrc = Array.IndexOf(rh, "energy_source"),
+                rK2 = Array.IndexOf(rh, "k2"), rWinner = Array.IndexOf(rh, "winner_tracking_id");
+            Assert.That(rShare >= 0 && rFit >= 0 && rModeled >= 0 && rSrc >= 0 && rK2 >= 0, "scan_results carries precursor_share and the kinetic block");
+            var eIds = new HashSet<string>(e.Select(r => r[cId]));
+            foreach (var r in res.Where(r => eIds.Contains(r[rId])))
+            {
+                Assert.That(r[rMass], Is.EqualTo("0"), $"trap pre-scan {r[rId]} must not be deconvolved");
+                Assert.That(r[rDeconv], Is.Empty, $"trap pre-scan {r[rId]} must carry no deconvolved masses");
+                Assert.That(double.Parse(r[rShare], CultureInfo.InvariantCulture), Is.InRange(0.0, 1.0), $"trap pre-scan {r[rId]} carries its share");
+            }
+            foreach (var r in res) Assert.That(r[rWinner], Is.Empty, "no pre-scan wins under kinetic_model");
+
+            var completing = res.Where(r => ParseIntSafe(r[rFit]) > 0).ToList();
+            Assert.That(completing.Count, Is.EqualTo(1), "the fit is written on exactly one row");
+            var c = completing[0];
+            Assert.That(eIds, Does.Contain(c[rId]), "...which is the pre-scan that completed the group, never the follow-up");
+            Assert.That(c[rFit], Is.EqualTo("6"), "all six shares were finite and used");
+            Assert.That(c[rSrc], Does.StartWith("modeled"), "energy_source names the modeled decision");
+            Assert.That(double.Parse(c[rK2], CultureInfo.InvariantCulture), Is.EqualTo(0.0388).Within(1e-9), "the authored k2 is the one the pool ran with");
+            int modeled = int.Parse(c[rModeled], CultureInfo.InvariantCulture);
+            Assert.That(modeled, Is.InRange(1, 50), "the modeled energy lies on 1..ce_max");
+            Assert.That(double.Parse(rr[0][cCe], CultureInfo.InvariantCulture), Is.EqualTo(modeled).Within(1e-6), "the follow-up carries the modeled energy");
+            int expected = ExpectedCeStarCentroid("cytc_z17");
+            Assert.That(Math.Abs(modeled - expected), Is.LessThanOrEqualTo(1), $"modeled energy {modeled} against the study pipeline's {expected} on the same centroided reads");
+
+            var rRow = res.Single(r => r[rId] == rr[0][cId]);
+            Assert.That(int.Parse(rRow[rMass]), Is.GreaterThan(0), "the follow-up IS deconvolved");
+            Assert.That(int.Parse(rRow[rFrag]), Is.GreaterThan(0), "and identified against the cytC sequence");
+            Assert.That(double.Parse(rRow[rShare], CultureInfo.InvariantCulture), Is.InRange(0.0, 1.0), "the follow-up carries its own share too");
+            Assert.That(rRow[rFit], Is.EqualTo("0"), "the follow-up row carries no fit");
+            Assert.That(rRow[rSrc], Is.Empty, "and no energy_source");
+        }
+
+        // ADR-0047 at level 3. The inclusion-pinned cytC MS2 with characterization.max_targets 1, so the planner's first
+        // target (b32) is swept at CID 15..39 step 2 -- thirteen Orbitrap pre-scans fed their REAL b32 fixtures of the
+        // 2026-07-08 run, selected per command by ion AND stage-1 CE -- then ONE follow-up MS3 at the modeled energy with
+        // stage 0 untouched. The run holds odd energies only, so a follow-up at an even CE has no fixture and is skipped
+        // ([MS3-SKIP]; never fabricated): its COMMAND is pinned below, its result row only when the fixture exists.
+        // k2 for CID at MS3 is a placeholder (HCD's all-in value); this mode pins the mechanism, not the energy.
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_Kinetic_MS3_CytC()
+        {
+            Assert.That(Directory.GetFiles(SpectraDir, "ms3_cytc3_b32_ce*_scan*.txt").Length, Is.EqualTo(14),
+                "Requires the 14 b32 CID fixtures of the 2026-07-08 cytC MS3 run (CE 0, 15, 17, ..., 39; test-data/spectra/FIXTURES.md).");
+            var selector = BuildMs3IonCeSelector(SpectraDir, "ms3_cytc3_");
+
+            RunCase("exploration_kinetic_ms3", "method_exploration_kinetic_ms3.json", "ms1_cytc2.txt", "ms2_cytc2_scan434.txt",
+                    feedMs3: true, ms3FixtureFor: selector, minMs2Commands: 1, postDriveAssert: AssertKineticMs3Sweep);
+        }
+
+        // An MS3 fixture selector keyed on the command's ION (decoded from its scan_description) AND its STAGE-1
+        // collision energy: `<prefix><ion>_ce<CE>_scan*.txt`. Null when no such file exists, which the harness turns
+        // into [MS3-SKIP] -- it never fabricates an MS3 from MS2 peaks. BuildMs3IonMap's `ms3_cytc_*` glob does not
+        // see these `ms3_cytc3_*` files, so the older MS3 goldens are unaffected by the new set.
+        private static Func<ScanCommand, string> BuildMs3IonCeSelector(string spectraDir, string prefix)
+        {
+            return c =>
+            {
+                string ion = DecodeIonFromScanDescription(c.ScanDescription);
+                if (ion == null || c.NumStages < 2) return null;
+                int ce = (int)Math.Round(c.Stages[1].CollisionEnergy);
+                var hits = Directory.GetFiles(spectraDir, prefix + ion + "_ce" + ce.ToString(CultureInfo.InvariantCulture) + "_scan*.txt");
+                return hits.Length == 1 ? hits[0] : null;
+            };
+        }
+
+        private static void AssertKineticMs3Sweep(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            var cmds = ParseTsv(commandsPath, out var ch);
+            int cType = Array.IndexOf(ch, "scan_type"), cLvl = Array.IndexOf(ch, "ms_level"), cId = Array.IndexOf(ch, "tracking_id"),
+                cCe = Array.IndexOf(ch, "collision_energy");
+            var e3 = cmds.Where(r => r[cType] == "exploration" && r[cLvl] == "3").ToList();
+            var r3 = cmds.Where(r => r[cType] == "recording" && r[cLvl] == "3").ToList();
+            // Two-stage CE column: "stage0;stage1".
+            Func<string[], double> stage0 = r => double.Parse(r[cCe].Split(';')[0], CultureInfo.InvariantCulture);
+            Func<string[], double> stage1 = r => double.Parse(r[cCe].Split(';')[1], CultureInfo.InvariantCulture);
+            Assert.That(e3.Select(r => (int)Math.Round(stage1(r))).OrderBy(x => x).ToArray(),
+                Is.EqualTo(Enumerable.Range(0, 13).Select(i => 15 + 2 * i).ToArray()), "thirteen MS3 pre-scans at CID 15..39 step 2, no CE-0 reference");
+            Assert.That(r3.Count, Is.EqualTo(1), "exactly one MS3 follow-up");
+            double s0 = stage0(e3[0]);
+            foreach (var r in e3.Concat(r3)) Assert.That(stage0(r), Is.EqualTo(s0).Within(1e-6), "stage 0 (the MS2 isolation) is untouched by the sweep");
+
+            var res = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.ResultsName), out var rh);
+            int rId = Array.IndexOf(rh, "tracking_id"), rLvl = Array.IndexOf(rh, "ms_level"), rShare = Array.IndexOf(rh, "precursor_share"),
+                rFit = Array.IndexOf(rh, "fit_points"), rModeled = Array.IndexOf(rh, "modeled_ce"), rSrc = Array.IndexOf(rh, "energy_source"),
+                rK2 = Array.IndexOf(rh, "k2"), rGid = Array.IndexOf(rh, "exploration_group_id"), rWinner = Array.IndexOf(rh, "winner_tracking_id");
+            var eIds = new HashSet<string>(e3.Select(r => r[cId]));
+            var eRows = res.Where(r => eIds.Contains(r[rId])).ToList();
+            Assert.That(eRows.Count, Is.EqualTo(13), "every pre-scan was fed its real fixture and logged");
+            foreach (var r in eRows)
+            {
+                Assert.That(r[rLvl], Is.EqualTo("3"));
+                Assert.That(double.Parse(r[rShare], CultureInfo.InvariantCulture), Is.InRange(0.0, 1.0), $"MS3 pre-scan {r[rId]} carries the stage-1 window's share");
+            }
+            foreach (var r in res.Where(r => ParseIntSafe(r[rGid]) >= 1)) Assert.That(r[rWinner], Is.Empty, "no pre-scan wins under kinetic_model");
+
+            var completing = res.Where(r => ParseIntSafe(r[rFit]) > 0).ToList();
+            Assert.That(completing.Count, Is.EqualTo(1), "the fit is written on exactly one row");
+            var c = completing[0];
+            Assert.That(eIds, Does.Contain(c[rId]), "...the pre-scan that completed the group");
+            Assert.That(c[rFit], Is.EqualTo("13"));
+            Assert.That(c[rSrc], Does.StartWith("modeled"));
+            Assert.That(double.Parse(c[rK2], CultureInfo.InvariantCulture), Is.EqualTo(0.0388).Within(1e-9), "the authored (placeholder) CID k2");
+            int modeled = int.Parse(c[rModeled], CultureInfo.InvariantCulture);
+            Assert.That(modeled, Is.InRange(1, 39), "the modeled energy lies on 1..ce_max");
+            Assert.That(stage1(r3[0]), Is.EqualTo(modeled).Within(1e-6), "the follow-up's stage-1 CE is the modeled energy");
+
+            // The follow-up's result row exists only when its CE has a fixture (odd energies); when it does, it is an
+            // ordinary MS3 row: a share, no fit, no energy_source.
+            var fRow = res.SingleOrDefault(r => r[rId] == r3[0][cId]);
+            if (fRow != null)
+            {
+                Assert.That(double.Parse(fRow[rShare], CultureInfo.InvariantCulture), Is.InRange(0.0, 1.0));
+                Assert.That(fRow[rFit], Is.EqualTo("0"));
+                Assert.That(fRow[rSrc], Is.Empty);
+            }
+            else
+            {
+                Assert.That(modeled % 2, Is.EqualTo(0), "a follow-up with no result row must be one with no fixture: an even CE");
+            }
         }
 
         // I4: MS3-level EXPLORATION golden. A two-level MS2->MS3 CE-sweep cascade — the MS2-exploration
@@ -1673,7 +1849,10 @@ namespace Flash.Tests
             Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null,
             // ADR-0040: charge-keyed MS2 feed, so one quantification group's members can be given
             // different reporter ratios and the majority vote has something to out-vote.
-            Dictionary<int, string> ms2ChargeMap = null)
+            Dictionary<int, string> ms2ChargeMap = null,
+            // ADR-0047: a per-command MS3 fixture selector (ion AND stage-1 CE) that replaces the
+            // ion-only map lambda when given. Null = skip, never fabricate -- same contract as ms3Map.
+            Func<ScanCommand, string> ms3FixtureFor = null)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -1698,7 +1877,11 @@ namespace Flash.Tests
                 // carry the engine's real survey ids; MS3 is fed per-command by the decoded ion (skip if
                 // no real fixture — never fabricate). Replaces the old staged DriveCycle.
                 Func<ScanCommand, string> ms3Sel = null;
-                if (feedMs3)
+                if (ms3FixtureFor != null)
+                {
+                    ms3Sel = ms3FixtureFor;   // ADR-0047: ion + stage-1 CE, for a sweep whose fixtures are per energy
+                }
+                else if (feedMs3)
                 {
                     var map = ms3Map ?? new Dictionary<string, string>();
                     ms3Sel = c =>
