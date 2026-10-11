@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Cut one spectrum out of an indexed mzML into a FLASHIda test fixture.
 
-    python cut_mzml_fixture.py <run.mzML> <scan_number> <out.txt> [--centroid] [--min-intensity X]
+    python cut_mzml_fixture.py <run.mzML> <scan_number> <out.txt> [--centroid] [--min-intensity=X]
+    python cut_mzml_fixture.py <run.mzML> --list                  (every spectrum: scan, rt_s, level, filter, description)
+    python cut_mzml_fixture.py <run.mzML> --list-ms2=<mz>         (one sweep: the MS2 scans isolating <mz>, by energy)
 
 Selects the spectrum whose native id ends in ``scan=<scan_number>`` -- never by retention time, because an
 ITMS AGC scan can sit within a millisecond of the scan you want. Refuses any array encoding other than
@@ -106,9 +108,77 @@ def centroid(mz, it, min_intensity):
     return keep_mz, keep_it
 
 
+def read_chunk(path, off, bounds):
+    """The <spectrum> element starting at byte offset `off`, as text."""
+    end = bounds[bounds.index(off) + 1] if off in bounds else None
+    with open(path, "rb") as fh:
+        fh.seek(off)
+        chunk = fh.read((end - off) if end else 1 << 26).decode("utf-8", "replace")
+    return chunk[: chunk.index("</spectrum>") + len("</spectrum>")]
+
+
+def header_only(chunk):
+    """The part of a <spectrum> element before its binary arrays -- enough for every cvParam the listings read."""
+    i = chunk.find("<binaryDataArrayList")
+    return chunk if i < 0 else chunk[:i]
+
+
+def scan_number(sid):
+    m = re.search(r"(^|\s)scan=(\d+)$", sid)
+    return int(m.group(2)) if m else -1
+
+
+def list_all(path):
+    """--list: one line per spectrum: scan, rt_s, ms_level, filter string, scan description. Read-only."""
+    spectra, bounds = spectrum_offsets(path)
+    for off, sid in spectra:
+        h = header_only(read_chunk(path, off, bounds))
+        rt = cv(h, "scan start time")
+        print("%d\t%.4f\t%s\t%s\t%s" % (scan_number(sid), float(rt) * 60.0 if rt else -1.0, cv(h, "ms level", "?"),
+                                        cv(h, "filter string", ""), cv(h, "scan description", "")))
+
+
+def list_ms2(path, mz, tol=0.01):
+    """--list-ms2=<mz>: the MS2 scans whose filter string isolates <mz> (within tol), one line per energy in
+    energy order (ce, scan, rt_s, description), then a trailer naming the last MS1 before the first of them.
+    Read-only. This is how a whole exploration sweep is located for cutting (ADR-0047 fixtures)."""
+    spectra, bounds = spectrum_offsets(path)
+    rows, ms1 = [], []
+    for off, sid in spectra:
+        h = header_only(read_chunk(path, off, bounds))
+        level = cv(h, "ms level", "?")
+        rt = cv(h, "scan start time")
+        rt_s = float(rt) * 60.0 if rt else -1.0
+        if level == "1":
+            ms1.append((scan_number(sid), rt_s))
+            continue
+        if level != "2":
+            continue
+        filt = cv(h, "filter string", "")
+        m = re.search(r"ms2 ([0-9.]+)@([a-z]+)([0-9.]+)", filt)
+        if m is None or abs(float(m.group(1)) - mz) > tol:
+            continue
+        rows.append((float(m.group(3)), scan_number(sid), rt_s, m.group(2), cv(h, "scan description", "")))
+    rows.sort()
+    for ce, scan, rt_s, act, desc in rows:
+        print("%g\t%d\t%.4f\t%s\t%s" % (ce, scan, rt_s, act, desc))
+    if rows:
+        first_scan = min(r[1] for r in rows)
+        before = [s for s in ms1 if s[0] < first_scan]
+        if before:
+            print("last MS1 before the sweep: scan %d (rt %.4f s)" % before[-1])
+    print("%d MS2 scans isolate m/z %.4f (+-%g)" % (len(rows), mz, tol))
+
+
 def main(argv):
     args = [a for a in argv if not a.startswith("--")]
     flags = [a for a in argv if a.startswith("--")]
+    # Read-only listings (ADR-0047 fixture cuts): dispatched before the cut mode's argument check.
+    if "--list" in flags and len(args) == 1:
+        return list_all(args[0])
+    for f in flags:
+        if f.startswith("--list-ms2=") and len(args) == 1:
+            return list_ms2(args[0], float(f.split("=", 1)[1]))
     if len(args) != 3:
         raise SystemExit(__doc__)
     path, scan, out = args[0], int(args[1]), args[2]
@@ -123,11 +193,7 @@ def main(argv):
     if len(hit) != 1:
         raise SystemExit("scan %d: %d spectra match in the index (expected exactly 1)" % (scan, len(hit)))
     off, sid = hit[0]
-    end = bounds[bounds.index(off) + 1] if off in bounds else None
-    with open(path, "rb") as fh:
-        fh.seek(off)
-        chunk = fh.read((end - off) if end else 1 << 26).decode("utf-8", "replace")
-    chunk = chunk[: chunk.index("</spectrum>") + len("</spectrum>")]
+    chunk = read_chunk(path, off, bounds)
 
     rt_min = cv(chunk, "scan start time")
     if rt_min is None or 'name="scan start time" value="%s" unitCvRef="UO" unitAccession="UO:0000031"' % rt_min not in chunk:
