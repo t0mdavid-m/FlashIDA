@@ -358,6 +358,14 @@ adding a decision key means one on a class property.
   ce 20/40/5. The forwarding guard is an ordinal, case-sensitive `!= "none"`, so `"None"` takes
   the *other* branch. Each block now gets a **fresh** instance — the old code shared one
   `defaultExpl` object by reference across all three levels.
+- **`exploration.kinetic_model` is forwarded verbatim or as `null`, never synthesized** (ADR-0047).
+  `ExplorationBlockConfig.KineticModel` is null by default and the DTO emits `"kinetic_model": null`,
+  which the C++ parser treats as absent; its one member, `K2`, is a `Dictionary<string, double>` of
+  activation → overfragmentation rate per NCE. The C++ side alone decides whether the block is
+  required (`metric: "kinetic_model"`) or refused (any other metric) — a k2 that reached the engine
+  with a value the operator never wrote would be the stomped-key shape ADR-0040 removed. The schema
+  reference authors it at level 3 with `{"CID": 0.0123}` because CID is `ms_settings.ms3.activation`
+  there and the loader requires an entry for the swept activation.
 
 Unknown keys are hard-rejected here and again in C++. `test-data/config_schema_reference.json` is
 generated from the schema — regenerate it, never hand-edit.
@@ -396,6 +404,19 @@ same six real fixtures its pre-scans use. `MockMsScan.FromTsvAsMSn` stamps every
 does not need to — the engine decides on the *command's* `analyzer` (ADR-0045). The
 `ms2_cytc_z17_*` / `ms1_cytc_z17.txt` fixtures were cut from a real run with
 `test-scripts/cut_mzml_fixture.py`; their provenance is in `test-data/spectra/FIXTURES.md`.
+
+`BuildMs2CeMap(dir, prefix)` maps **every** `<prefix><N>.txt` with an integer `N`, so a sweep fixture
+set of any density resolves — the six-point sets and the full `1..50` cuts of cytC 17+, ubiquitin 9+
+and trypsinogen 12+ (ADR-0047). Which energies a mode needs is the test's own precondition, asserted
+at the call site. `Golden_Exploration_Kinetic_CytC` maps all 51 because its follow-up lands wherever
+the Kinetic Model's fit puts it, and asserts that energy within ±1 of
+`test-data/kinetic/cut_sweep_expected.tsv` (the vendored study pipeline's answer on the same files).
+**MS3 fixtures can be selected by ion AND stage-1 CE**: `RunCase(..., ms3FixtureFor: selector)` takes a
+`Func<ScanCommand, string>` in place of the ion-only `ms3Map` lambda; `BuildMs3IonCeSelector(dir,
+"ms3_cytc3_")` resolves `ms3_cytc3_<ion>_ce<CE>_scan*.txt` and returns `null` when no such file exists,
+which the harness logs as `[MS3-SKIP]` — never fabricated. That is how `Golden_Exploration_Kinetic_MS3_CytC`
+feeds the real b32 CID sweep of 2026-07-08 (odd energies only, so a follow-up at an even CE has a
+pinned command and no result row). `BuildMs3IonMap`'s `ms3_cytc_*` glob does not see `ms3_cytc3_*`.
 
 ### Two capture channels, different fidelity
 
