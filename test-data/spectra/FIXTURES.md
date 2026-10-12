@@ -4,6 +4,13 @@ Fixtures cut from instrument data with `test-scripts/cut_mzml_fixture.py` record
 line per file, exactly as the script printed it. Fixtures generated synthetically (e.g. by
 `make_multice_cytc.py`) are documented in their generator.
 
+Deconvolved-mass fixtures for the Refine method (ADR-0049) live in `test-data/refine/`, each with its
+provenance header, all written by `test-scripts/refine/make_refine_tables.py`. The corpus layer,
+`test-data/refine/corpus/`, holds seven proteoforms of the MS2 characterization corpus: `ca`, `cytc`,
+`myoglobin`, `tia_red`, `ubiquitin`, `lactalbumin_red` and `betacasein`. The corpus's other seven rows
+(lysozyme, lysozyme_red, rnase, tia, trypsinogen, lactalbumin, betalac) are not there because intact
+disulfides are outside Refine's step-function model.
+
 ## `ms1_cytc_z17.txt`, `ms2_cytc_z17_ce{0,20,25,30,35,40}.txt` — 2026-09-22, ADR-0045
 
 Source: `FLASHIda_methodDirectInfusionCytc_90min_150nlmin_12ul_20260906032456.mzML`, a direct-infusion
