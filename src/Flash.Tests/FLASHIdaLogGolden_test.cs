@@ -602,8 +602,10 @@ namespace Flash.Tests
             foreach (int ce in new[] { 0, 20, 25, 30, 35, 40 })
                 Assert.That(ms2CeMap.ContainsKey(ce), $"Requires ms2_cytc_z17_ce{ce}.txt (cut from the 2026-09-06 cytC sweep).");
 
+            // 6 = five trap pre-scans (CE 20/25/30/35/40) + the Orbitrap follow-up; the CE-0 reference that made
+            // it 7 is gone (ADR-0048). The floor still fail-closes on a pin that selects nothing.
             RunCase("exploration_iontrap", "method_exploration_iontrap.json", "ms1_cytc_z17.txt", "ms2_cytc_z17_ce35.txt",
-                    ms2CeMap: ms2CeMap, minMs2Commands: 7, postDriveAssert: AssertTrapSweepMeasuredNeverIdentified);
+                    ms2CeMap: ms2CeMap, minMs2Commands: 6, postDriveAssert: AssertTrapSweepMeasuredNeverIdentified);
         }
 
         // The four things the mode exists to pin, asserted outright so a golden recapture cannot quietly absorb them:
