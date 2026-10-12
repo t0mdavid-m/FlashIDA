@@ -294,20 +294,8 @@ namespace Flash
             return new JavaScriptSerializer().Serialize(config);
         }
 
-        /// <summary>
-        /// Convert one exploration block for the wire. Replaces BuildSelectionStrategy(), which
-        /// synthesized a whole section; each of the two surviving blocks now converts itself.
-        ///
-        /// Value-preserving by construction, including the quirk that an absent block and a block
-        /// with metric "none" both emit the same 20/40/5 placeholder — that is what the engine has
-        /// always received, and C++ ignores every field of it once metric is None.
-        ///
-        /// Fixes one latent defect while preserving behaviour: the old code built ONE defaultExpl
-        /// object and assigned the same reference to all three levels. Benign only because nothing
-        /// mutated it; any future per-level fixup would have silently hit all three. This returns a
-        /// fresh instance per call.
-        /// </summary>
-        // ADR-0049. Null in, null out -- the same "verbatim or null, never synthesized" shape as
+        /// <summary>Convert the characterization.refine block for the wire (ADR-0049).</summary>
+        // Null in, null out -- the same "verbatim or null, never synthesized" shape as
         // exploration.kinetic_model, so an unauthored block crosses the bridge as absent and C++
         // falls back to RefineSettings' defaults.
         private static JsonRefineBlockConfig ToJsonRefine(RefineBlockConfig r)
@@ -326,6 +314,19 @@ namespace Flash
             };
         }
 
+        /// <summary>
+        /// Convert one exploration block for the wire. Replaces BuildSelectionStrategy(), which
+        /// synthesized a whole section; each of the two surviving blocks now converts itself.
+        ///
+        /// Value-preserving by construction, including the quirk that an absent block and a block
+        /// with metric "none" both emit the same 20/40/5 placeholder — that is what the engine has
+        /// always received, and C++ ignores every field of it once metric is None.
+        ///
+        /// Fixes one latent defect while preserving behaviour: the old code built ONE defaultExpl
+        /// object and assigned the same reference to all three levels. Benign only because nothing
+        /// mutated it; any future per-level fixup would have silently hit all three. This returns a
+        /// fresh instance per call.
+        /// </summary>
         private static JsonExplorationBlockConfig ToJsonExploration(ExplorationBlockConfig e)
         {
             // NOTE the comparison is deliberately ordinal, matching the old behaviour exactly:
