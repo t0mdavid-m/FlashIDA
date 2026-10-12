@@ -36,6 +36,9 @@ namespace Flash
     {
         public readonly double[] Mzs;
         public readonly double[] Intensities;
+        /// <summary>The instrument's StartTime in MINUTES, exactly as it arrives. It crosses the bridge
+        /// in minutes; the engine's C export converts it to the seconds the engine decides in (ADR-0051).
+        /// Never convert it here.</summary>
         public readonly double RetentionTime;
         public readonly int MsLevel;
         public readonly string ScanDescription;

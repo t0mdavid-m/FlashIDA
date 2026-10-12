@@ -259,6 +259,9 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
     deconvolution. Removing that stall is what made a deep queue reachable.
     ⚠️ **Anything the engine needs is added to `ScanData.From`, never read at the consumer.** A field
     fetched lazily from the handle later reintroduces exactly this defect.
+    `ScanData.RetentionTime` is the instrument's `StartTime` in **minutes** and crosses the bridge
+    unconverted; the engine's export turns it into the seconds the engine decides in (ADR-0051).
+    Converting it here as well would make the engine see hours.
   - **The queue is deliberately unbounded and nothing is ever dropped.** Bounding it was considered
     and rejected: a dropped exploration variant wedges its group for the rest of the run
     (`Exploration::active_groups_.erase` is reachable only past the `all_received` gate, no timeout)

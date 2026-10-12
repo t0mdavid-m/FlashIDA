@@ -25,7 +25,10 @@ scan 1095 (ms2, rt 43.7328 min, FTMS + p NSI sid=15.00 Full ms2 727.9039@hcd40.0
 
 The fixture header carries the retention time in **seconds** (`MockMsScan.FromTsv*` divides by 60); the
 older hand-cut fixtures wrote minutes there, which the harness reads as a fraction of a minute — harmless
-for every test that exists, and not worth normalising.
+for every test that exists, and not worth normalising. The rt_window tests (ADR-0051:
+`RetentionTimeWindowTests` and two `FLASHIda_ProcessScan_test` sections) rely on exactly this reading of
+`ms1_cytc.txt`: both harnesses treat its 8.2–72.0 as seconds, which gives them a 64 s run in which a 30 s
+window expires once and a 180 s window never does.
 
 ## Full HCD sweeps for the Kinetic Model (ADR-0047 d.10, layer B) — 2026-10-11
 
