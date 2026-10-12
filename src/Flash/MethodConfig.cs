@@ -406,6 +406,44 @@ namespace Flash
         public int TargetDepth { get; set; } = 2;
     }
 
+    // ADR-0049. The seven knobs of the Refine annotation method (shift scan at an FDR -> levels ->
+    // one DP per total). Defaults mirror RefineSettings.h exactly. Read ONLY under
+    // characterization.method "refine": the C++ loader refuses this block under "flashtnt" rather
+    // than carrying it unread, so the property is null by default and emitted only when authored.
+    // Declared ABOVE CharacterizationConfig for the CS0579 reason MonitorMs1Config gives: an
+    // attribute binds to the next type declaration.
+    [JsonKey("refine")]
+    public class RefineBlockConfig
+    {
+        [JsonKey("fdr")]
+        [Description("False-discovery rate a shift level must pass against shuffled sequences, in (0, 1]")]
+        public double Fdr { get; set; } = 0.2;
+
+        [JsonKey("shuffles")]
+        [Description("Number of shuffled sequences the FDR is estimated from (>= 1)")]
+        public int Shuffles { get; set; } = 300;
+
+        [JsonKey("grid_da")]
+        [Description("Step of the trial-shift grid (Da, > 0)")]
+        public double GridDa { get; set; } = 0.01;
+
+        [JsonKey("max_shift_da")]
+        [Description("The trial-shift grid runs from -max_shift_da to +max_shift_da (Da, > 0)")]
+        public double MaxShiftDa { get; set; } = 700.0;
+
+        [JsonKey("min_ions")]
+        [Description("Smallest matched-ion cut tried for a level (>= 1)")]
+        public int MinIons { get; set; } = 3;
+
+        [JsonKey("max_levels")]
+        [Description("Cap on the number of shift levels kept (>= 1)")]
+        public int MaxLevels { get; set; } = 20;
+
+        [JsonKey("jump_penalty")]
+        [Description("Ions one jump between levels costs in a path's score: S = ions - jump_penalty x jumps (>= 1)")]
+        public int JumpPenalty { get; set; } = 2;
+    }
+
     /// <summary>
     /// Decision section 2: HOW do we pin that proteoform down?
     ///
@@ -421,8 +459,19 @@ namespace Flash
     public class CharacterizationConfig
     {
         [JsonKey("mode")]
-        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), coverage (extend sequence coverage), or exhaustive (fragment every deconvolved mass of the winner MS2 scan, mapped or not -- ADR-0023). Unknown values are rejected, not defaulted.")]
+        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), coverage (extend sequence coverage), exhaustive (fragment every deconvolved mass of the winner MS2 scan, mapped or not -- ADR-0023), or discriminating (fragment the MS2 masses the two best Refine paths explain differently; requires method \"refine\" and no characterization.exploration -- ADR-0049). Unknown values are rejected, not defaulted.")]
         public string Mode { get; set; } = "off";
+
+        // ADR-0049. Which annotation method reads the MS2 fragments. Emitted verbatim (not
+        // lower-cased): the C++ loader is case-sensitive and hard-rejects anything but these two,
+        // so a typo'd "Refine" fails loudly instead of silently running FLASHTnT.
+        [JsonKey("method")]
+        [Description("MS2 annotation method: flashtnt (tag-based search, the default) or refine (no-search shift scan + per-total DP -- ADR-0049). Case-sensitive.")]
+        public string Method { get; set; } = "flashtnt";
+
+        // Null = unauthored; C++ then uses RefineSettings' defaults. See RefineBlockConfig.
+        [JsonKey("refine")]
+        public RefineBlockConfig Refine { get; set; }
 
         [JsonKey("protein_sequence")]
         [Description("Protein sequence fragments are matched against. Required when mode is not off.")]
@@ -914,6 +963,21 @@ namespace Flash
         public double min_target_mass { get; set; }
         public string fragment_charges { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
+        // ADR-0049. `refine` is emitted as null when unauthored (the C++ parser reads null as absent).
+        public string method { get; set; }
+        public JsonRefineBlockConfig refine { get; set; }
+    }
+
+    // ADR-0049. Emit DTO for RefineBlockConfig; all seven keys written whenever the block is.
+    public class JsonRefineBlockConfig
+    {
+        public double fdr { get; set; }
+        public int shuffles { get; set; }
+        public double grid_da { get; set; }
+        public double max_shift_da { get; set; }
+        public int min_ions { get; set; }
+        public int max_levels { get; set; }
+        public int jump_penalty { get; set; }
     }
 
     public class JsonRuntimeConfig

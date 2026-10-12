@@ -260,7 +260,15 @@ namespace Flash
                     min_fragment_charge = c.Characterization.MinFragmentCharge,
                     min_target_mass = c.Characterization.MinTargetMass,
                     fragment_charges = c.Characterization.FragmentCharges,
-                    exploration = ToJsonExploration(c.Characterization.Exploration)
+                    exploration = ToJsonExploration(c.Characterization.Exploration),
+                    // ADR-0049. Verbatim, not lower-cased: C++ rejects anything but the two exact
+                    // spellings, which is what keeps a typo from silently running FLASHTnT.
+                    method = c.Characterization.Method ?? "flashtnt",
+                    // Forwarded verbatim when AUTHORED, null otherwise -- never gated on `method`.
+                    // A block authored under "flashtnt" therefore reaches C++, which refuses it
+                    // ("characterization.refine is set but characterization.method is flashtnt"),
+                    // instead of being dropped here unread.
+                    refine = ToJsonRefine(c.Characterization.Refine)
                 },
                 conditional_ms2 = c.Tagging.ConditionalMS2,
                 files = new JsonFilesConfig
@@ -299,6 +307,25 @@ namespace Flash
         /// mutated it; any future per-level fixup would have silently hit all three. This returns a
         /// fresh instance per call.
         /// </summary>
+        // ADR-0049. Null in, null out -- the same "verbatim or null, never synthesized" shape as
+        // exploration.kinetic_model, so an unauthored block crosses the bridge as absent and C++
+        // falls back to RefineSettings' defaults.
+        private static JsonRefineBlockConfig ToJsonRefine(RefineBlockConfig r)
+        {
+            if (r == null)
+                return null;
+            return new JsonRefineBlockConfig
+            {
+                fdr = r.Fdr,
+                shuffles = r.Shuffles,
+                grid_da = r.GridDa,
+                max_shift_da = r.MaxShiftDa,
+                min_ions = r.MinIons,
+                max_levels = r.MaxLevels,
+                jump_penalty = r.JumpPenalty
+            };
+        }
+
         private static JsonExplorationBlockConfig ToJsonExploration(ExplorationBlockConfig e)
         {
             // NOTE the comparison is deliberately ordinal, matching the old behaviour exactly:
@@ -697,7 +724,20 @@ namespace Flash
             c.PrecursorSelection.TagExpansion.MaxPtmCount = 5;
             c.PrecursorSelection.TagExpansion.MaxFlankingMassDiff = 41001;
 
+            // Mode stays "coverage", NOT "discriminating": this reference also authors
+            // characterization.exploration (kinetic_model, below), and Config::validate refuses
+            // discriminating together with an MS3 exploration block (ADR-0049). The reference must
+            // load through the C++ Config constructor in ConfigSchemaParity_test, so the two cannot
+            // both be in it -- and the exploration block carries more keys (the k2 map, monitor_ms1).
             c.Characterization.Mode = "coverage";
+            // ADR-0049. Method + every refine key non-default, so a dropped key is visible. Mode
+            // "coverage" is legal under "refine"; only discriminating is method-gated.
+            c.Characterization.Method = "refine";
+            c.Characterization.Refine = new RefineBlockConfig
+            {
+                Fdr = 0.25, Shuffles = 77, GridDa = 0.02, MaxShiftDa = 333, MinIons = 5,
+                MaxLevels = 7, JumpPenalty = 3
+            };
             c.Characterization.ProteinSequence = "MSENTINELPEPTIDESEQ";
             c.Characterization.MaxTargets = 4;
             c.Characterization.MinFragmentCharge = 1;
