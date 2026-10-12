@@ -253,6 +253,16 @@
           "CID": 0.0123
         }
       }
+    },
+    "method": "refine",
+    "refine": {
+      "fdr": 0.25,
+      "shuffles": 77,
+      "grid_da": 0.02,
+      "max_shift_da": 333,
+      "min_ions": 5,
+      "max_levels": 7,
+      "jump_penalty": 3
     }
   },
   "conditional_ms2": false,
