@@ -459,7 +459,7 @@ namespace Flash
     public class CharacterizationConfig
     {
         [JsonKey("mode")]
-        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), coverage (extend sequence coverage), exhaustive (fragment every deconvolved mass of the winner MS2 scan, mapped or not -- ADR-0023), or discriminating (fragment the MS2 masses the two best Refine paths explain differently; requires method \"refine\" and no characterization.exploration -- ADR-0049). Unknown values are rejected, not defaulted.")]
+        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), coverage (every fragment whose interior holds a bond MS2 never witnessed, strongest first, up to max_targets -- ADR-0052), fragments (every mapped fragment with a bond inside it, strongest first, up to max_targets -- ADR-0052), exhaustive (fragment every deconvolved mass of the winner MS2 scan, mapped or not -- ADR-0023), or discriminating (fragment the MS2 masses the two best Refine paths explain differently; requires method \"refine\" and no characterization.exploration -- ADR-0049). Unknown values are rejected, not defaulted.")]
         public string Mode { get; set; } = "off";
 
         // ADR-0049. Which annotation method reads the MS2 fragments. Emitted verbatim (not
