@@ -573,9 +573,11 @@ namespace Flash.Tests
         // Refine annotation method, discriminating objective (ADR-0049), on the cytochrome c scan57 pair the
         // ms3_cytc golden uses (ms1_cytc.txt / ms2_cytc_fresh_scan57.txt + the ms3_cytc_*_scan*.txt manifest) and
         // method_refine_cytc.json (= method_ms3_cytc_real.json with characterization.method refine, mode
-        // discriminating, a refine block). Refine's two best paths on that MS2 differ by +657.18 vs +42.01, and
-        // max_targets 3 dispatches the three most intense discriminating masses b60, b50, b33 -- of which only b33
-        // has a real MS3 fixture. The July pair is not used: its discriminating masses (b4-b13) have no MS3 fixtures.
+        // discriminating, a refine block). On that MS2, with the config's Met-carrying sequence, Refine's best path is
+        // +526.14 (-89.03 @ 1-8, Met loss + acetyl; +615.17 @ 15-22, heme) and the second +6.92; max_targets 3
+        // dispatches the three most intense discriminating masses b61, y71, b51. Two of the three have real MS3
+        // fixtures (b61, b51); y71 has none and is answered empty -- so both return paths run in one round. The July
+        // pair is not used: its discriminating masses (b4-b13) have no MS3 fixtures.
         //
         // Unlike every other case, a dispatched MS3 whose ion has no fixture is answered with an EMPTY MS3
         // (ms3_empty_scan0.txt) instead of being skipped. On the instrument every commanded scan returns, possibly
@@ -597,7 +599,7 @@ namespace Flash.Tests
                 return ion != null && ms3Map.TryGetValue(ion, out var p) ? p : EmptyMs3Path;
             };
             RunCase("refine_discriminating_cytc", "method_refine_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
-                    feedMs3: true, minMs2Commands: 1, postDriveAssert: AssertRefineDecided, ms3FixtureFor: ms3For);
+                    minMs2Commands: 1, postDriveAssert: AssertRefineDecided, ms3FixtureFor: ms3For);
         }
 
         /// <summary>
@@ -1326,6 +1328,8 @@ namespace Flash.Tests
         ///   (a) &gt;= 1 ms_level==2 row in identification.tsv with annotation_score &gt;= 0 AND second_score &gt;= 0 --
         ///       Refine annotated the MS2 with two candidate paths (under flashtnt both carry the -1 sentinel);
         ///   (b) &gt;= 3 ms_level==3 rows in scan_commands.tsv -- the discriminating round was dispatched at budget;
+        ///   (b2) &gt;= 1 ms_level==3 row in scan_results.tsv with mass_count &gt; 0 -- at least one discriminating MS3
+        ///       carried real pieces, so an all-empty round (which still decides) cannot pass;
         ///   (c) &gt;= 1 row in pooled_identification.tsv whose trigger is "MS3-DECIDE" -- every dispatched MS3
         ///       returned and ProteoformTracker::decideRefine fired (its stdout line is not readable here, so the
         ///       pooled row it emits is the witness).
@@ -1368,6 +1372,21 @@ namespace Flash.Tests
             Assert.That(ms3Cmds, Is.GreaterThanOrEqualTo(3),
                 "refine_discriminating_cytc: fewer than 3 ms_level==3 rows in scan_commands.tsv -- the discriminating " +
                 "round was not dispatched at its budget.");
+
+            // (b2) scan_results.tsv: at least one MS3 carried real pieces (an all-empty round still decides, vacuously).
+            string resultsPath = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
+            Assert.That(File.Exists(resultsPath), Is.True,
+                "refine_discriminating_cytc: engine must have written scan_results.tsv for the refine check");
+            var resRows = ParseTsv(resultsPath, out var resHeader);
+            int resMsLevelCol = Array.IndexOf(resHeader, "ms_level");
+            int massCountCol = Array.IndexOf(resHeader, "mass_count");
+            Assert.That(resMsLevelCol, Is.GreaterThanOrEqualTo(0), "ms_level column present in scan_results.tsv");
+            Assert.That(massCountCol, Is.GreaterThanOrEqualTo(0), "mass_count column present in scan_results.tsv");
+            int ms3WithPieces = resRows.Count(r => resMsLevelCol < r.Length && massCountCol < r.Length &&
+                                                   ParseIntSafe(r[resMsLevelCol]) == 3 && ParseIntSafe(r[massCountCol]) > 0);
+            Assert.That(ms3WithPieces, Is.GreaterThanOrEqualTo(1),
+                "refine_discriminating_cytc: no ms_level==3 row in scan_results.tsv with mass_count > 0 -- every " +
+                "discriminating MS3 came back empty, so the decision rests on no evidence.");
 
             // (c) pooled_identification.tsv: the round's decision row.
             Assert.That(File.Exists(pooledPath), Is.True,
