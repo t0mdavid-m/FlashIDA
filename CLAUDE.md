@@ -442,9 +442,9 @@ round — it needs an MS2 identification row carrying both Refine scores, ≥ 3 
 `scan_results` row with `mass_count > 0` (an all-empty round still decides) and a pooled row whose
 trigger is `MS3-DECIDE`, the only file-visible witness of `decideRefine`. The empty answers'
 `mass_count 0` rows are also the only thing that pins the engine's empty-MS3 clear (see
-`../OpenMS/CLAUDE.md`). ⚠️ The case's own code comment and `method_refine_cytc.json`'s
-`method_description` name the round as b61/y71/**b51**; the golden's `scan_commands` says
-b61/y71/**y79**, with b51 among the ambiguity MS3s after the decision. Trust the golden.
+`../OpenMS/CLAUDE.md`). The round is b61/y71/y79, as the case's code comment,
+`method_refine_cytc.json`'s `method_description` and the golden's `scan_commands` all say; b51 is
+one of the ambiguity MS3s after the decision. When the three disagree, the golden is the authority.
 
 **The Refine fixtures are deconvolved mass lists, not spectra**, in `test-data/refine/` (the report's
 cytochrome c scan, seven corpus proteoforms under `corpus/`, the July MS3 pieces, and the two
