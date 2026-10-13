@@ -209,7 +209,7 @@ namespace Flash
         /// </remarks>
         public static bool NeedsReactionTime(string activation)
         {
-            return activation == "ETD" || activation == "EThcD";
+            return activation == "ETD" || activation == "EThcD" || activation == "ETciD";
         }
 
         private static string Fmt(object value)
