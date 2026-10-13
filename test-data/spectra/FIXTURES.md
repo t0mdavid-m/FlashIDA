@@ -246,3 +246,12 @@ scan 461 (ms3, rt 5.8600 min, FTMS + p ESI Full ms3 1027.3131@hcd42.00 1027.6311
 scan 462 (ms3, rt 5.9421 min, FTMS + p ESI Full ms3 1027.3131@hcd42.00 1027.6311@cid37.00 [200.0000-2000.0000]) desc='!$&E4.111k@4b32' -> ms3_cytc3_b32_ce37_scan462.txt: 13099 points -> 925 peaks (centroided)
 scan 463 (ms3, rt 6.0239 min, FTMS + p ESI Full ms3 1027.3131@hcd42.00 1027.6311@cid39.00 [200.0000-2000.0000]) desc="!$'E4.111k@4b32" -> ms3_cytc3_b32_ce39_scan463.txt: 13308 points -> 939 peaks (centroided)
 ```
+
+### `ms3_empty_scan0.txt` — a zero-peak MS3 answer, not cut from any run
+
+One header line (`Spec scan=0<TAB>0`, the MSn TSV header `MockMsScan.FromTsvAsMSn` reads) and no peak rows, so it
+loads as an MS3 scan with zero centroids. The `refine_discriminating_cytc` golden (ADR-0049) feeds it back for a
+dispatched MS3 command whose ion has no `ms3_cytc_*` fixture: on the instrument every commanded scan returns, possibly
+empty, and a refine round closes only when every discriminating MS3 has been received, so skipping those commands (what
+the harness does for every other case) would leave the round open forever. It is deliberately outside the
+`ms3_cytc_*` glob, so `BuildMs3IonMap` never maps an ion to it; only that case's selector names it, on a miss.

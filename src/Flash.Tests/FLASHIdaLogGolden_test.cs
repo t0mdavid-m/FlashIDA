@@ -570,6 +570,42 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1, postDriveAssert: AssertInclusionMs3Produced);
         }
 
+        // Refine annotation method, discriminating objective (ADR-0049), on the cytochrome c scan57 pair the
+        // ms3_cytc golden uses (ms1_cytc.txt / ms2_cytc_fresh_scan57.txt + the ms3_cytc_*_scan*.txt manifest) and
+        // method_refine_cytc.json (= method_ms3_cytc_real.json with characterization.method refine, mode
+        // discriminating, a refine block). Refine's two best paths on that MS2 differ by +657.18 vs +42.01, and
+        // max_targets 3 dispatches the three most intense discriminating masses b60, b50, b33 -- of which only b33
+        // has a real MS3 fixture. The July pair is not used: its discriminating masses (b4-b13) have no MS3 fixtures.
+        //
+        // Unlike every other case, a dispatched MS3 whose ion has no fixture is answered with an EMPTY MS3
+        // (ms3_empty_scan0.txt) instead of being skipped. On the instrument every commanded scan returns, possibly
+        // empty, and a refine round closes only when every discriminating MS3 has been received -- so a skip would
+        // leave the round open and the decision would never fire. The empty answer is wired into THIS selector only;
+        // every other case keeps the null-on-a-miss skip. No clean skip when the fixtures are absent: a fixture-less
+        // run would answer every command empty and golden a vacuous decision.
+        [Test, Category("Tier2")]
+        public void Golden_Refine_Discriminating_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            Assert.That(ms3Map.Count, Is.GreaterThan(0),
+                "refine golden needs the ms3_cytc_*_scan*.txt fixtures (no clean skip: a fixture-less run would be vacuous)");
+            Assert.That(File.Exists(EmptyMs3Path), Is.True,
+                "refine golden needs " + EmptyMs3Path + " to answer a dispatched MS3 that has no fixture");
+            Func<ScanCommand, string> ms3For = c =>
+            {
+                string ion = DecodeIonFromScanDescription(c.ScanDescription);
+                return ion != null && ms3Map.TryGetValue(ion, out var p) ? p : EmptyMs3Path;
+            };
+            RunCase("refine_discriminating_cytc", "method_refine_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, minMs2Commands: 1, postDriveAssert: AssertRefineDecided, ms3FixtureFor: ms3For);
+        }
+
+        /// <summary>
+        /// The zero-peak MS3 answer Golden_Refine_Discriminating_CytC feeds for a dispatched command whose ion has no
+        /// ms3_cytc_* fixture. Deliberately outside that glob, so BuildMs3IonMap never maps an ion to it.
+        /// </summary>
+        private static string EmptyMs3Path => Path.Combine(SpectraDir, "ms3_empty_scan0.txt");
+
         // I4: exploration FOLLOW-UP golden. An MS2 CE-sweep whose winner — via a non-tolerance override
         // (analyzer) in method_exploration_followup.json — re-acquires as a PRODUCTION MS2, which then
         // cascades to MS3 (mirrors C++ ms2_exploration_production_winner_then_ms3). Inclusion-pinned cytC;
@@ -1282,6 +1318,67 @@ namespace Flash.Tests
             Assert.That(ms3Ids, Is.GreaterThanOrEqualTo(1),
                 "inclusion_ms3_cytc: no ms_level==3 row in identification.tsv — every requested MS3 ion was " +
                 "silently skipped (vacuous MS3 golden).");
+        }
+
+        /// <summary>
+        /// Fail-closed guard for Golden_Refine_Discriminating_CytC: the refine round ran to its decision, not merely
+        /// started. Columns are read by header name. Asserts:
+        ///   (a) &gt;= 1 ms_level==2 row in identification.tsv with annotation_score &gt;= 0 AND second_score &gt;= 0 --
+        ///       Refine annotated the MS2 with two candidate paths (under flashtnt both carry the -1 sentinel);
+        ///   (b) &gt;= 3 ms_level==3 rows in scan_commands.tsv -- the discriminating round was dispatched at budget;
+        ///   (c) &gt;= 1 row in pooled_identification.tsv whose trigger is "MS3-DECIDE" -- every dispatched MS3
+        ///       returned and ProteoformTracker::decideRefine fired (its stdout line is not readable here, so the
+        ///       pooled row it emits is the witness).
+        /// </summary>
+        private static void AssertRefineDecided(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            string idPath = Path.Combine(caseDir, LogGoldenComparer.IdentificationName);
+            string pooledPath = Path.Combine(caseDir, LogGoldenComparer.PooledName);
+
+            // (a) identification.tsv: an MS2 row carrying both Refine scores.
+            Assert.That(File.Exists(idPath), Is.True,
+                "refine_discriminating_cytc: engine must have written identification.tsv for the refine check");
+            var idRows = ParseTsv(idPath, out var idHeader);
+            int idMsLevelCol = Array.IndexOf(idHeader, "ms_level");
+            int scoreCol = Array.IndexOf(idHeader, "annotation_score");
+            int secondCol = Array.IndexOf(idHeader, "second_score");
+            Assert.That(idMsLevelCol, Is.GreaterThanOrEqualTo(0), "ms_level column present in identification.tsv");
+            Assert.That(scoreCol, Is.GreaterThanOrEqualTo(0), "annotation_score column present in identification.tsv");
+            Assert.That(secondCol, Is.GreaterThanOrEqualTo(0), "second_score column present in identification.tsv");
+            Func<string[], int, double> num = (r, col) =>
+            {
+                double v;
+                return col < r.Length && double.TryParse(r[col], NumberStyles.Float, CultureInfo.InvariantCulture, out v)
+                    ? v : -1.0;
+            };
+            int refined = idRows.Count(r => idMsLevelCol < r.Length && ParseIntSafe(r[idMsLevelCol]) == 2 &&
+                                            num(r, scoreCol) >= 0.0 && num(r, secondCol) >= 0.0);
+            Assert.That(refined, Is.GreaterThanOrEqualTo(1),
+                "refine_discriminating_cytc: no ms_level==2 row in identification.tsv with annotation_score >= 0 and " +
+                "second_score >= 0 -- the MS2 was not annotated by Refine with two candidate paths.");
+
+            // (b) scan_commands.tsv: the discriminating round at budget (max_targets 3).
+            Assert.That(File.Exists(commandsPath), Is.True,
+                "refine_discriminating_cytc: engine must have written scan_commands.tsv for the refine check");
+            var cmdRows = ParseTsv(commandsPath, out var cmdHeader);
+            int cmdMsLevelCol = Array.IndexOf(cmdHeader, "ms_level");
+            Assert.That(cmdMsLevelCol, Is.GreaterThanOrEqualTo(0), "ms_level column present in scan_commands.tsv");
+            int ms3Cmds = cmdRows.Count(r => cmdMsLevelCol < r.Length && ParseIntSafe(r[cmdMsLevelCol]) == 3);
+            Assert.That(ms3Cmds, Is.GreaterThanOrEqualTo(3),
+                "refine_discriminating_cytc: fewer than 3 ms_level==3 rows in scan_commands.tsv -- the discriminating " +
+                "round was not dispatched at its budget.");
+
+            // (c) pooled_identification.tsv: the round's decision row.
+            Assert.That(File.Exists(pooledPath), Is.True,
+                "refine_discriminating_cytc: engine must have written pooled_identification.tsv for the refine check");
+            var pooledRows = ParseTsv(pooledPath, out var pooledHeader);
+            int triggerCol = Array.IndexOf(pooledHeader, "trigger");
+            Assert.That(triggerCol, Is.GreaterThanOrEqualTo(0), "trigger column present in pooled_identification.tsv");
+            int decided = pooledRows.Count(r => triggerCol < r.Length && r[triggerCol] == "MS3-DECIDE");
+            Assert.That(decided, Is.GreaterThanOrEqualTo(1),
+                "refine_discriminating_cytc: no pooled row with trigger \"MS3-DECIDE\" -- the refine round never " +
+                "completed (a dispatched MS3 never returned) or decideRefine did not fire.");
         }
 
         /// <summary>
