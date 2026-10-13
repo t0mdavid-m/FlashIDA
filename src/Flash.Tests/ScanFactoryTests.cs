@@ -276,6 +276,25 @@ namespace Flash.Tests
         }
 
         /// <summary>
+        /// The mirror image, and the shape an ETD MS2 -> HCD MS3 actually sends (ADR-0054): stage 0
+        /// replays the ETD MS2, stage 1 is the HCD fragmentation, so the HCD stage carries a 0. Whether
+        /// the instrument accepts that 0 is a hardware question this test cannot answer -- it pins
+        /// only what we send.
+        /// </summary>
+        [Test, Category("Tier1")]
+        public void ReactionTime_IsPositional_ForEtdThenHcd()
+        {
+            var cmd = MsnCommand("ETD", "HCD");
+            cmd.Stages[0].ReactionTime = 7;
+
+            var v = Build(cmd);
+
+            Assert.AreEqual("ETD;HCD", v["ActivationType"]);
+            Assert.AreEqual("7;0", v["ReactionTime"],
+                "the ETD stage's value in position 0, the HCD stage's 0 in position 1");
+        }
+
+        /// <summary>
         /// Drift guard, C# half. The engine's <c>needsReactionTime</c> (OpenMS Config.cpp) is the
         /// other half, pinned by <c>Config_SchemaProjection_test</c>'s
         /// <c>activation_coupling_predicates_are_the_declared_set</c>.
@@ -289,6 +308,7 @@ namespace Flash.Tests
         {
             Assert.IsTrue(ScanFactory.NeedsReactionTime("ETD"));
             Assert.IsTrue(ScanFactory.NeedsReactionTime("EThcD"));
+            Assert.IsTrue(ScanFactory.NeedsReactionTime("ETciD"));
 
             Assert.IsFalse(ScanFactory.NeedsReactionTime("HCD"));
             Assert.IsFalse(ScanFactory.NeedsReactionTime("CID"));
@@ -297,6 +317,8 @@ namespace Flash.Tests
             Assert.IsFalse(ScanFactory.NeedsReactionTime("etd"),
                 "ordinal and case-sensitive: the C++ side compares literals and the schema is "
                 + "exact-case, so 'etd' is not an ETD scan on either side of the bridge");
+            Assert.IsFalse(ScanFactory.NeedsReactionTime("EtCID"),
+                "the one spelling is ETciD (PSI-MS MS:1003182, ADR-0054)");
         }
     }
 }
