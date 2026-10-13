@@ -9,7 +9,14 @@ provenance header, all written by `test-scripts/refine/make_refine_tables.py`. T
 `test-data/refine/corpus/`, holds seven proteoforms of the MS2 characterization corpus: `ca`, `cytc`,
 `myoglobin`, `tia_red`, `ubiquitin`, `lactalbumin_red` and `betacasein`. The corpus's other seven rows
 (lysozyme, lysozyme_red, rnase, tia, trypsinogen, lactalbumin, betalac) are not there because intact
-disulfides are outside Refine's step-function model.
+disulfides are outside Refine's step-function model. The script's three modes each write one layer:
+`--cytc` `refine_expected_cytc.tsv`, from the report's cytochrome c scan `cytc_grp1_prec1.tsv` (the one input
+relayed from the publication notes rather than written by the script; its header says so), `--corpus`
+`corpus/<key>.tsv` and `refine_expected_corpus.tsv`, `--july` `july_ms3_pieces.tsv`. The expectation tables are
+generated once, from the vendored prototype at the engine's defaults; `Refine_test` reads the tables and never runs
+the prototype. The `refine_discriminating_cytc` log golden uses no fixture of its own beyond
+`ms3_empty_scan0.txt` (below): it runs the existing scan57 pair (`ms1_cytc.txt`, `ms2_cytc_fresh_scan57.txt`) and
+the `ms3_cytc_*` set.
 
 ## `ms1_cytc_z17.txt`, `ms2_cytc_z17_ce{0,20,25,30,35,40}.txt` — 2026-09-22, ADR-0045
 

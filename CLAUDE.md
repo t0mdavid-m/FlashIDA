@@ -369,6 +369,12 @@ adding a decision key means one on a class property.
   with a value the operator never wrote would be the stomped-key shape ADR-0040 removed. The schema
   reference authors it at level 3 with `{"CID": 0.0123}` because CID is `ms_settings.ms3.activation`
   there and the loader requires an entry for the swept activation.
+- **`characterization.refine` has the same verbatim-or-`null` shape, and is never gated on
+  `method`** (ADR-0049). `RefineBlockConfig` (seven keys, defaults mirroring the engine's
+  `RefineSettings.h`) is null unless authored; `ToJsonRefine` forwards it as written, so a block
+  authored under `method: "flashtnt"` reaches C++ and is **refused there** rather than dropped here
+  unread. `method` itself crosses verbatim, not lower-cased — C++ accepts only the two exact
+  spellings, which is what keeps a typo'd `"Refine"` from silently running FLASHTnT.
 
 Unknown keys are hard-rejected here and again in C++. `test-data/config_schema_reference.json` is
 generated from the schema — regenerate it, never hand-edit.
@@ -420,6 +426,34 @@ the Kinetic Model's fit puts it, and asserts that energy within ±1 of
 which the harness logs as `[MS3-SKIP]` — never fabricated. That is how `Golden_Exploration_Kinetic_MS3_CytC`
 feeds the real b32 CID sweep of 2026-07-08 (odd energies only, so a follow-up at an even CE has a
 pinned command and no result row). `BuildMs3IonMap`'s `ms3_cytc_*` glob does not see `ms3_cytc3_*`.
+
+**`Golden_Refine_Discriminating_CytC` is the one case that answers a missing MS3 fixture instead of
+skipping it** (ADR-0049, mode `refine_discriminating_cytc`). A refine round decides only when every
+discriminating MS3 has returned, so the null-on-a-miss skip every other case uses would leave the
+round open and the decision would never fire. Its selector alone falls back to
+`test-data/spectra/ms3_empty_scan0.txt` — a zero-peak MS3, deliberately outside the `ms3_cytc_*`
+glob — and that is how the round's two y-ion targets (`y71`, `y79`, the first y-ion MS3 targets the
+engine has ever dispatched) are answered; `b61` carries real pieces. It runs the scan57 pair
+(`ms1_cytc.txt` + `ms2_cytc_fresh_scan57.txt`) through `method_refine_cytc.json`
+(`method_ms3_cytc_real.json` + `method: refine`, `mode: discriminating`, a `refine` block,
+`max_targets` 3), not the July `ms2_cytc2_scan434` pair the ADR first named: that scan's
+discriminating masses (b4–b13) have no MS3 fixtures. `AssertRefineDecided` fails closed on a vacuous
+round — it needs an MS2 identification row carrying both Refine scores, ≥ 3 MS3 commands, ≥ 1 MS3
+`scan_results` row with `mass_count > 0` (an all-empty round still decides) and a pooled row whose
+trigger is `MS3-DECIDE`, the only file-visible witness of `decideRefine`. The empty answers'
+`mass_count 0` rows are also the only thing that pins the engine's empty-MS3 clear (see
+`../OpenMS/CLAUDE.md`). ⚠️ The case's own code comment and `method_refine_cytc.json`'s
+`method_description` name the round as b61/y71/**b51**; the golden's `scan_commands` says
+b61/y71/**y79**, with b51 among the ambiguity MS3s after the decision. Trust the golden.
+
+**The Refine fixtures are deconvolved mass lists, not spectra**, in `test-data/refine/` (the report's
+cytochrome c scan, seven corpus proteoforms under `corpus/`, the July MS3 pieces, and the two
+`refine_expected_*.tsv` tables `Refine_test` reads). All are written by
+`test-scripts/refine/make_refine_tables.py` (`--cytc`, `--corpus`, `--july`) from the vendored
+prototype beside it (`refine_core.py`, provenance in `VENDORED.md`). The prototype is a **one-time
+generator, never an oracle the suite calls**: no test imports it, and a change to it is carried
+together with regenerated tables and `Refine_test`'s expectations, or not at all. Provenance:
+`test-data/spectra/FIXTURES.md`.
 
 ### Two capture channels, different fidelity
 
