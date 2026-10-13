@@ -591,9 +591,9 @@ namespace Flash.Tests
         // method_refine_cytc.json (= method_ms3_cytc_real.json with characterization.method refine, mode
         // discriminating, a refine block). On that MS2, with the config's Met-carrying sequence, Refine's best path is
         // +526.14 (-89.03 @ 1-8, Met loss + acetyl; +615.17 @ 15-22, heme) and the second +6.92; max_targets 3
-        // dispatches the three most intense discriminating masses b61, y71, b51. Two of the three have real MS3
-        // fixtures (b61, b51); y71 has none and is answered empty -- so both return paths run in one round. The July
-        // pair is not used: its discriminating masses (b4-b13) have no MS3 fixtures.
+        // dispatches the round b61, y71, y79. b61 returns real pieces; y71 and y79 have no MS3 fixture and are
+        // answered empty -- so both return paths run in one round. After the decision the ambiguity narrowing
+        // acquires b61, b51, b34. The July pair is not used: its discriminating masses (b4-b13) have no MS3 fixtures.
         //
         // Unlike every other case, a dispatched MS3 whose ion has no fixture is answered with an EMPTY MS3
         // (ms3_empty_scan0.txt) instead of being skipped. On the instrument every commanded scan returns, possibly

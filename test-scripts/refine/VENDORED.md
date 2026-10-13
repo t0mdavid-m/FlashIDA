@@ -2,8 +2,8 @@
 
 `refine_core.py` is the owner's Refine prototype consolidated into one file: each source below is
 copied **verbatim** under a banner naming its path, date and sha256, in this order. It is the
-development oracle of `Refine_test` (OpenMS `src/tests/class_tests/openms/source/Refine_test.cpp`);
-the suite never imports it.
+generator of `Refine_test`'s expectation tables (OpenMS `src/tests/class_tests/openms/source/Refine_test.cpp`);
+the suite never calls it.
 
 Sources, under `C:/FLASHIda/fi_refine_publication_notes/evidence/` (dates are file dates; sha256 of
 the file as it is there):

@@ -1,7 +1,7 @@
 {
   "global": {
     "method_name": "MethodName",
-    "method_description": "Refine annotation method (ADR-0049), discriminating objective: method_ms3_cytc_real.json with characterization.method refine, mode discriminating and a refine block, on the cytochrome c scan57 pair (ms1_cytc.txt + ms2_cytc_fresh_scan57.txt + the ms3_cytc_* fixtures); Refine's best path is +526.14 (-89.03 @ 1-8, Met loss + acetyl; +615.17 @ 15-22, heme), the second +6.92, and max_targets 3 dispatches the three most intense discriminating masses b61, y71, b51: b61 and b51 are answered with real MS3 fixtures, y71 (no fixture) with an empty MS3. The July pair (ms2_cytc2_scan434) is not used because its discriminating masses (b4-b13) have no MS3 fixtures.",
+    "method_description": "Refine annotation method (ADR-0049), discriminating objective: method_ms3_cytc_real.json with characterization.method refine, mode discriminating and a refine block, on the cytochrome c scan57 pair (ms1_cytc.txt + ms2_cytc_fresh_scan57.txt + the ms3_cytc_* fixtures); Refine's best path is +526.14 (-89.03 @ 1-8, Met loss + acetyl; +615.17 @ 15-22, heme), the second +6.92, and max_targets 3 dispatches the round b61, y71, y79: b61 returns real pieces, y71 and y79 (no fixture) are answered with an empty MS3; after the decision the ambiguity narrowing acquires b61, b51, b34. The July pair (ms2_cytc2_scan434) is not used because its discriminating masses (b4-b13) have no MS3 fixtures.",
     "duration": 120
   },
   "deconvolution": {
