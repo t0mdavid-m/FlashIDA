@@ -455,13 +455,12 @@ namespace Flash.Tests
         }
 
         // Coverage-objective MS3 targeting on the real cytC example. This is the CONTRAST PARTNER to
-        // Golden_MS3_CytC, which runs method_ms3_cytc_real.json with the DEFAULT characterization
-        // objective ("ambiguity"). Setting characterization.objective="coverage" makes
-        // ProteoformTracker::planNextScans pick fragments that CONTAIN the largest uncovered backbone
-        // gaps instead of containers of the ambiguous mod ranges, so the emitted MS3 targets differ from
-        // the ambiguity golden (ms3_cytc). NB: selection_strategy.ms3.selection does NOT drive targeting
-        // here — characterization.objective does (the SelectionMetric is inert for acquisition on this
-        // path). minMs2Commands:1 fail-closes if the inclusion pin does not select the cytC precursor.
+        // Golden_MS3_CytC, which runs method_ms3_cytc_real.json with characterization.mode "ambiguity".
+        // Setting characterization.mode "coverage" makes ProteoformTracker::planNextScans pick every
+        // fragment whose interior still holds a bond MS2 never witnessed, strongest first, up to
+        // max_targets (ADR-0052), instead of containers of the ambiguous mod ranges, so the emitted MS3
+        // targets differ from the ambiguity golden (ms3_cytc). minMs2Commands:1 fail-closes if the
+        // inclusion pin does not select the cytC precursor.
         [Test, Category("Tier2")]
         public void Golden_MS3_CoverageObjective_CytC()
         {
@@ -472,6 +471,23 @@ namespace Flash.Tests
                 return;
             }
             RunCase("ms3_coverage_cytc", "method_ms3_cytc_coverage.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
+        // characterization.mode "fragments" (ADR-0052) on the same cytC data: every mapped fragment with a
+        // bond inside it, strongest first, up to max_targets -- coverage without its uncovered-bond test.
+        // method_ms3_cytc_fragments.json is method_ms3_cytc_coverage.json with only the mode changed, so
+        // any difference from ms3_coverage_cytc is the objective's.
+        [Test, Category("Tier2")]
+        public void Golden_MS3_FragmentsObjective_CytC()
+        {
+            var ms3Map = BuildMs3IonMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — fragments MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("ms3_fragments_cytc", "method_ms3_cytc_fragments.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
         }
 
