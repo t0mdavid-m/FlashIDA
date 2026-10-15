@@ -75,6 +75,12 @@
     "fold_change_threshold": 1.7,
     "identify": "quantified",
     "enriched_in": "reference_b",
+    "test": "welch_and_fold_change",
+    "p_value_threshold": 0.01,
+    "empty_condition": "incomplete",
+    "scan_normalize": false,
+    "aggregate": "sum",
+    "min_usable_scans": 2,
     "conditions": [
       {
         "name": "reference_a",

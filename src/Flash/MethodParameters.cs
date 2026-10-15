@@ -186,6 +186,13 @@ namespace Flash
                     // on the C++ side for every config that leaves the key alone.
                     identify = c.Quantification.Identify,
                     enriched_in = c.Quantification.EnrichedIn,
+                    // ADR-0056.
+                    test = c.Quantification.Test,
+                    p_value_threshold = c.Quantification.PValueThreshold,
+                    empty_condition = c.Quantification.EmptyCondition,
+                    scan_normalize = c.Quantification.ScanNormalize,
+                    aggregate = c.Quantification.Aggregate,
+                    min_usable_scans = c.Quantification.MinUsableScans,
                     // Null (not an empty list) when unauthored, so SerializeValue skips the key and
                     // the 40 configs that never quantify emit exactly what they emit today. C++
                     // requires conditions only when enabled, so an absent key is legal there.
@@ -409,8 +416,10 @@ namespace Flash
             else
                 sb.AppendLine("Tagging: Off");
             if (c.Quantification.Active)
-                sb.AppendFormat("Quant: MZTol={0}, FoldChange={1}\n",
-                    c.Quantification.ReporterMZTol, c.Quantification.FoldChangeThreshold);
+                sb.AppendFormat("Quant: MZTol={0}, Test={1}, FoldChange={2}, P={3}, EmptyCondition={4}\n",
+                    c.Quantification.ReporterMZTol, c.Quantification.Test,
+                    c.Quantification.FoldChangeThreshold, c.Quantification.PValueThreshold,
+                    c.Quantification.EmptyCondition);
             else
                 sb.AppendLine("Quant: Off");
             if (string.Equals(c.Characterization.Mode, "off", StringComparison.OrdinalIgnoreCase))
@@ -611,6 +620,17 @@ namespace Flash
             // both can be non-default at once and the reference stays loadable.
             c.Quantification.Identify = "quantified";       // non-default: the default is differential
             c.Quantification.EnrichedIn = "reference_b";    // non-default: the default is either
+            // ADR-0056, every key NON-DEFAULT. Legal together only because Active is false: the
+            // min_usable_scans > 1 rejection outside `separate` (PrecursorCharges is "multiplexed"
+            // above) sits inside `if (enabled)` like every quant rejection. Flipping Active would now
+            // break this reference on TWO rules, not one. Both conditions keep two channels, so the
+            // Welch two-channel rule holds either way.
+            c.Quantification.Test = "welch_and_fold_change";   // non-default: fold_change
+            c.Quantification.PValueThreshold = 0.01;           // non-default: 0.05
+            c.Quantification.EmptyCondition = "incomplete";    // non-default: differential
+            c.Quantification.ScanNormalize = false;            // non-default: true
+            c.Quantification.Aggregate = "sum";                // non-default: median
+            c.Quantification.MinUsableScans = 2;               // non-default: 1
             // Channel names must be valid for the labelling above, or Config throws at load.
             // tmt10plex's N/C channels are used on purpose: they only exist in the 10-plex+ schemes,
             // so a reference that silently fell back to tmt6plex would fail here rather than pass.

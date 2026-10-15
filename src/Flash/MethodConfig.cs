@@ -216,13 +216,51 @@ namespace Flash
         [Description("Enable isobaric labeling quantification")]
         public bool Active { get; set; }
 
+        // Defaults equal the engine's (Config.cpp). Without an initializer a config that omits the key
+        // would emit 0.0 across the bridge -- every ratio differential -- because ToCppJson emits
+        // every key and the C++ .value() fallback never fires.
         [JsonKey("reporter_mz_tol")]
         [Description("Reporter ion m/z tolerance in Da")]
-        public double ReporterMZTol { get; set; }
+        public double ReporterMZTol { get; set; } = 0.002;
 
         [JsonKey("fold_change_threshold")]
-        [Description("Fold-change threshold for differential quantification")]
-        public double FoldChangeThreshold { get; set; }
+        [Description("Fold-change threshold: the geometric fold change (or its inverse) must exceed it. "
+            + "Read by test fold_change and welch_and_fold_change")]
+        public double FoldChangeThreshold { get; set; } = 1.4;
+
+        // ADR-0056. Which test turns the reporter channels into a verdict. Both numbers -- the
+        // geometric fold change and the two-sided Welch p on the log2 channels -- are computed and
+        // logged under every test; the test decides only which of them the verdict reads.
+        [JsonKey("test")]
+        [Description("Which test decides differential abundance: fold_change (the default), welch "
+            + "(two-sided Welch t-test on log2 reporter intensities), or welch_and_fold_change (both). "
+            + "Unknown values are rejected")]
+        public string Test { get; set; } = "fold_change";
+
+        [JsonKey("p_value_threshold")]
+        [Description("Welch p at or below this is a hit. Read by test welch and welch_and_fold_change")]
+        public double PValueThreshold { get; set; } = 0.05;
+
+        [JsonKey("empty_condition")]
+        [Description("What a condition empty in every channel, against one measured in every channel, "
+            + "means: differential (the default -- present in one condition, absent in the other) or "
+            + "incomplete (cannot be tested, buys nothing but under identify: all)")]
+        public string EmptyCondition { get; set; } = "differential";
+
+        [JsonKey("scan_normalize")]
+        [Description("Scale each charge-state scan of a quantification group to its share of its own "
+            + "reporter signal before combining, so a bright charge state does not dominate")]
+        public bool ScanNormalize { get; set; } = true;
+
+        [JsonKey("aggregate")]
+        [Description("How a quantification group's usable charge-state scans are combined per channel "
+            + "before the one test: median (the default), mean or sum")]
+        public string Aggregate { get; set; } = "median";
+
+        [JsonKey("min_usable_scans")]
+        [Description("A quantification group decides only when at least this many of its scans measured "
+            + "every channel. Above 1 requires precursor_charges separate")]
+        public int MinUsableScans { get; set; } = 1;
 
         [JsonKey("labelling")]
         [Description("Isobaric labelling scheme: itraq4plex, itraq8plex, tmt6plex, tmt10plex, tmt11plex, tmt16plex or tmt18plex")]
@@ -238,7 +276,7 @@ namespace Flash
             + "identify). Unknown values are rejected, not defaulted.")]
         public string Identify { get; set; } = "differential";
 
-        // Named by CONDITION, never as up/down: fold_change = mean(conditions[0]) / mean(conditions[1]),
+        // Named by CONDITION, never as up/down: fold_change = gmean(conditions[0]) / gmean(conditions[1]),
         // so "up" would mean enriched in whichever condition happens to be listed first, and would
         // invert silently if someone reordered the array.
         [JsonKey("enriched_in")]
@@ -249,7 +287,7 @@ namespace Flash
         public string EnrichedIn { get; set; } = "either";
 
         // ADR-0038. Exactly two, and the ORDER IS THE RATIO DIRECTION:
-        // fold_change = mean(conditions[0]) / mean(conditions[1]). A list rather than a dictionary
+        // fold_change = gmean(conditions[0]) / gmean(conditions[1]). A list rather than a dictionary
         // because a dictionary has no order, and the numerator must not depend on how the author
         // happened to name their groups.
         [JsonKey("conditions")]
@@ -798,6 +836,13 @@ namespace Flash
         // caused for all 41 committed configs. Nothing compares the emitted JSON, so always-emit is free.
         public string identify { get; set; }
         public string enriched_in { get; set; }
+        // ADR-0056. The three strings always-emit for the same reason as identify above.
+        public string test { get; set; }
+        public double p_value_threshold { get; set; }
+        public string empty_condition { get; set; }
+        public bool scan_normalize { get; set; }
+        public string aggregate { get; set; }
+        public int min_usable_scans { get; set; }
         public List<JsonQuantCondition> conditions { get; set; }
         public List<string> correction_matrix { get; set; }
     }

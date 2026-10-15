@@ -222,10 +222,10 @@ namespace Flash
                 {
                     "quantification.only_one_condition",
                     "quantification.only_one_condition was removed (ADR-0038). It was never reachable -- "
-                    + "no emit DTO ever carried it, so the C++ branch behind it could not run -- and its "
-                    + "intent is now unconditional: a condition whose channels are ALL empty reports "
-                    + "\"differential\", because a species present in one condition and absent in the "
-                    + "other is the strongest result the experiment can produce. Delete the key."
+                    + "no emit DTO ever carried it, so the C++ branch behind it could not run. What a "
+                    + "condition whose channels are ALL empty means is now authored as "
+                    + "quantification.empty_condition: \"differential\" (the default) or \"incomplete\" "
+                    + "(ADR-0056). Delete the key."
                 },
                 {
                     // Renamed in FlashIDA 79caf4b and landed without a hint, so a config older than
