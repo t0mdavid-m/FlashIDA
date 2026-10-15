@@ -262,3 +262,28 @@ dispatched MS3 command whose ion has no `ms3_cytc_*` fixture: on the instrument 
 empty, and a refine round closes only when every discriminating MS3 has been received, so skipping those commands (what
 the harness does for every other case) would leave the round open forever. It is deliberately outside the
 `ms3_cytc_*` glob, so `BuildMs3IonMap` never maps an ion to it; only that case's selector names it, on a miss.
+
+## `ms2_quant_itmt_z23_18295.txt`, `ms2_quant_itmt_z22_18295.txt` — 2026-10-15, ADR-0056
+
+Two real iodoTMT 6-plex quantification (`'Q'`) scans of ONE species — 18294.81 Da, both charge
+states commanded from survey `"P=` — from the 2026-10-13 `separate` R1 run (E. coli, glucose
+126–128 vs acetate 129–131, HCD 80, m/z 120–140). Cut from the vendor-centroided
+`FLASHIda_methodquantseparate_20261013_Ecoli_GlcAc_iodoTMT_60minGrad_0p5ul_separate_ida_orbi.mzML`
+(msconvert `peakPicking vendor`, `analyzer orbi`), so no `--centroid`. **Not** the `allscans/`
+sibling: that conversion kept one peak per spectrum (`threshold count 1 most-intense`).
+
+The engine logged these two scans live, after the stock tmt6plex isotope correction, as
+`302887;291906;233010;126518;137301;151060` (z23: geometric FC 1.988, Welch p 0.0039) and
+`204293;204299;165680;85729.7;83777;95913.6` (z22: FC 2.157, p 0.0018); both clear
+`welch_and_fold_change` at 1.5 / 0.05, and their median-of-shares aggregate is FC 2.0697, p 0.00279.
+The `quant_welch` golden mode feeds them by commanded charge (odd → z23, even → z22), so every
+quantification group aggregates two different real spectra.
+
+```
+FLASHIda_methodquantseparate_20261013_Ecoli_GlcAc_iodoTMT_60minGrad_0p5ul_separate_ida_orbi.mzML: scan 13373 (ms2, rt 26.8799 min, FTMS + c NSI sid=15.00 Full ms2 796.9798@hcd80.00 [120.0000-140.0000]) desc='"P@Q18.2948k@23' -> ms2_quant_itmt_z23_18295.txt: 61 points -> 61 peaks
+FLASHIda_methodquantseparate_20261013_Ecoli_GlcAc_iodoTMT_60minGrad_0p5ul_separate_ida_orbi.mzML: scan 13375 (ms2, rt 26.8861 min, FTMS + c NSI sid=15.00 Full ms2 833.1777@hcd80.00 [120.0000-140.0000]) desc='"PAQ18.2948k@22' -> ms2_quant_itmt_z22_18295.txt: 49 points -> 49 peaks
+```
+
+`ms2_quant_tmt_partial.txt` is `ms2_quant_tmt.txt` minus the 130 reporter row (`130.141113`), so
+`treated` is partially measured — `incomplete_channels` under every test and every
+`empty_condition`. It pins `identify: "all"` buying an undecided group (ADR-0056 decision 9).

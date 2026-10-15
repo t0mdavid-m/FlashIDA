@@ -132,7 +132,7 @@ namespace Flash.Tests
         public void Golden_Quant() =>
             RunCase("quant", "method_quant.json", "ms1_standard.txt", "ms2_quant_tmt.txt", minBoughtIdScans: 1);
 
-        // ADR-0040. The three quantification-GROUP modes. All three use ms1_cytc.txt rather than
+        // ADR-0040/ADR-0056. The quantification-GROUP modes. All use ms1_cytc.txt rather than
         // ms1_standard.txt because the group needs a species that RESOLVES several charges -- the
         // cytC survey gives ten, capped to three by max_charge_states so the golden stays reviewable.
         //
@@ -140,34 +140,32 @@ namespace Flash.Tests
         // never completes buys nothing, and without this the golden would happily record N screens
         // and zero identifications as if that were the answer.
 
-        // Every member agrees, so the vote is unanimous and one 'R' is bought for the whole group --
-        // the plumbing (fan-out, join, completion, aggregate, ID-charge pick, all five columns)
-        // without the dissent path.
+        // Every member is fed the same spectrum, so the aggregate equals each member and one 'R' is
+        // bought for the whole group -- the plumbing (fan-out, join, completion, aggregate,
+        // ID-charge pick, the group_* columns) under the default fold_change test.
         [Test, Category("Tier2")]
         public void Golden_QuantSeparate() =>
             RunCase("quant_separate", "method_quant_separate.json", "ms1_cytc.txt",
                     "ms2_quant_tmt.txt", minBoughtIdScans: 1);
 
-        // The dissent path. The charge map hands ONE member the mirrored fixture -- Differential
-        // enriched in CONTROL where the others are enriched in TREATED -- so the vote must discard it
-        // and still buy exactly one 'R', at a charge drawn from the AGREEING set.
-        //
-        // Same verdict, opposite direction: a vote keyed on the verdict alone would call this
-        // unanimous, which is the silent failure the directional ballot exists to prevent.
+        // ADR-0056. The pipeline-faithful config (welch_and_fold_change at 1.5 / 0.05, share-normalised
+        // median, empty_condition incomplete) on two REAL Q scans of one species, fed by commanded
+        // charge so every group aggregates two different measurements. Replaces the retired
+        // quant_separate_chimeric mode, whose subject -- a recorded vote dissent -- no longer exists.
         [Test, Category("Tier2")]
-        public void Golden_QuantSeparateChimeric()
+        public void Golden_QuantWelch()
         {
             var byCharge = BuildQuantChargeMap(SpectraDir);
             Assert.That(byCharge.Count, Is.GreaterThanOrEqualTo(2),
-                "Requires ms2_quant_tmt.txt and ms2_quant_tmt_treated_absent.txt.");
-            RunCase("quant_separate_chimeric", "method_quant_separate.json", "ms1_cytc.txt",
-                    "ms2_quant_tmt.txt", minBoughtIdScans: 1, ms2ChargeMap: byCharge,
-                    postDriveAssert: AssertQuantGroupDissented);
+                "Requires ms2_quant_itmt_z23_18295.txt and ms2_quant_itmt_z22_18295.txt.");
+            RunCase("quant_welch", "method_quant_welch.json", "ms1_cytc.txt",
+                    "ms2_quant_itmt_z23_18295.txt", minBoughtIdScans: 1, ms2ChargeMap: byCharge,
+                    postDriveAssert: AssertQuantGroupAggregated);
         }
 
         // One co-isolated 'Q' carrying >= min_charge_states charges: a single blended measurement, so
-        // agreement is 1/1 and no vote occurs. multiplexed CANNOT detect chimericity -- that is
-        // inherent, not an omission -- and this mode pins that it still measures and still buys.
+        // the group has one member (group_usable 1/1). multiplexed CANNOT separate charge states --
+        // that is inherent, not an omission -- and this mode pins that it still measures and buys.
         [Test, Category("Tier2")]
         public void Golden_QuantMultiplexed() =>
             RunCase("quant_multiplexed", "method_quant_multiplexed.json", "ms1_cytc.txt",
@@ -976,69 +974,64 @@ namespace Flash.Tests
         /// maps to ms2_cytc_ce&lt;CE&gt;.txt. Only fixtures present on disk are added, so a missing one surfaces
         /// as a count mismatch in the caller (loud), never a silent skip.
         /// </summary>
-        /// ADR-0040. Charge-keyed MS2 fixtures for the chimeric quantification-group mode.
+        /// ADR-0056. Charge-keyed MS2 fixtures for the quant_welch mode: two real Q scans of one
+        /// species (FIXTURES.md), split by PARITY of the commanded charge -- odd charges get the z23
+        /// scan, even charges the z22 scan.
         ///
-        /// The map has NO FALLBACK by design, so it must cover every charge the run can command --
-        /// and which charges the cytC survey resolves is not knowable when the map is built. So it
-        /// spans a generous range and splits it by PARITY: even charges get the mirrored fixture
-        /// (Differential enriched in CONTROL), odd charges the ordinary one (enriched in TREATED).
-        ///
-        /// Parity rather than a named charge because naming one that never gets acquired would give
-        /// a silently UNANIMOUS run -- a golden that records the dissent path while never taking it.
-        /// AssertQuantGroupDissented below is what makes that failure loud instead: it fails closed
-        /// unless a group actually recorded agreeing &lt; ballots.
+        /// The map has NO FALLBACK by design, so it must cover every charge the run can command, and
+        /// which charges the cytC survey resolves is not knowable when the map is built; parity over a
+        /// generous range covers them all and gives every multi-charge group both spectra.
+        /// AssertQuantGroupAggregated is what makes a one-spectrum run loud.
         private static Dictionary<int, string> BuildQuantChargeMap(string spectraDir)
         {
-            string majority = Path.Combine(spectraDir, "ms2_quant_tmt.txt");
-            string dissent  = Path.Combine(spectraDir, "ms2_quant_tmt_treated_absent.txt");
+            string odd  = Path.Combine(spectraDir, "ms2_quant_itmt_z23_18295.txt");
+            string even = Path.Combine(spectraDir, "ms2_quant_itmt_z22_18295.txt");
             var map = new Dictionary<int, string>();
-            if (!File.Exists(majority) || !File.Exists(dissent)) return map;
-            for (int z = 1; z <= 60; z++) map[z] = (z % 2 == 0) ? dissent : majority;
+            if (!File.Exists(odd) || !File.Exists(even)) return map;
+            for (int z = 1; z <= 60; z++) map[z] = (z % 2 == 0) ? even : odd;
             return map;
         }
 
-        /// ADR-0040 fail-closed guard for the chimeric mode: at least one completed group must have
-        /// recorded a DISSENT. Reads consensus_agreement ("agreeing/ballots") from the produced
-        /// scan_results.tsv and requires one row where the two differ.
-        ///
-        /// Without this the mode degrades silently: if every acquired charge happened to land on one
-        /// side of the parity split, the run is unanimous and the golden pins the wrong path while
-        /// looking entirely healthy.
+        /// ADR-0056 fail-closed guard for quant_welch: at least one completed group must have decided
+        /// on an aggregate of two or more members with a real Welch p at or below 0.05, AND the member
+        /// rows must carry at least two DIFFERENT channel vectors -- a charge map that fed one file to
+        /// every charge would otherwise pin a one-spectrum run under a two-spectrum name.
         // Takes the scan_commands.tsv PATH, not the case dir: RunCase invokes postDriveAssert as
-        // postDriveAssert?.Invoke(commandsPath), and every other consumer opens by deriving the
-        // directory from it. Treating the argument as a directory silently looks for scan_results.tsv
-        // *under* a path ending in scan_commands.tsv and reports a healthy run as having produced
-        // nothing.
-        private static void AssertQuantGroupDissented(string commandsPath)
+        // postDriveAssert?.Invoke(commandsPath).
+        private static void AssertQuantGroupAggregated(string commandsPath)
         {
             string caseDir = Path.GetDirectoryName(commandsPath);
             string p = Path.Combine(caseDir, LogGoldenComparer.ResultsName);
-            Assert.That(File.Exists(p), Is.True, "quant_separate_chimeric produced no scan_results.tsv");
+            Assert.That(File.Exists(p), Is.True, "quant_welch produced no scan_results.tsv");
             var lines = File.ReadAllLines(p);
             Assert.That(lines.Length, Is.GreaterThan(1), "scan_results.tsv has no rows");
 
             var headers = lines[0].Split('\t');
-            int col = Array.IndexOf(headers, "consensus_agreement");
-            Assert.That(col, Is.GreaterThanOrEqualTo(0), "no consensus_agreement column");
+            int usableCol = Array.IndexOf(headers, "group_usable");
+            int pCol = Array.IndexOf(headers, "group_p_value");
+            int chCol = Array.IndexOf(headers, "quant_channels");
+            Assert.That(usableCol, Is.GreaterThanOrEqualTo(0), "no group_usable column");
+            Assert.That(pCol, Is.GreaterThanOrEqualTo(0), "no group_p_value column");
+            Assert.That(chCol, Is.GreaterThanOrEqualTo(0), "no quant_channels column");
 
-            bool dissented = false, anyConsensus = false;
+            bool aggregated = false;
+            var distinctChannels = new HashSet<string>();
             foreach (var line in lines.Skip(1))
             {
                 var f = line.Split('\t');
-                if (col >= f.Length || string.IsNullOrEmpty(f[col])) continue;
-                var parts = f[col].Split('/');
-                if (parts.Length != 2) continue;
-                anyConsensus = true;
-                if (parts[0] != parts[1]) dissented = true;
+                if (chCol < f.Length && !string.IsNullOrEmpty(f[chCol])) distinctChannels.Add(f[chCol]);
+                if (usableCol >= f.Length || pCol >= f.Length) continue;
+                var parts = f[usableCol].Split('/');
+                if (parts.Length != 2 || !int.TryParse(parts[0], out int usable) || usable < 2) continue;
+                if (double.TryParse(f[pCol], System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture, out double pv)
+                    && pv >= 0.0 && pv <= 0.05)
+                    aggregated = true;
             }
-            Assert.That(anyConsensus, Is.True,
-                "no group reached a consensus at all -- the fan-out or the completion is broken, "
-                + "not merely the dissent");
-            Assert.That(dissented, Is.True,
-                "every group was UNANIMOUS: the parity charge split never straddled an acquired "
-                + "charge set, so this mode is pinning the agreeing path under a chimeric name. "
-                + "Widen or re-key BuildQuantChargeMap against the charges this survey actually "
-                + "acquires (scan_commands.tsv, charge column).");
+            Assert.That(aggregated, Is.True,
+                "no group decided on an aggregate of two or more usable members with Welch p <= 0.05");
+            Assert.That(distinctChannels.Count, Is.GreaterThanOrEqualTo(2),
+                "every Q row carries the same channels: the charge map fed one spectrum to every charge");
         }
 
         // Every `<prefix><N>.txt` with an integer N is mapped, so a sweep fixture set of any density resolves

@@ -182,11 +182,12 @@ namespace Flash.Tests.Mocks
         //   command (existing behaviour, all other modes unaffected). C# twin of the C++ runInterleaved ms2_ce_map.
         // ms2ChargeMap (ADR-0040): optional CHARGE-keyed MS2-spectrum source map. Same shape and same
         //   no-fallback rule as ms2CeMap, but keyed on the command's stage-0 charge state — so the
-        //   members of one quantification group can be given DIFFERENT reporter ratios and the
-        //   majority vote has something to out-vote. A silent fall-through would make every member
-        //   agree, and the chimericity case would pass while testing nothing. Applied only when
-        //   ms2CeMap is null: both select the same feed, so a run that swept CE *and* voted would be
-        //   ambiguous. C# twin of the C++ runInterleaved ms2_charge_map.
+        //   members of one quantification group can be given DIFFERENT reporter channels and the
+        //   group aggregate (ADR-0056) combines real, different measurements. A silent fall-through
+        //   would feed every member the same spectrum, and the aggregate case would pass while
+        //   testing nothing. Applied only when ms2CeMap is null: both select the same feed, so a run
+        //   that swept CE *and* aggregated would be ambiguous. C# twin of the C++ runInterleaved
+        //   ms2_charge_map.
         public void PushScanAndDrainFull(string ms1Path, string ms2Path,
             Func<ScanCommand, string> ms3FixtureFor = null, int maxIters = 600,
             int maxMs2Responses = -1, Action<ContinuityTestHarness> onFirstMs2Response = null,
