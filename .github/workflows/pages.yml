@@ -1,0 +1,50 @@
+# Key documentation site (ADR-0058): checks the committed configs against the schema, renders it,
+# and deploys to GitHub Pages. Exactly one branch deploys.
+name: Key documentation site
+on:
+  push:
+    branches: [phase-containers]
+    paths:
+      - 'docs/site/**'
+      - 'test-data/configs/**'
+      - 'src/Flash/etc/method.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Renderer tests
+        run: node --test docs/site/build.test.js
+      - name: Committed configs obey the schema
+        run: >-
+          npx --yes ajv-cli@5.0.0 validate --spec=draft2020 --strict=false --all-errors --errors=line
+          -s docs/site/method.schema.json -d "test-data/configs/method_*.json" -d src/Flash/etc/method.json
+      - name: Render
+        env:
+          SITE_COMMIT: ${{ github.sha }}
+          SITE_BRANCH: ${{ github.ref_name }}
+        run: SITE_DATE="$(git log -1 --format=%cs)" node docs/site/build.js
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site/_site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
