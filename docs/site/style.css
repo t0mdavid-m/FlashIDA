@@ -1,0 +1,33 @@
+/* Key documentation site (ADR-0058): the look of the quantification reference sheet. */
+:root { --ink: #111; --rule: #8c8c8c; --head: #ebebeb; --link: #1a4f9c; --miss: #b00020; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: var(--ink);
+  font: 15px/1.45 Georgia, "Times New Roman", serif; }
+nav { padding: 8px 16px; border-bottom: 1px solid #ddd; font-size: 13px; }
+nav a, a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+main { max-width: 1180px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 22px; margin: 8px 0 2px; }
+h1 .sub { font-weight: normal; font-size: 15px; margin-left: 12px; }
+h2 { font-size: 16px; margin: 22px 0 4px; }
+.stamp, .source { color: var(--rule); font-size: 13px; margin: 2px 0 8px; }
+.intro { margin: 2px 0 6px; }
+code { font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace; font-size: 0.88em; }
+.wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { background: var(--head); text-align: left; font-weight: bold; padding: 4px 6px; }
+td { vertical-align: top; padding: 4px 6px; border-bottom: 1px solid #eee; }
+td.key { white-space: nowrap; }
+th:nth-child(1) { width: 17%; } th:nth-child(2) { width: 11%; } th:nth-child(3) { width: 10%; }
+td.ex { width: 15%; overflow-wrap: anywhere; }
+tr.group td { font-style: italic; border-bottom: none; }
+.adr { color: var(--rule); font-size: 0.85em; }
+.missing { color: var(--miss); font-weight: bold; }
+ul.pages li { margin: 3px 0; }
+@media print {
+  @page { size: A4; margin: 1.3cm 1.4cm; }
+  body { font-size: 9pt; } nav { display: none; } main { max-width: none; padding: 0; }
+  table { font-size: 8.5pt; } .wrap { overflow: visible; }
+  section.page + section.page { break-before: page; }
+  tr { break-inside: avoid; }
+}

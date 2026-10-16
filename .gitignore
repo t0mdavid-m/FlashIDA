@@ -344,3 +344,6 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdbCLAUDE.md
+
+# Rendered key documentation site (built by docs/site/build.js, ADR-0058)
+docs/site/_site/
