@@ -204,7 +204,11 @@ namespace Flash
                               channels = cond.Channels
                           }),
                     correction_matrix = (c.Quantification.CorrectionMatrix == null || c.Quantification.CorrectionMatrix.Count == 0)
-                        ? null : c.Quantification.CorrectionMatrix
+                        ? null : c.Quantification.CorrectionMatrix,
+                    // ADR-0057. Null when unauthored or empty, so the configs that leave it alone
+                    // emit exactly what they emitted before the key existed.
+                    channel_normalization = (c.Quantification.ChannelNormalization == null || c.Quantification.ChannelNormalization.Count == 0)
+                        ? null : c.Quantification.ChannelNormalization
                 },
                 faims = new JsonFaimsConfig
                 {
@@ -644,6 +648,12 @@ namespace Flash
                 "0.0/0.0/1.1/0.0", "0.0/0.0/1.2/0.0", "0.0/0.3/1.3/0.0", "0.0/0.4/1.4/0.0",
                 "0.5/0.0/1.5/0.0", "0.6/0.0/1.6/0.0", "0.7/0.0/1.7/0.0", "0.8/0.0/0.0/0.0",
                 "0.9/0.0/0.0/0.0", "1.0/0.0/0.0/0.0"
+            };
+            // ADR-0057, NON-DEFAULT (the default is null = off). Every assigned channel above, plus one
+            // UNASSIGNED channel (128N) so the reference also proves an unassigned factor is accepted.
+            c.Quantification.ChannelNormalization = new Dictionary<string, double>
+            {
+                { "126", 0.171 }, { "127N", 0.158 }, { "128N", 0.149 }, { "130C", 0.175 }, { "131", 0.162 }
             };
 
             c.Faims.CVValues = new double[] { -41, -52, -63 };

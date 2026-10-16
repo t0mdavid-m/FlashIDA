@@ -297,6 +297,16 @@ namespace Flash
         [JsonKey("correction_matrix")]
         [Description("Isotope-impurity correction matrix, one entry per channel; omit to use the labelling scheme's stock matrix")]
         public List<string> CorrectionMatrix { get; set; } = new List<string>();
+
+        // ADR-0057. Keyed by channel NAME, so a dictionary's lack of order is harmless here (unlike
+        // `conditions`, whose order is the ratio direction). Null = off. Not CorrectionMatrix: that is
+        // the label lot's isotope impurity, this is the sample loading of one experiment.
+        [JsonKey("channel_normalization")]
+        [Description("Channel normalisation factors from a previous run: each reporter channel is divided "
+            + "by its factor before the quantification test reads it (e.g. the offline pipeline's channel "
+            + "medians, {\"126\": 0.171, ...}). Only their ratios matter. Once authored it must name every "
+            + "channel the conditions assign. Logged channels stay raw (ADR-0057)")]
+        public Dictionary<string, double> ChannelNormalization { get; set; }
     }
 
     /// One of the two conditions the fold change is taken over. Channels are named
@@ -845,6 +855,8 @@ namespace Flash
         public int min_usable_scans { get; set; }
         public List<JsonQuantCondition> conditions { get; set; }
         public List<string> correction_matrix { get; set; }
+        // ADR-0057. Null when unauthored, so SerializeValue skips the key, like conditions above.
+        public Dictionary<string, double> channel_normalization { get; set; }
     }
 
     public class JsonQuantCondition
