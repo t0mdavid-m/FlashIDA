@@ -1,0 +1,1073 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://t0mdavid-m.github.io/FlashIDA/method.schema.json",
+  "title": "FLASHIda method.json keys",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method_name": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        },
+        "method_description": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        },
+        "duration": {
+          "type": "number",
+          "description": "",
+          "default": 90
+        }
+      },
+      "description": ""
+    },
+    "deconvolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "score_threshold": {
+          "type": "number",
+          "description": "",
+          "default": -1
+        },
+        "tqscore_threshold": {
+          "type": "number",
+          "description": "",
+          "default": 0.9
+        },
+        "min_charge": {
+          "type": "integer",
+          "description": "",
+          "default": 4
+        },
+        "max_charge": {
+          "type": "integer",
+          "description": "",
+          "default": 50
+        },
+        "min_mass": {
+          "type": "number",
+          "description": "",
+          "default": 500
+        },
+        "max_mass": {
+          "type": "number",
+          "description": "",
+          "default": 50000
+        },
+        "tol": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "",
+          "default": [
+            10,
+            10
+          ],
+          "minItems": 3
+        }
+      },
+      "description": ""
+    },
+    "precursor_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rt_window": {
+          "type": "number",
+          "description": "",
+          "default": 180
+        },
+        "targeting": {
+          "type": "string",
+          "description": "",
+          "default": "none",
+          "enum": [
+            "none",
+            "inclusion",
+            "in_depth",
+            "exclusion_masses"
+          ]
+        },
+        "consider_all_charges": {
+          "type": "boolean",
+          "description": "",
+          "default": false
+        },
+        "strict_inclusion": {
+          "type": "boolean",
+          "description": "",
+          "default": false
+        },
+        "tie_threshold": {
+          "type": "number",
+          "description": "",
+          "default": 0.1
+        },
+        "precursor_charges": {
+          "type": "string",
+          "description": "",
+          "default": "single",
+          "enum": [
+            "single",
+            "separate",
+            "multiplexed"
+          ]
+        },
+        "snr_threshold": {
+          "type": "number",
+          "description": "",
+          "default": 1
+        },
+        "max_charge_states": {
+          "type": "integer",
+          "description": "",
+          "default": 0
+        },
+        "min_charge_states": {
+          "type": "integer",
+          "description": "",
+          "default": 1
+        },
+        "rank_by": {
+          "type": "string",
+          "description": "",
+          "default": "qscore",
+          "enum": [
+            "qscore",
+            "intensity",
+            "none"
+          ]
+        },
+        "max_precursors": {
+          "type": "integer",
+          "description": "",
+          "default": 10
+        },
+        "min_precursor_charge": {
+          "type": "integer",
+          "description": "",
+          "default": 0
+        },
+        "additional_scans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "",
+          "default": []
+        },
+        "exploration": {
+          "$ref": "#/$defs/exploration",
+          "description": ""
+        },
+        "tag_expansion": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_ptm_count": {
+              "type": "integer",
+              "description": "",
+              "default": 3
+            },
+            "max_flanking_mass_diff": {
+              "type": "number",
+              "description": "",
+              "default": 50000
+            }
+          },
+          "description": ""
+        }
+      },
+      "description": ""
+    },
+    "flashtnt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_length": {
+          "type": "integer",
+          "description": "",
+          "default": 3
+        },
+        "max_length": {
+          "type": "integer",
+          "description": "",
+          "default": 8
+        },
+        "allow_gap": {
+          "type": "boolean",
+          "description": "",
+          "default": false
+        },
+        "max_aa_in_gap": {
+          "type": "integer",
+          "description": "",
+          "default": 2
+        },
+        "fixed_mod": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "",
+          "default": []
+        },
+        "max_blind_mod_count": {
+          "type": "integer",
+          "description": "",
+          "default": 2
+        },
+        "max_mod_mass": {
+          "type": "number",
+          "description": "",
+          "default": 700
+        }
+      },
+      "description": ""
+    },
+    "tagging": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "follow_up_scan": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        }
+      },
+      "description": ""
+    },
+    "quantification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "",
+          "default": false
+        },
+        "labelling": {
+          "type": "string",
+          "description": "",
+          "default": "tmt6plex",
+          "enum": [
+            "itraq4plex",
+            "itraq8plex",
+            "tmt6plex",
+            "tmt10plex",
+            "tmt11plex",
+            "tmt16plex",
+            "tmt18plex"
+          ]
+        },
+        "reporter_mz_tol": {
+          "type": "number",
+          "description": "",
+          "default": 0.002
+        },
+        "fold_change_threshold": {
+          "type": "number",
+          "description": "",
+          "default": 1.4
+        },
+        "identify": {
+          "type": "string",
+          "description": "",
+          "default": "differential",
+          "enum": [
+            "differential",
+            "quantified",
+            "all",
+            "none"
+          ]
+        },
+        "enriched_in": {
+          "type": "string",
+          "description": "",
+          "default": "either"
+        },
+        "test": {
+          "type": "string",
+          "description": "",
+          "default": "fold_change",
+          "enum": [
+            "fold_change",
+            "welch",
+            "welch_and_fold_change"
+          ]
+        },
+        "p_value_threshold": {
+          "type": "number",
+          "description": "",
+          "default": 0.05
+        },
+        "empty_condition": {
+          "type": "string",
+          "description": "",
+          "default": "differential",
+          "enum": [
+            "differential",
+            "incomplete"
+          ]
+        },
+        "scan_normalize": {
+          "type": "boolean",
+          "description": "",
+          "default": true
+        },
+        "aggregate": {
+          "type": "string",
+          "description": "",
+          "default": "median",
+          "enum": [
+            "median",
+            "mean",
+            "sum"
+          ]
+        },
+        "min_usable_scans": {
+          "type": "integer",
+          "description": "",
+          "default": 1
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "",
+                "default": ""
+              },
+              "channels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "",
+                "default": []
+              }
+            }
+          },
+          "description": ""
+        },
+        "correction_matrix": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "",
+          "default": []
+        },
+        "channel_normalization": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": ""
+        }
+      },
+      "description": ""
+    },
+    "faims": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cv_values": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "",
+          "default": [
+            -50
+          ]
+        },
+        "max_cv_skip": {
+          "type": "integer",
+          "description": "",
+          "default": 0
+        },
+        "cv_precursor_threshold": {
+          "type": "integer",
+          "description": "",
+          "default": 15
+        }
+      },
+      "description": ""
+    },
+    "ms_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ms1": {
+          "$ref": "#/$defs/scan",
+          "propertyNames": {
+            "enum": [
+              "analyzer",
+              "first_mass",
+              "last_mass",
+              "resolution",
+              "agc_target",
+              "max_it",
+              "microscans",
+              "rf_lens",
+              "source_cid",
+              "source_cid_scaling",
+              "data_type",
+              "scan_rate"
+            ]
+          },
+          "description": ""
+        },
+        "ms2": {
+          "$ref": "#/$defs/scan",
+          "description": ""
+        },
+        "ms2_quant": {
+          "$ref": "#/$defs/scan",
+          "description": ""
+        },
+        "ms3": {
+          "$ref": "#/$defs/scan",
+          "description": ""
+        },
+        "additional_ms2": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/scan"
+          },
+          "description": ""
+        }
+      },
+      "description": ""
+    },
+    "scheduling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cycle_time": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "",
+              "default": false
+            },
+            "value_ms": {
+              "type": "number",
+              "description": "",
+              "default": 60000
+            }
+          },
+          "description": ""
+        },
+        "scan_timeout": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "",
+              "default": false
+            },
+            "value_ms": {
+              "type": "number",
+              "description": "",
+              "default": 30000
+            }
+          },
+          "description": ""
+        },
+        "agc_interval_seconds": {
+          "type": "number",
+          "description": "",
+          "default": 1
+        },
+        "target_depth": {
+          "type": "integer",
+          "description": "",
+          "default": 2
+        }
+      },
+      "description": ""
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target_logs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "",
+          "default": []
+        },
+        "fasta": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        },
+        "inclusion_list": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        },
+        "ptm_list": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        }
+      },
+      "description": ""
+    },
+    "characterization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "description": "",
+          "default": "off",
+          "enum": [
+            "off",
+            "ambiguity",
+            "coverage",
+            "fragments",
+            "exhaustive",
+            "discriminating"
+          ]
+        },
+        "protein_sequence": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        },
+        "max_targets": {
+          "type": "integer",
+          "description": "",
+          "default": 3
+        },
+        "min_fragment_charge": {
+          "type": "integer",
+          "description": "",
+          "default": 0
+        },
+        "min_target_mass": {
+          "type": "number",
+          "description": "",
+          "default": 0
+        },
+        "fragment_charges": {
+          "type": "string",
+          "description": "",
+          "default": "single",
+          "enum": [
+            "single",
+            "separate",
+            "multiplexed"
+          ]
+        },
+        "exploration": {
+          "$ref": "#/$defs/exploration",
+          "description": ""
+        },
+        "method": {
+          "type": "string",
+          "description": "",
+          "default": "flashtnt",
+          "enum": [
+            "flashtnt",
+            "refine"
+          ]
+        },
+        "refine": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fdr": {
+              "type": "number",
+              "description": "",
+              "default": 0.2
+            },
+            "shuffles": {
+              "type": "integer",
+              "description": "",
+              "default": 300
+            },
+            "grid_da": {
+              "type": "number",
+              "description": "",
+              "default": 0.01
+            },
+            "max_shift_da": {
+              "type": "number",
+              "description": "",
+              "default": 700
+            },
+            "min_ions": {
+              "type": "integer",
+              "description": "",
+              "default": 3
+            },
+            "max_levels": {
+              "type": "integer",
+              "description": "",
+              "default": 20
+            },
+            "jump_penalty": {
+              "type": "integer",
+              "description": "",
+              "default": 2
+            }
+          },
+          "description": ""
+        }
+      },
+      "description": ""
+    },
+    "conditional_ms2": {
+      "type": "boolean",
+      "description": ""
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "log_dir": {
+          "type": "string",
+          "description": "",
+          "default": ""
+        }
+      },
+      "description": ""
+    }
+  },
+  "description": "",
+  "$defs": {
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "analyzer": {
+          "type": "string",
+          "description": "",
+          "enum": [
+            "Orbitrap",
+            "IonTrap",
+            ""
+          ]
+        },
+        "activation": {
+          "type": "string",
+          "description": ""
+        },
+        "collision_energy": {
+          "type": "integer",
+          "description": ""
+        },
+        "resolution": {
+          "type": "integer",
+          "description": ""
+        },
+        "agc_target": {
+          "type": "integer",
+          "description": ""
+        },
+        "max_it": {
+          "type": "number",
+          "description": ""
+        },
+        "first_mass": {
+          "type": "number",
+          "description": ""
+        },
+        "last_mass": {
+          "type": "number",
+          "description": ""
+        },
+        "microscans": {
+          "type": "integer",
+          "description": ""
+        },
+        "data_type": {
+          "type": "string",
+          "description": ""
+        },
+        "scan_rate": {
+          "type": "string",
+          "description": ""
+        },
+        "rf_lens": {
+          "type": "number",
+          "description": ""
+        },
+        "source_cid": {
+          "type": "number",
+          "description": ""
+        },
+        "source_cid_scaling": {
+          "type": "number",
+          "description": ""
+        },
+        "reaction_time": {
+          "type": "number",
+          "description": ""
+        },
+        "reagent_max_it": {
+          "type": "number",
+          "description": ""
+        },
+        "reagent_agc_target": {
+          "type": "integer",
+          "description": ""
+        }
+      }
+    },
+    "exploration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "type": "string",
+          "description": "",
+          "default": "none",
+          "enum": [
+            "none",
+            "mass_count",
+            "remaining_precursor",
+            "fragment_count",
+            "kinetic_model"
+          ]
+        },
+        "ce_min": {
+          "type": "number",
+          "description": "",
+          "default": 20
+        },
+        "ce_max": {
+          "type": "number",
+          "description": "",
+          "default": 40
+        },
+        "ce_step": {
+          "type": "number",
+          "description": "",
+          "default": 5
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": ""
+        },
+        "remaining_precursor_target": {
+          "type": "number",
+          "description": "",
+          "default": 0.1
+        },
+        "reaction_time_min": {
+          "type": "number",
+          "description": "",
+          "default": 0
+        },
+        "reaction_time_max": {
+          "type": "number",
+          "description": "",
+          "default": 0
+        },
+        "reaction_time_step": {
+          "type": "number",
+          "description": "",
+          "default": 1
+        },
+        "activations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": ""
+        },
+        "tolerance_ppm": {
+          "type": "number",
+          "description": "",
+          "default": 0
+        },
+        "monitor_ms1": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "",
+              "default": false
+            },
+            "interval_ms": {
+              "type": "number",
+              "description": "",
+              "default": 30000
+            }
+          },
+          "description": ""
+        },
+        "kinetic_model": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "",
+          "properties": {
+            "k2": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              },
+              "description": ""
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-pages": [
+    {
+      "slug": "run",
+      "title": "Run",
+      "subtitle": "JSON keys of `global`, `files`, `runtime` and `scheduling`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `LogPathResolver.cs`, `Flash.cs`, ADR-0031, ADR-0033, ADR-0041, ADR-0043",
+      "sections": [
+        {
+          "ref": "global",
+          "exemplars": [
+            {
+              "config": "method_default.json"
+            }
+          ]
+        },
+        {
+          "ref": "files",
+          "exemplars": [
+            {
+              "config": "method_tag_targeting.json"
+            }
+          ]
+        },
+        {
+          "ref": "runtime",
+          "exemplars": [
+            {
+              "config": "method_default.json"
+            }
+          ]
+        },
+        {
+          "ref": "scheduling",
+          "exemplars": [
+            {
+              "config": "method_default.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "deconvolution",
+      "title": "Deconvolution",
+      "subtitle": "JSON keys of `deconvolution`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `Deconvolution.cpp`",
+      "sections": [
+        {
+          "ref": "deconvolution",
+          "exemplars": [
+            {
+              "config": "method_default.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "precursor-selection",
+      "title": "Precursor selection",
+      "subtitle": "JSON keys of `precursor_selection`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `PrecursorSelection.cpp`, ADR-0014, ADR-0016, ADR-0021, ADR-0028, ADR-0036, ADR-0040",
+      "sections": [
+        {
+          "ref": "precursor_selection",
+          "exclude": [
+            "tag_expansion"
+          ],
+          "exemplars": [
+            {
+              "config": "method_cytc_separate_charges.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "exploration",
+      "title": "Exploration",
+      "subtitle": "JSON keys of `precursor_selection.exploration` and `characterization.exploration`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `Exploration.cpp`, ADR-0020, ADR-0029, ADR-0030, ADR-0042, ADR-0044, ADR-0045, ADR-0047, ADR-0048",
+      "sections": [
+        {
+          "ref": "#/$defs/exploration",
+          "heading": "exploration",
+          "exemplars": [
+            {
+              "config": "method_exploration_ms3.json",
+              "label": "level 2",
+              "base": "precursor_selection.exploration"
+            },
+            {
+              "config": "method_exploration_ms3.json",
+              "label": "level 3",
+              "base": "characterization.exploration"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "characterization",
+      "title": "Characterization",
+      "subtitle": "JSON keys of `characterization`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `ProteoformTracker.cpp`, `Refine`, ADR-0013, ADR-0023, ADR-0049, ADR-0052, ADR-0054, ADR-0055",
+      "sections": [
+        {
+          "ref": "characterization",
+          "exemplars": [
+            {
+              "config": "method_ms3_cytc_exhaustive.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "scan-settings",
+      "title": "Scan settings",
+      "subtitle": "JSON keys of every scan settings object: `ms1`, `ms2`, `ms2_quant`, `ms3`, and each `additional_ms2` entry",
+      "sources": "`MethodParameters.cs` (`MS1Parameters`, `MS2Parameters`, `MS3Parameters`, `ToJsonScanConfig`), `ScanFactory.cs`, `Config.cpp`, ADR-0009, ADR-0010, ADR-0011, ADR-0030, ADR-0045",
+      "sections": [
+        {
+          "ref": "#/$defs/scan",
+          "heading": "scan settings object",
+          "exemplars": [
+            {
+              "config": "method_dda_etd.json",
+              "label": "ms1",
+              "base": "ms_settings.ms1"
+            },
+            {
+              "config": "method_dda_etd.json",
+              "label": "ms2",
+              "base": "ms_settings.ms2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ms-settings",
+      "title": "ms_settings",
+      "subtitle": "JSON keys of `ms_settings`: the scan roster",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, ADR-0014, ADR-0038",
+      "sections": [
+        {
+          "ref": "ms_settings",
+          "exemplars": [
+            {
+              "config": "method_default.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "quantification",
+      "title": "Quantification",
+      "subtitle": "JSON keys of `quantification`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `Quantification.cpp`, ADR-0038, ADR-0039, ADR-0040, ADR-0056, ADR-0057",
+      "sections": [
+        {
+          "ref": "quantification",
+          "exemplars": [
+            {
+              "config": "method_quant.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "faims",
+      "title": "FAIMS",
+      "subtitle": "JSON keys of `faims`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `FAIMS.cpp`, ADR-0012",
+      "sections": [
+        {
+          "ref": "faims",
+          "exemplars": [
+            {
+              "config": "method_faims_3cv.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tagging",
+      "title": "Tagging",
+      "subtitle": "JSON keys of `tagging`, `conditional_ms2`, `precursor_selection.tag_expansion` and `flashtnt`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `MethodConfigSerializer.cs`, `FragmentAnalysis.cpp`",
+      "sections": [
+        {
+          "ref": "tagging",
+          "exemplars": [
+            {
+              "config": "method_tag_targeting.json"
+            }
+          ]
+        },
+        {
+          "ref": "conditional_ms2",
+          "exemplars": [
+            {
+              "config": "method_tag_targeting.json"
+            }
+          ]
+        },
+        {
+          "ref": "precursor_selection.tag_expansion",
+          "heading": "precursor_selection.tag_expansion",
+          "exemplars": [
+            {
+              "config": "method_tag_targeting.json"
+            }
+          ]
+        },
+        {
+          "ref": "flashtnt",
+          "exemplars": [
+            {
+              "config": "method_default.json"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
