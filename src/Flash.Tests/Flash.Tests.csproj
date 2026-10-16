@@ -90,6 +90,8 @@
     <Compile Include="JsonConfigTests.cs" />
     <Compile Include="LogPathResolverTests.cs" />
     <Compile Include="ConfigSchemaParityTests.cs" />
+    <Compile Include="KeyDocumentationParityTests.cs" />
+    <Compile Include="KeyPaths.cs" />
     <Compile Include="LogGoldenComparer.cs" />
     <Compile Include="FLASHIdaLogGolden_test.cs" />
     <Compile Include="GoldenCaptureTests.cs" />
