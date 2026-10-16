@@ -27,10 +27,13 @@ jobs:
           node-version: '22'
       - name: Renderer tests
         run: node --test docs/site/build.test.js
-      - name: Committed configs obey the schema
+      # config_schema_reference.json carries every key at a non-default value, so it type-checks the
+      # keys no committed config sets.
+      - name: Committed configs and the schema reference obey the schema
         run: >-
           npx --yes ajv-cli@5.0.0 validate --spec=draft2020 --strict=false --all-errors --errors=line
           -s docs/site/method.schema.json -d "test-data/configs/method_*.json" -d src/Flash/etc/method.json
+          -d test-data/config_schema_reference.json
       - name: Render
         env:
           SITE_COMMIT: ${{ github.sha }}

@@ -16,13 +16,18 @@ const defName = (ref) => (ref && ref.startsWith(DEF) ? ref.slice(DEF.length) : n
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
 const TYPE = { boolean: 'bool', integer: 'int', number: 'double', string: 'string', object: 'object' };
+// A nullable key is typed ["object", "null"]; its base type is the non-null one.
+const baseType = (n) => (Array.isArray(n.type) ? n.type.find((t) => t !== 'null') : n.type);
+const nullable = (n) => Array.isArray(n.type) && n.type.includes('null');
 function typeText(n) {
   if (n['x-type-text']) return n['x-type-text'];
   let t;
-  if (n.type === 'array') t = 'array of ' + (n.items && n.items.properties ? 'objects' : typeText(n.items || {}));
-  else if (n.type === 'object' && n.additionalProperties && typeof n.additionalProperties === 'object' && !n.properties)
+  const bt = baseType(n);
+  if (bt === 'array') t = 'array of ' + (n.items && n.items.properties ? 'objects' : typeText(n.items || {}));
+  else if (bt === 'object' && n.additionalProperties && typeof n.additionalProperties === 'object' && !n.properties)
     t = 'map of name → ' + typeText(n.additionalProperties);
-  else t = TYPE[n.type] || (n.$ref ? 'object' : '?');
+  else t = TYPE[bt] || (n.$ref ? 'object' : '?');
+  if (nullable(n)) t += ' or null';
   return n['x-unit'] ? t + ', ' + n['x-unit'] : t;
 }
 
@@ -70,13 +75,13 @@ function sectionRows(node, schema, exclude, prefix = '') {
     const key = prefix ? prefix + '.' + k : k;
     const target = defName(n.$ref) || (n.additionalProperties && defName(n.additionalProperties.$ref));
     if (target) { rows.push({ key, node: n, link: pageOfDef(schema, target) }); continue; }
-    if (n.type === 'object' && n.properties) {
+    if (baseType(n) === 'object' && n.properties) {
       rows.push({ key, node: n, group: true }); // every key node is documented, as the C# test requires
       rows.push(...sectionRows(n, schema, [], key));
       continue;
     }
     rows.push({ key, node: n });
-    if (n.type === 'array' && n.items && n.items.properties) rows.push(...sectionRows(n.items, schema, [], key + '[]'));
+    if (baseType(n) === 'array' && n.items && n.items.properties) rows.push(...sectionRows(n.items, schema, [], key + '[]'));
   }
   return rows;
 }

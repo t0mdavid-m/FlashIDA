@@ -1146,12 +1146,15 @@
           "x-unit": "NCE"
         },
         "overrides": {
-          "type": "object",
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": {
             "type": "string"
           },
           "description": "Scan settings keys applied to every pre-scan of this level and to nothing else, each value written as a string, such as `{\"analyzer\": \"IonTrap\", \"max_it\": \"10\"}`. When the map is not empty the sweep is closed by a follow-up at the chosen energy, built from the level's own scan config without the overrides. `analyzer` takes `Orbitrap`, `IonTrap` or an empty string; an `IonTrap` pre-scan is measured and never identified, so the metric must be `remaining_precursor` or `kinetic_model`. `first_mass` and `last_mass` here set the pre-scan's readout range.",
-          "x-default-text": "absent",
+          "x-default-text": "absent or null",
           "x-adr": [
             "0020",
             "0044",
@@ -1188,12 +1191,15 @@
           "x-unit": "ms"
         },
         "activations": {
-          "type": "array",
+          "type": [
+            "array",
+            "null"
+          ],
           "items": {
             "type": "string"
           },
           "description": "Activations to sweep, each over its own grid: HCD and CID vary collision energy, ETD varies reaction time at the scan config's energy, EThcD and ETciD cross both grids. The winner is chosen across every activation of the group. Under `kinetic_model` it names exactly one activation, HCD or CID.",
-          "x-default-text": "absent: the activation of `ms_settings.ms2` at level 2 or `ms_settings.ms3` at level 3"
+          "x-default-text": "absent or null: the activation of `ms_settings.ms2` at level 2 or `ms_settings.ms3` at level 3"
         },
         "tolerance_ppm": {
           "type": "number",
@@ -1229,7 +1235,10 @@
           ]
         },
         "kinetic_model": {
-          "type": "object",
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
           "description": "The Kinetic Model's one authored input, read only under `metric: kinetic_model`. Under `metric: none` it is dropped before it reaches the engine.",
           "properties": {
@@ -1246,7 +1255,7 @@
               ]
             }
           },
-          "x-default-text": "required when metric is kinetic_model",
+          "x-default-text": "required when metric is kinetic_model; otherwise absent or null",
           "x-adr": [
             "0047"
           ]
