@@ -61,6 +61,7 @@ PR reviewers must verify:
   - `ms1_standard.txt`: 50 MS1 scans from `Eclipse_20251016_Original_EcoliRedAlkMCWFA_60min_2ul_R1.mzML`
   - `ms2_hcd_fragment.txt`: CytC HCD MS2 from `20250121_CytC_MS2HCD_MS3HCDCID_Mode2_MS2CE40_MS3CID27.mzML`
   - `ms2_quant_tmt.txt`: iodoTMT MS2 from `FLASHIda_methodQuant_Ecoli_Glucose_vs_Acetat_iodoTMT_FC0_only1Cond_1ul.mzML`
+  - `ms2_quant_itmt_z23_18295.txt`, `ms2_quant_itmt_z22_18295.txt`: two real iodoTMT `Q` scans of one species (2026-10-13 `separate` R1, scans 13373/13375), the `quant_welch` mode; provenance in `spectra/FIXTURES.md`
 - **Note:** Captured from old bridge path (pre-switch) to serve as behavioral equivalence baseline for the unified bridge switch-over.
 - **Note:** B2 verification confirmed all modes exercise their specific logic:
   inclusion (monoisotopic targets within 20 ppm), strict inclusion (target-only),
