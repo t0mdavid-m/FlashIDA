@@ -120,7 +120,11 @@ function renderSection(schema, s, ctx) {
     if (!fs.existsSync(file)) throw new Error(`x-pages: exemplar ${e.config} not found`);
     const base = e.base !== undefined ? e.base : (defName(s.ref) ? null : s.ref);
     if (base === null) throw new Error(`x-pages: ${s.ref} exemplar ${e.config} needs a base`);
-    return { label: e.label || e.config, config: JSON.parse(fs.readFileSync(file, 'utf8')), base };
+    // A column whose own object admits only some keys (ms1's propertyNames) shows n/a for the rest.
+    let at = schema;
+    for (const p of base.split('.')) at = at && at.properties && at.properties[p];
+    const admitted = at && at.propertyNames && at.propertyNames.enum;
+    return { label: e.label || e.config, config: JSON.parse(fs.readFileSync(file, 'utf8')), base, admitted };
   });
   const appl = defName(s.ref) ? applicability(schema, defName(s.ref)) : null;
   const head = ['key', 'type', 'default', 'values and rules'].concat(appl ? ['used by'] : [], exemplars.map((e) => e.label));
@@ -137,6 +141,7 @@ function renderSection(schema, s, ctx) {
       .concat(appl ? [`<td>${esc(appl[r.key.split('.')[0]] || '')}</td>`] : [])
       .concat(exemplars.map((e) => {
         if (r.group || r.key.includes('[]')) return '<td></td>';
+        if (e.admitted && !e.admitted.includes(r.key.split('.')[0])) return '<td class="ex">n/a</td>';
         const v = r.leaf ? get(e.config, e.base) : get(e.config, e.base ? e.base + '.' + r.key : r.key);
         return `<td class="ex"><code>${esc(exemplarCell(v, r.node))}</code></td>`;
       }));
