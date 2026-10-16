@@ -379,6 +379,14 @@ adding a decision key means one on a class property.
 Unknown keys are hard-rejected here and again in C++. `test-data/config_schema_reference.json` is
 generated from the schema — regenerate it, never hand-edit.
 
+Every key is also documented **by hand** in `docs/site/method.schema.json` (ADR-0058), which renders
+the public site https://t0mdavid-m.github.io/FlashIDA/ through `docs/site/build.js` and
+`.github/workflows/pages.yml`. `KeyDocumentationParityTests` fails if a key is in the model but not
+documented, documented but not in the model, or documented without a description; the Pages
+workflow fails if a committed config does not validate against it. No loader reads it. The C#
+loader still accepts `tagging.active` and a nested `tagging.conditional_ms2`, which the emitter never
+forwards, so they are not documented keys.
+
 ## Tests (`src/Flash.Tests/`)
 
 ### One canonical acquisition drive — never hand-roll one

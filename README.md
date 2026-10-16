@@ -7,7 +7,7 @@ FLASHIda is an intelligent data acquisition method for top-down proteomics, buil
 ## Usage
 
 FLASHIda runs as a command-line tool. While running it takes the control over the acquistion of mass spectra, i.e. which spectra will be acquired and in which order.
-The acquisition parameters can be specified using a XML-formatted method file, an example of it is provided along with the tool.
+The acquisition parameters are specified in a JSON method file (`method.json`); every key is documented at https://t0mdavid-m.github.io/FlashIDA/ and an example is provided with the tool.
 
 The following optional arguments can be used
 ```
