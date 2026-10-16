@@ -17,7 +17,8 @@ namespace Flash.Tests
     /// The C++ side (ConfigSchemaParity_test) proves the C++ reader binds every on-disk key. Together the
     /// C# emitter and the C++ reader cannot silently diverge from the single bridge schema.
     ///
-    /// To intentionally change the schema: update the model + ToCppJson + BuildFullReferenceConfig, then
+    /// To intentionally change the schema: update the model + ToCppJson + BuildFullReferenceConfig + the
+    /// key's entry in docs/site/method.schema.json (KeyDocumentationParityTests, ADR-0058), then
     /// regenerate the committed file by running this suite with REGEN_CONFIG_REFERENCE=1.
     /// </summary>
     [TestFixture]
