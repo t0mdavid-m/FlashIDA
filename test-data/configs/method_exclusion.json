@@ -54,7 +54,7 @@
   "precursor_selection": {
     "rt_window": 180,
     "targeting": "exclusion_masses",
-    "consider_all_charges": false,
+    "consider_all_charges": true,
     "strict_inclusion": false,
     "tie_threshold": 0.1,
     "rank_by": "qscore",
