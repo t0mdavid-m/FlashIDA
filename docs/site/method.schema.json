@@ -118,8 +118,39 @@
         },
         "consider_all_charges": {
           "type": "boolean",
-          "description": "`true`: each species is ranked by its best per-charge qscore and anchored on that charge. `false`: it is ranked by its overall qscore and anchored on its representative charge. The ranking half applies only under `rank_by: qscore`, and an inclusion row that names charges overrides the anchor choice either way.",
-          "default": false
+          "description": "`true`: species are ranked by their best per-charge qscore. `false`: they are ranked by their overall qscore. Applies only under `rank_by: qscore`, and orders species only: which charge a species is isolated at is `charge_selection`.",
+          "default": false,
+          "x-adr": [
+            "0059"
+          ]
+        },
+        "charge_selection": {
+          "type": "string",
+          "description": "The one ranking of a selected species' charge states. The first-ranked charge is the anchor, the window a `single` scan isolates; the first `max_charge_states` form the acquisition set of `separate` and `multiplexed`. It only orders: `snr_threshold` still decides which charges may join the set. An inclusion row that names charges narrows the candidates, and this ranking picks among them.",
+          "default": "snr",
+          "enum": [
+            "snr",
+            "qscore",
+            "intensity",
+            "purity"
+          ],
+          "enumDescriptions": [
+            "highest charge signal-to-noise; the anchor is the species' representative charge.",
+            "highest per-charge qscore.",
+            "most intense charge.",
+            "highest isolation purity: the species' own intensity at that charge over all MS1 intensity inside the window it would be isolated in. Refused under `precursor_charges: multiplexed`, whose notches share one fill."
+          ],
+          "x-adr": [
+            "0059"
+          ]
+        },
+        "reselect_charges": {
+          "type": "boolean",
+          "description": "`true`: when a new survey arrives, MS2 scans still waiting to be sent are re-ranked by `charge_selection` on that survey, and a scan's charge is replaced if a better one is resolved on both the survey that selected the species and the new one. A scan is never cancelled, and one already handed to the instrument is never changed. Applies to identification and quantification scans under `precursor_charges: single` and identification scans under `separate`; inert under `multiplexed`.",
+          "default": false,
+          "x-adr": [
+            "0059"
+          ]
         },
         "strict_inclusion": {
           "type": "boolean",
@@ -133,7 +164,7 @@
         },
         "precursor_charges": {
           "type": "string",
-          "description": "How many charge states of a selected species are acquired, and in how many scans. `separate` and `multiplexed` acquire the same set: the anchor plus every other resolved charge whose SNR reaches `snr_threshold`, most intense first, capped by `max_charge_states`. In all three modes a species costs one `max_precursors` slot.",
+          "description": "How many charge states of a selected species are acquired, and in how many scans. `separate` and `multiplexed` acquire the same set: the anchor plus every other resolved charge whose SNR reaches `snr_threshold`, ordered by `charge_selection`, capped by `max_charge_states`. In all three modes a species costs one `max_precursors` slot.",
           "default": "single",
           "enum": [
             "single",
@@ -160,7 +191,7 @@
         },
         "max_charge_states": {
           "type": "integer",
-          "description": "Caps the acquisition charge set of one species, anchor included, keeping the most intense charges. `0` means no cap beyond the instrument's 10 isolation windows per fragmentation stage, which bounds `separate` as well, and larger values act as 10. Inert under `precursor_charges: single`.",
+          "description": "Caps the acquisition charge set of one species, anchor included, keeping the charges `charge_selection` ranks first. `0` means no cap beyond the instrument's 10 isolation windows per fragmentation stage, which bounds `separate` as well, and larger values act as 10. Inert under `precursor_charges: single`.",
           "default": 0,
           "x-adr": [
             "0040"
