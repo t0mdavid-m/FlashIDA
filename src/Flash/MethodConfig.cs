@@ -112,8 +112,16 @@ namespace Flash
         public double TieThreshold { get; set; } = 0.1;
 
         [JsonKey("consider_all_charges")]
-        [Description("Consider all charge states for precursor selection")]
+        [Description("Rank SPECIES by their best per-charge qscore rather than the representative charge's. Orders species only; which charge a species is isolated at is charge_selection (ADR-0059).")]
         public bool ConsiderAllChargeStates { get; set; }
+
+        [JsonKey("charge_selection")]
+        [Description("The one ranking of a selected species' charge states: \"snr\" (default), \"qscore\", \"intensity\" or \"purity\" (the species' share of the raw MS1 signal inside the window it would be isolated in). The first-ranked charge is the anchor; the first max_charge_states form the acquisition charge set. \"purity\" is refused under precursor_charges \"multiplexed\" (ADR-0059).")]
+        public string ChargeSelection { get; set; } = "snr";
+
+        [JsonKey("reselect_charges")]
+        [Description("Re-run charge_selection on each newer survey for MS2 commands still waiting in the queue: the charge is replaced only by one resolved on both surveys, never cancelled. Applies to R and Q scans under \"single\" and R scans under \"separate\"; inert under \"multiplexed\" (ADR-0059).")]
+        public bool ReselectCharges { get; set; }
 
         [JsonKey("precursor_charges")]
         [Description("How many charge states of a selected precursor ONE MS2 acquires: \"single\" (the representative charge), \"separate\" (one MS2 per charge state, each its own precursor), or \"multiplexed\" (one MS2 co-isolating the whole SNR-positive set as notches). This is the only thing that decides acquisition geometry; exclusion is mass-keyed.")]
@@ -791,6 +799,8 @@ namespace Flash
         public double snr_threshold { get; set; }
         public int max_charge_states { get; set; }
         public int min_charge_states { get; set; }
+        public string charge_selection { get; set; }
+        public bool reselect_charges { get; set; }
         public string rank_by { get; set; }
         public int max_precursors { get; set; }
         public int min_precursor_charge { get; set; }

@@ -146,6 +146,9 @@ namespace Flash
                     snr_threshold = c.PrecursorSelection.SnrThreshold,
                     max_charge_states = c.PrecursorSelection.MaxChargeStates,
                     min_charge_states = c.PrecursorSelection.MinChargeStates,
+                    // Verbatim, not lower-cased: C++ accepts only the exact spellings (ADR-0059).
+                    charge_selection = c.PrecursorSelection.ChargeSelection,
+                    reselect_charges = c.PrecursorSelection.ReselectCharges,
                     rank_by = (c.PrecursorSelection.RankBy ?? "qscore").ToLower(),
                     max_precursors = c.PrecursorSelection.MaxPrecursors,
                     min_precursor_charge = c.PrecursorSelection.MinPrecursorCharge,
@@ -590,6 +593,10 @@ namespace Flash
             c.PrecursorSelection.SnrThreshold = 1.7;
             c.PrecursorSelection.MaxChargeStates = 6;
             c.PrecursorSelection.MinChargeStates = 2;
+            // ADR-0059. Non-default; "purity" would be refused here because PrecursorCharges above is
+            // "multiplexed", so the reference authors "intensity".
+            c.PrecursorSelection.ChargeSelection = "intensity";
+            c.PrecursorSelection.ReselectCharges = true;
 
             c.FlashTnT.MinLength = 4;
             c.FlashTnT.MaxLength = 9;
