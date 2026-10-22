@@ -144,14 +144,6 @@
             "0059"
           ]
         },
-        "reselect_charges": {
-          "type": "boolean",
-          "description": "`true`: when a new survey arrives, MS2 scans still waiting to be sent are re-ranked by `charge_selection` on that survey, and a scan's charge is replaced if a better one is resolved on both the survey that selected the species and the new one. A scan is never cancelled, and one already handed to the instrument is never changed. Applies to identification and quantification scans under `precursor_charges: single` and identification scans under `separate`; inert under `multiplexed`.",
-          "default": false,
-          "x-adr": [
-            "0059"
-          ]
-        },
         "strict_inclusion": {
           "type": "boolean",
           "description": "Read only under `targeting: inclusion`. `true`: only masses matching an active inclusion target are selected, and a survey with no active target selects nothing. `false`: targets are selected first and the remaining `max_precursors` slots go to other masses under the ordinary gates.",

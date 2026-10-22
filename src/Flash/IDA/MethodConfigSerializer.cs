@@ -233,6 +233,11 @@ namespace Flash
                     "quantification.active",
                     "quantification.active was renamed to quantification.enabled."
                 },
+                {
+                    "precursor_selection.reselect_charges",
+                    "precursor_selection.reselect_charges is retired: every survey now re-plans the "
+                    + "waiting work of its CV (ADR-0060). Delete the key."
+                },
             };
 
         /// <summary>Recurse a raw JSON node against its model type, collecting unknown keys.</summary>
