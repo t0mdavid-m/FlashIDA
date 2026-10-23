@@ -47,7 +47,9 @@ namespace Flash.Tests
         // The NAME LISTS are visited in a FIXED logical order so BuildIdMap assigns T<n> labels in the same
         // first-appearance sequence regardless of physical column position — keeping labels byte-identical to
         // the stored (old-order-capture) goldens. child_ids / contributing_scan_ids are space-split.
-        private static readonly string[] CmdIdColNames = { "tracking_id", "parent_tracking_id" };
+        // decision_survey_id (survey re-planning) names a survey that is also some row's tracking_id; it goes LAST so
+        // every label the two older columns assign keeps its number.
+        private static readonly string[] CmdIdColNames = { "tracking_id", "parent_tracking_id", "decision_survey_id" };
         private static readonly string[] ResIdColNames = { "tracking_id", "parent_tracking_id", "winner_tracking_id" };
         private static readonly string[] IdfIdColNames = { "tracking_id" };
         private const string ResChildColName = "child_ids";            // space-separated encoded ids
@@ -225,6 +227,13 @@ namespace Flash.Tests
             // contain a space) so a ')' INSIDE the id is consumed too — [^)]+ used to stop at the id's
             // own ')', leaving the format paren as a run-dependent stray "<ID>))".
             text = Regex.Replace(text, @"Access ID .+?\) - ", "Access ID <ID>) - ");
+            // Survey re-planning: each Mass= line's own command id, and a survey's Superseded= list of the ids its
+            // re-plan dropped. Both are base-94 tracking ids like the Access ID; the list keeps its LENGTH, which
+            // is how many waiting commands the re-plan dropped and is not id-base dependent.
+            text = Regex.Replace(text, @"\tID=\S+", "\tID=<ID>");
+            text = Regex.Replace(text, @"^Superseded=.*$",
+                m => "Superseded=" + string.Join(" ", m.Value.Substring(11).Split(' ').Select(_ => "<ID>")),
+                RegexOptions.Multiline);
             return text;
         }
 

@@ -110,5 +110,37 @@ namespace Flash.Tests
             string outp = GoldenListCanonicalizer.Canonicalize(LogGoldenComparer.IdaLogName, text, null);
             Assert.AreEqual(text, outp);
         }
+
+        // (e) Survey re-planning: a Mass= line's trailing ID= and a survey's Superseded= list are tracking ids, so
+        // they are masked like the Access ID -- every id becomes <ID>, the list keeps its length, and nothing else
+        // on either line moves. The id "a=b" proves ID= is masked to the next whitespace, not to the next '='.
+        [Test]
+        public void NormalizeIdaLog_MasksIdAndSuperseded()
+        {
+            const string target = "Mass=12351.3933\tZ=15\tScore=0.90000\tWindow=[824.0356-825.8985]"
+                                + "\tPrecursorIntensity=1.00000\tPrecursorMassIntensity=2.00000"
+                                + "\tFeatures=[0.900000,1.000000,0.900000,1.000000,0.900000,1.000000]\tChargeRange=[12-19]\tHCD=0";
+            string raw = "MS1 Scan# 7 RT 1.0000 (Access ID !!\") - 1 targets\n"
+                       + "Superseded=!!# !)$ ~~~\n"
+                       + target + "\tID=a=b\n"
+                       + "AllMass=12351.3933\n";
+            string expected = "MS1 Scan# <SCAN> RT 1.0000 (Access ID <ID>) - 1 targets\n"
+                            + "Superseded=<ID> <ID> <ID>\n"
+                            + target + "\tID=<ID>\n"
+                            + "AllMass=12351.3933\n";
+
+            string dir = Path.Combine(Path.GetTempPath(), "logreorder_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                File.WriteAllText(Path.Combine(dir, LogGoldenComparer.IdaLogName), raw);
+                string norm = LogGoldenComparer.Normalize(dir, LogGoldenComparer.IdaLogName, null);
+                Assert.AreEqual(expected, norm);
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
     }
 }
