@@ -149,6 +149,24 @@
           "description": "Read only under `targeting: inclusion`. `true`: only masses matching an active inclusion target are selected, and a survey with no active target selects nothing. `false`: targets are selected first and the remaining `max_precursors` slots go to other masses under the ordinary gates.",
           "default": false
         },
+        "log_target_rt_window": {
+          "type": "boolean",
+          "description": "Read only under `targeting: inclusion` with `files.target_logs` and no inclusion list. `true`: a mass a reference `ida.log` acquired is a target only within `rt_window` of a reference acquisition of it. `false`: it is a target at every retention time, as it was from 2025-07-07 to 2026-10-21; for a reference whose gradient does not match the run.",
+          "default": true
+        },
+        "log_target_charges": {
+          "type": "string",
+          "description": "Read only under `targeting: inclusion` with `files.target_logs` and no inclusion list. Which charge a reference `ida.log` target is matched at.",
+          "default": "any",
+          "enum": [
+            "any",
+            "reference"
+          ],
+          "enumDescriptions": [
+            "the target is a mass, matched at any charge.",
+            "matched only at a charge the reference acquired it at; each acquisition uses that charge up for the rest of the run, as from 2025-07-04 to 2026-10-21."
+          ]
+        },
         "tie_threshold": {
           "type": "number",
           "description": "Qscore difference below which two candidates count as tied and are ordered by their inclusion row's priority, higher first. Read only under `targeting: inclusion` when an inclusion list or tag-expanded targets are loaded.",

@@ -135,6 +135,14 @@ namespace Flash
         [Description("Minimum acquisition charge set size for a species to be selected; 1 = no floor. Inert under precursor_charges \"single\", where the set is always size 1. A species below the floor costs no max_precursors slot.")]
         public int MinChargeStates { get; set; } = 1;
 
+        [JsonKey("log_target_rt_window")]
+        [Description("Inclusion from files.target_logs: true (default), a reference mass is a target only within rt_window of a reference acquisition of it; false, at every retention time (the behaviour from 2025-07-07 to 2026-10-21, e.g. for a reference whose gradient does not match the run).")]
+        public bool LogTargetRtWindow { get; set; } = true;
+
+        [JsonKey("log_target_charges")]
+        [Description("Inclusion from files.target_logs: \"any\" (default), a reference target is a mass matched at any charge; \"reference\", matched only at a charge the reference acquired it at, and each acquisition uses that charge up for the rest of the run (the behaviour from 2025-07-04 to 2026-10-21).")]
+        public string LogTargetCharges { get; set; } = "any";
+
         // --- moved here from selection_strategy.ms1 ---
 
         [JsonKey("rank_by")]
@@ -796,6 +804,8 @@ namespace Flash
         public int max_charge_states { get; set; }
         public int min_charge_states { get; set; }
         public string charge_selection { get; set; }
+        public bool log_target_rt_window { get; set; }
+        public string log_target_charges { get; set; }
         public string rank_by { get; set; }
         public int max_precursors { get; set; }
         public int min_precursor_charge { get; set; }
