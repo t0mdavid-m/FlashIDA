@@ -262,9 +262,10 @@
           "description": "Tag-based target expansion. When an MS2's sequence tags match a protein in `files.fasta`, the precursor mass shifted by combinations of the modifications in `files.ptm_list` is added to the inclusion targets for `rt_window` at priority 100. The unmodified mass is not added, and the added targets are read only under `targeting: inclusion`."
         }
       },
-      "description": "Decides which intact species each survey MS1 fragments: how candidates are ranked, how many are taken, which of their charge states are acquired, and which target list steers the choice. The MS2 scan settings themselves live in `ms_settings`, and whether a fragment is characterized by MS3 is decided in `characterization`.",
+      "description": "Decides which intact species each survey MS1 fragments: how candidates are ranked, how many are taken, which of their charge states are acquired, and which target list steers the choice. A survey's choice is a plan until its first MS2 is sent: a newer survey at the same FAIMS CV re-plans the MS2s still waiting in FLASHIda's queue, and a species counts as acquired, for `rt_window` and every bar below, only once one of its scans has been sent. The MS2 scan settings themselves live in `ms_settings`, and whether a fragment is characterized by MS3 is decided in `characterization`.",
       "x-adr": [
-        "0014"
+        "0014",
+        "0060"
       ]
     },
     "flashtnt": {
@@ -727,7 +728,7 @@
           "items": {
             "type": "string"
           },
-          "description": "`ida.log` files from earlier runs, read for their `Mass` and `AllMass` lines. Under `targeting: inclusion` their masses are the inclusion targets at every retention time when no `inclusion_list` rows are loaded. Under `in_depth` their masses and qscores drive the soft reorder gated by `deconvolution.tqscore_threshold`, and under `exclusion_masses` every `AllMass` mass logged within `precursor_selection.rt_window` of the current survey is excluded. An unreadable file is skipped without a warning.",
+          "description": "`ida.log` files from earlier runs, read for their `Mass` and `AllMass` lines. Under `targeting: inclusion` their masses are the inclusion targets at every retention time when no `inclusion_list` rows are loaded. Under `in_depth` their masses and qscores drive the soft reorder gated by `deconvolution.tqscore_threshold`, and under `exclusion_masses` every `AllMass` mass logged within `precursor_selection.rt_window` of the current survey is excluded. A `Mass` line whose command a later survey re-planned away (named on a `Superseded=` line) is not read. An unreadable file is skipped without a warning.",
           "default": []
         },
         "fasta": {

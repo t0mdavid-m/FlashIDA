@@ -486,6 +486,16 @@ fresh-DLL swap exists to detect. The container's DLL is also configured `WITH_GU
 `ON`. **A golden captured locally must still survive a CI run before it is trusted.** Golden
 locations and recapture paths: see `../CLAUDE.md`.
 
+**The log comparer sees ADR-0060's decision survey but not its two `ida.log` ids.** In `LogGoldenComparer`,
+`decision_survey_id` is one of the `CmdIdColNames`, so it is **relabelled** to the run's first-appearance
+`T<n>` like `tracking_id` and `parent_tracking_id`: a golden does check which survey a command was
+decided on, relative to the other ids. `NormalizeIdaLog` **masks** the `\tID=<id>` on every `Mass=` line and
+every id on a `Superseded=` line to `<ID>`, as it masks `Access ID`, so no golden sees those values; the
+C++ `FLASHIda_LoggingFields_test` is their gate. `isolation_purity` is an ordinary float column at the
+comparer's tolerance. The `scan_commands` goldens carry 36 columns since FlashIDA `a6181ca`, but
+`LogColumnReorderTests.NewCommandsHeader` deliberately still lists 34 names: it is that test's own fixture,
+not the engine header, and the comparer resolves columns by name.
+
 ## Dependencies, logging, data
 
 - **Thermo iAPI (proprietary, in `dependencies/`)** — `API-2.0.dll`, `Fusion.API-1.0.dll`,
