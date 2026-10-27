@@ -28,6 +28,8 @@
     "max_charge_states": 6,
     "min_charge_states": 2,
     "charge_selection": "intensity",
+    "log_target_rt_window": false,
+    "log_target_charges": "reference",
     "rank_by": "qscore",
     "max_precursors": 3,
     "min_precursor_charge": 2,
