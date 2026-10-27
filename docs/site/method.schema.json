@@ -746,7 +746,7 @@
           "items": {
             "type": "string"
           },
-          "description": "`ida.log` files from earlier runs, read for their `Mass` and `AllMass` lines. Under `targeting: inclusion` their masses are the inclusion targets at every retention time when no `inclusion_list` rows are loaded. Under `in_depth` their masses and qscores drive the soft reorder gated by `deconvolution.tqscore_threshold`, and under `exclusion_masses` every `AllMass` mass logged within `precursor_selection.rt_window` of the current survey is excluded. A `Mass` line whose command a later survey re-planned away (named on a `Superseded=` line) is not read. An unreadable file is skipped without a warning.",
+          "description": "`ida.log` files from earlier runs, read for their `Mass` and `AllMass` lines. Under `targeting: inclusion`, when no `inclusion_list` rows are loaded, their acquired masses are the inclusion targets: a mass is a target only within `precursor_selection.rt_window` of a reference acquisition of it (`log_target_rt_window`), and it matches at any charge (`log_target_charges`). Masses from `files.fasta` tag expansion are added to these targets rather than replacing them. Under `in_depth` their masses and qscores drive the soft reorder gated by `deconvolution.tqscore_threshold`, and under `exclusion_masses` every `AllMass` mass logged within `precursor_selection.rt_window` of the current survey is excluded. A `Mass` line whose command a later survey re-planned away (named on a `Superseded=` line) is not read. An unreadable file is skipped without a warning.",
           "default": []
         },
         "fasta": {

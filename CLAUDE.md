@@ -496,6 +496,23 @@ comparer's tolerance. The `scan_commands` goldens carry 36 columns since FlashID
 `LogColumnReorderTests.NewCommandsHeader` deliberately still lists 34 names: it is that test's own fixture,
 not the engine header, and the comparer resolves columns by name.
 
+**The comparer does not unquote id cells, and no golden needs it to.** Since the FDmerge merge (OpenMS
+`d0954cf37b`) the engine writes every TSV cell that carries a tracking id through `LogCell.h`'s
+`quoteLogCell`: a cell that *begins* with `"` (ids 8,836–17,671 in base-94) is RFC 4180-quoted. No golden
+run mints that many commands, so every committed golden is byte-identical to unquoted output and
+`LogGoldenComparer` splits on tabs with no unquote step. A golden mode long enough to mint such ids
+would need one.
+
+**Three cytC MS3 assertions are anchored on 12321.28's `b49`, not on 12351.39** (FlashIDA `bc41967`).
+FDmerge's FLASHTnT moves 12351.39's b70/b80 to −15.6/−13.4 ppm, outside the 10 ppm match, so that
+precursor's MS3 goes to b10/b12/b14, which have no fixture. `test-data/reference/ms3_leaf_expected.tsv` now
+holds one row (12321.2828, `b49`). `AssertExplorationMs3LeafMatchesPooled` requires leaf == pooled only
+for the **b49** leaves of that precursor. Its b65 leaves carry one fused `+497.12` by design:
+`narrowFragmentPTMSites` merges mods that no ion of one MS3 scan separates (Change L, OpenMS `0394c97eda`),
+so do not "fix" that into a failure. `AssertMs3Stage0CeNotCollapsed`'s energy trend compares the
+heavier half's mean stage-0 CE with the lighter half's, over distinct (mass, CE) pairs; it no longer
+compares the single largest fragment with the single smallest.
+
 ## Dependencies, logging, data
 
 - **Thermo iAPI (proprietary, in `dependencies/`)** — `API-2.0.dll`, `Fusion.API-1.0.dll`,
