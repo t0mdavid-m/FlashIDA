@@ -1058,10 +1058,10 @@ namespace Flash.Tests
         ///   (a) the set of distinct stage-0 CE values has size &gt; 1 — the per-fragment CE optimization did
         ///       NOT collapse to a single value (a regression deleting the ScanCommandQueue per-fragment
         ///       stage-0 CE override, or feeding one MS2 spectrum for all CE variants, fails here); AND
-        ///   (b) energy-resolved trend: the LARGEST-mass MS3 fragment's stage-0 CE &lt;= the SMALLEST-mass
-        ///       fragment's, with at least one STRICT difference across the fragments — large fragments are
-        ///       strongest at low CE, small fragments at high CE. Tolerant/directional (robust to ties), not
-        ///       over-precise.
+        ///   (b) energy-resolved trend: over the distinct (fragment mass, stage-0 CE) pairs, the heavier half's
+        ///       mean stage-0 CE &lt;= the lighter half's, with at least one STRICT difference across the
+        ///       fragments — large fragments are strongest at low CE, small fragments at high CE.
+        ///       Tolerant/directional (robust to ties), not over-precise.
         /// Reads scan_commands.tsv (not scan_results.tsv): the per-stage CE/mono_mass tokens for the COMMANDED
         /// MS3 are written there (IdaLogger::writeScanCommandRow), and that column is compared verbatim by the
         /// golden comparer (neither masked nor relabeled), so the raw cell value is the engine's decision value.
@@ -1108,14 +1108,23 @@ namespace Flash.Tests
                 "optimization is not being exercised (a regression collapsing the per-fragment stage-0 CE " +
                 "override, or feeding one MS2 spectrum for all CE variants, would do this).");
 
-            // (b) Energy-resolved trend: largest-mass fragment's stage-0 CE <= smallest-mass fragment's, with
-            //     >= 1 strict difference. Tolerant/directional (robust to ties), not over-precise.
-            var largest = fragments.OrderByDescending(f => f.fragMass).First();
-            var smallest = fragments.OrderBy(f => f.fragMass).First();
-            Assert.That(largest.stage0Ce, Is.LessThanOrEqualTo(smallest.stage0Ce),
-                $"exploration_ms3 energy-resolved trend: largest MS3 fragment (mass {largest.fragMass}, " +
-                $"stage-0 CE {largest.stage0Ce}) must have stage-0 CE <= smallest fragment (mass " +
-                $"{smallest.fragMass}, stage-0 CE {smallest.stage0Ce}).");
+            // (b) Energy-resolved trend over the DISTINCT (fragment mass, stage-0 CE) pairs: the mean CE of the
+            //     heavier half <= the mean CE of the lighter half, with >= 1 strict difference. Directional, not
+            //     over-precise. It compared the single largest fragment with the single smallest until FDmerge's
+            //     FLASHTnT moved the targets: the smallest is now b10 (996.56), whose best MS2 is the grid floor
+            //     CE 20, so one fragment decided the whole trend. Halves: golden 23.3 <= 33.3, FDmerge 27.5 <= 31.7.
+            var distinct = fragments.Select(f => (fragMass: Math.Round(f.fragMass, 1), f.stage0Ce))
+                                    .Distinct().OrderBy(f => f.fragMass).ToList();
+            int half = distinct.Count / 2;
+            var lighter = distinct.Take(half).ToList();
+            var heavier = distinct.Skip(distinct.Count - half).ToList();
+            double lighterCe = lighter.Average(f => f.stage0Ce);
+            double heavierCe = heavier.Average(f => f.stage0Ce);
+            Assert.That(heavierCe, Is.LessThanOrEqualTo(lighterCe),
+                $"exploration_ms3 energy-resolved trend: the heavier half of the MS3 fragments " +
+                $"[{string.Join(", ", heavier.Select(f => $"{f.fragMass}@{f.stage0Ce}"))}] must peak at a mean " +
+                $"stage-0 CE ({heavierCe:F1}) <= the lighter half's " +
+                $"[{string.Join(", ", lighter.Select(f => $"{f.fragMass}@{f.stage0Ce}"))}] ({lighterCe:F1}).");
             Assert.That(distinctCe.Count, Is.GreaterThan(1),
                 "exploration_ms3 energy-resolved trend: expected at least one strict stage-0 CE difference " +
                 "between fragments (already guaranteed by (a), restated for the trend contract).");
@@ -1129,10 +1138,11 @@ namespace Flash.Tests
         /// the authoritative pooled_identification model for the same precursor. Pre-fix, an MS2 CE sweep whose
         /// mass_count winner decomposed a FUSED single blind mod (e.g. -89.0302 + 615.2512 = +526.2213, Met1
         /// unmodified) leaked into the MS3 render seed, so the leaf reported ONE +526.2213 mod while pooled kept
-        /// the two split mods -- the streams disagreed. This asserts, for precursor 1, that every MS3 leaf row's
-        /// PTM-mass set equals the pooled model's PTM-mass set (count AND values within 0.05 Da). Both streams are
-        /// byte-compared by the golden comparer, so the check cannot pass vacuously; it FAILS the moment a fused
-        /// metric-winner mod reappears in the leaf (count mismatch) or any leaf mass drifts off the pooled set.
+        /// the two split mods -- the streams disagreed. This asserts, for the 12321.28 precursor's b49 leaves (the
+        /// anchor comment below says why one fragment), that every MS3 leaf row's PTM-mass set equals the pooled
+        /// model's PTM-mass set (count AND values within 0.05 Da). Both streams are byte-compared by the golden
+        /// comparer, so the check cannot pass vacuously; it FAILS the moment a fused metric-winner mod reappears
+        /// in the leaf (count mismatch) or any leaf mass drifts off the pooled set.
         /// </summary>
         private static void AssertExplorationMs3LeafMatchesPooled(string commandsPath)
         {
@@ -1145,7 +1155,43 @@ namespace Flash.Tests
             Assert.That(File.Exists(pooledPath), Is.True,
                 $"{mode}: engine must have written pooled_identification.tsv for the leaf==pooled check");
 
-            // --- pooled model PTM-mass set for precursor 1 (from the FINAL update row) ---
+            // --- the anchor: (precursor 12321.28, fragment b49) -- the (mass, ion) key of the ms3_cytc oracle ---
+            // It was precursor 1 (12351.39) until FDmerge's FLASHTnT: that precursor is now characterized on
+            // b10/b12/b14, which have no MS3 fixture, so it has no leaf.
+            //
+            // Why a FRAGMENT and not every leaf of the precursor: the leaf is rendered by
+            // FragmentAnalysis::narrowFragmentPTMSites, which MERGES mods that no ion of THAT MS3 scan separates
+            // into one summed shift (Change L, by design). 12321.28's b65 leaves therefore read one +497.12
+            // (= -89.0302 + 586.15) while pooled keeps both -- correct, and a full-set equality would fail on it.
+            // b49's ions separate (1-8) and (15-26), so no merge is legitimate there, and a fused mod on a b49 leaf
+            // can only be the render-seed leak this check exists for.
+            // 0.5 Da: the neighbouring isotopologue is ~1.0 Da away (same rule as the ms3_cytc oracle).
+            const double anchorMass = 12321.2828;
+            const string anchorIon = "b49";
+            var idRows = ParseTsv(idPath, out var idHeader);
+            int iLvlCol = Array.IndexOf(idHeader, "ms_level");
+            int iPfCol = Array.IndexOf(idHeader, "proteoform");
+            int iPidCol = Array.IndexOf(idHeader, "precursor_id");
+            int iMassCol = Array.IndexOf(idHeader, "ms1_precursor_mass");
+            int iIonCol = Array.IndexOf(idHeader, "ms2_precursor_ion");
+            Assert.That(iLvlCol, Is.GreaterThanOrEqualTo(0), "identification: ms_level column present");
+            Assert.That(iPfCol, Is.GreaterThanOrEqualTo(0), "identification: proteoform column present");
+            Assert.That(iPidCol, Is.GreaterThanOrEqualTo(0), "identification: precursor_id column present");
+            Assert.That(iMassCol, Is.GreaterThanOrEqualTo(0), "identification: ms1_precursor_mass column present");
+            Assert.That(iIonCol, Is.GreaterThanOrEqualTo(0), "identification: ms2_precursor_ion column present");
+
+            var anchorPids = idRows.Where(r =>
+                    iLvlCol < r.Length && ParseIntSafe(r[iLvlCol]) == 2 &&
+                    iMassCol < r.Length && iPidCol < r.Length &&
+                    double.TryParse(r[iMassCol], NumberStyles.Float, CultureInfo.InvariantCulture, out double m) &&
+                    Math.Abs(m - anchorMass) < 0.5)
+                .Select(r => ParseIntSafe(r[iPidCol])).Distinct().ToList();
+            Assert.That(anchorPids.Count, Is.EqualTo(1),
+                $"{mode}: expected exactly one precursor with an MS2 identification at {anchorMass:F4} Da, found " +
+                $"{anchorPids.Count} — the leaf==pooled anchor must be unambiguous.");
+            int anchorPid = anchorPids[0];
+
+            // --- pooled model PTM-mass set for the anchor precursor (from the FINAL update row) ---
             var pooledRows = ParseTsv(pooledPath, out var pooledHeader);
             int pPidCol = Array.IndexOf(pooledHeader, "precursor_id");
             int pLocCol = Array.IndexOf(pooledHeader, "localized_mods");
@@ -1160,40 +1206,34 @@ namespace Flash.Tests
             int bestUpd = int.MinValue;
             foreach (var r in pooledRows)
             {
-                if (pPidCol >= r.Length || ParseIntSafe(r[pPidCol]) != 1) continue;
+                if (pPidCol >= r.Length || ParseIntSafe(r[pPidCol]) != anchorPid) continue;
                 int upd = pUpdCol < r.Length ? ParseIntSafe(r[pUpdCol]) : 0;
                 if (upd >= bestUpd) { bestUpd = upd; finalPooled = r; }
             }
             Assert.That(finalPooled, Is.Not.Null,
-                $"{mode}: no pooled_identification row for precursor 1 — the leaf==pooled invariant cannot be checked.");
+                $"{mode}: no pooled_identification row for precursor {anchorPid} ({anchorMass:F4} Da) — the leaf==pooled invariant cannot be checked.");
 
             var pooledMasses = ExtractModMasses(
                 (pLocCol < finalPooled.Length ? finalPooled[pLocCol] : "") + ";" +
                 (pAmbCol < finalPooled.Length ? finalPooled[pAmbCol] : ""));
             Assert.That(pooledMasses.Count, Is.GreaterThan(0),
-                $"{mode}: pooled model for precursor 1 carries no PTM masses — unexpected for the cytC recipe " +
+                $"{mode}: pooled model for precursor {anchorPid} carries no PTM masses — unexpected for the cytC recipe " +
                 "(fixture drift or a broken pooled writer).");
 
-            // --- every MS3 leaf row for precursor 1 must carry the SAME PTM-mass set ---
-            var idRows = ParseTsv(idPath, out var idHeader);
-            int iLvlCol = Array.IndexOf(idHeader, "ms_level");
-            int iPfCol = Array.IndexOf(idHeader, "proteoform");
-            int iPidCol = Array.IndexOf(idHeader, "precursor_id");
-            Assert.That(iLvlCol, Is.GreaterThanOrEqualTo(0), "identification: ms_level column present");
-            Assert.That(iPfCol, Is.GreaterThanOrEqualTo(0), "identification: proteoform column present");
-            Assert.That(iPidCol, Is.GreaterThanOrEqualTo(0), "identification: precursor_id column present");
+            // --- every anchor (precursor, b49) MS3 leaf row must carry the SAME PTM-mass set ---
 
             int leafRows = 0;
             foreach (var r in idRows)
             {
                 if (iLvlCol >= r.Length || ParseIntSafe(r[iLvlCol]) != 3) continue;
-                if (iPidCol >= r.Length || ParseIntSafe(r[iPidCol]) != 1) continue;
+                if (iPidCol >= r.Length || ParseIntSafe(r[iPidCol]) != anchorPid) continue;
+                if (iIonCol >= r.Length || r[iIonCol] != anchorIon) continue;
                 if (iPfCol >= r.Length) continue;
                 leafRows++;
                 var leafMasses = ExtractModMasses(r[iPfCol]);
                 Assert.That(leafMasses.Count, Is.EqualTo(pooledMasses.Count),
                     $"{mode}: MS3 leaf proteoform '{r[iPfCol]}' has {leafMasses.Count} PTM mass(es) but the " +
-                    $"pooled model for precursor 1 has {pooledMasses.Count} — the two-winner render-seed split is back " +
+                    $"pooled model for precursor {anchorPid} has {pooledMasses.Count} — the two-winner render-seed split is back " +
                     "(a fused exploration-metric-winner mod leaked into the MS3 leaf/command).");
                 foreach (double lm in leafMasses)
                     Assert.That(pooledMasses.Any(pm => Math.Abs(pm - lm) < 0.05), Is.True,
@@ -1201,7 +1241,7 @@ namespace Flash.Tests
                         $"model's mass set [{string.Join(", ", pooledMasses.Select(m => m.ToString("F4")))}] — leaf != pooled.");
             }
             Assert.That(leafRows, Is.GreaterThanOrEqualTo(1),
-                $"{mode}: no MS3 (ms_level==3) leaf row for precursor 1 — the leaf==pooled invariant is " +
+                $"{mode}: no MS3 (ms_level==3) leaf row for precursor {anchorPid} ({anchorMass:F4} Da) ion {anchorIon} — the leaf==pooled invariant is " +
                 "vacuous (fixture/engine drift removed the MS3 leaves).");
         }
 
@@ -1411,10 +1451,10 @@ namespace Flash.Tests
 
         /// <summary>
         /// End-to-end anchor for the MS3 leaf flip/mislocalization regression (Change L). Reads the RAW
-        /// identification.tsv the ms3_cytc drive produced and asserts precursor-1's per-event leaf `proteoform`
+        /// identification.tsv the ms3_cytc drive produced and asserts the anchored per-event leaf `proteoform`
         /// EQUALS the externally-grounded ground truth in test-data/reference/ms3_leaf_expected.tsv (the
-        /// owner-validated proformas for tracking ids !!& / !!'). This is deliberately NOT a byte-golden
-        /// re-capture: a golden compares the engine to its own last output (self-referential) and a future
+        /// owner-validated proforma for (12321.2828, b49); 12351.3933's b80/b70 before FDmerge). This is
+        /// deliberately NOT a byte-golden re-capture: a golden compares the engine to its own last output (self-referential) and a future
         /// blanket recapture could silently re-bless a regression; this compares the real pipeline to a fixed
         /// external oracle, so the flip bug (-89 dragged off M1, ambiguity mislocalized) cannot come back
         /// unnoticed. Only the deterministic localization is checked (not the jittering score columns).
@@ -1441,6 +1481,12 @@ namespace Flash.Tests
             // yields its own b80/b70 leaves whose ProForma differs only in the mod mass
             // ([+615.2512] vs [+615.2498]). So the anchor is (precursor mass, fragment ion) — both
             // physical, both ground truth, neither a sequence number.
+            //
+            // Since FDmerge's FLASHTnT the anchor is (12321.2828, b49), not 12351.3933's b80/b70: it
+            // estimates 12351's N-terminal shifts 0.049 Da heavier, which puts the deconvolved b70/b80
+            // (8315.06 / 9441.71, both already -8..-10 ppm against a +-2 ppm calibration) outside the
+            // 10 ppm match. 12351 is then characterized on b10/b12/b14, for which no MS3 fixture exists.
+            // The b49 leaf keeps the -89.0302 on (MGDVEKGK), so it guards the same flip as before.
             int ionCol = Array.IndexOf(idHeader, "ms2_precursor_ion");
             int massCol = Array.IndexOf(idHeader, "ms1_precursor_mass");
             Assert.That(ionCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms2_precursor_ion column present in identification.tsv");
