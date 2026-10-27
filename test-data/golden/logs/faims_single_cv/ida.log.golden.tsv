@@ -15,7 +15,7 @@ AllMass=
 MS1 Scan# <SCAN> RT 0.0555 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.0633 (Access ID <ID>) - 0 targets
-AllMass=
+AllMass=4173.1246
 MS1 Scan# <SCAN> RT 0.0711 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.0789 (Access ID <ID>) - 1 targets
@@ -26,8 +26,8 @@ AllMass=
 MS1 Scan# <SCAN> RT 0.0944 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.1022 (Access ID <ID>) - 1 targets
-Mass=2277.2541	Z=4	Score=0.77151	Window=[569.9235-571.2209]	PrecursorIntensity=5213.45020	PrecursorMassIntensity=5213.45020	Features=[0.937610,4.966719,0.937610,4.966719,1.000000,2.995525]	ChargeRange=[4-4]	HCD=0	ID=<ID>
-AllMass=2277.2541
+Mass=2277.2541	Z=4	Score=0.73846	Window=[569.9235-571.2209]	PrecursorIntensity=5213.45020	PrecursorMassIntensity=5213.45020	Features=[0.937610,1.304348,0.937610,1.304348,1.000000,2.995525]	ChargeRange=[4-4]	HCD=0	ID=<ID>
+AllMass=2277.2541 4853.3936
 MS1 Scan# <SCAN> RT 0.1100 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.1177 (Access ID <ID>) - 0 targets
@@ -69,13 +69,13 @@ AllMass=
 MS1 Scan# <SCAN> RT 0.2577 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.2655 (Access ID <ID>) - 0 targets
-AllMass=2087.4192
+AllMass=2087.4192 2529.2286
 MS1 Scan# <SCAN> RT 0.2733 (Access ID <ID>) - 0 targets
 AllMass=2246.4683
 MS1 Scan# <SCAN> RT 0.2810 (Access ID <ID>) - 0 targets
 AllMass=2247.2658
 MS1 Scan# <SCAN> RT 0.2888 (Access ID <ID>) - 1 targets
-Mass=5315.1289	Z=9	Score=0.35016	Window=[591.3966-592.4250]	PrecursorIntensity=5876.70020	PrecursorMassIntensity=5876.70020	Features=[0.858807,3.537155,0.858807,3.537156,1.000000,3.677340]	ChargeRange=[9-9]	HCD=0	ID=<ID>
+Mass=5315.1289	Z=9	Score=0.33862	Window=[591.3966-592.4250]	PrecursorIntensity=5876.70020	PrecursorMassIntensity=5876.70020	Features=[0.858807,2.456968,0.858807,2.456968,1.000000,3.677340]	ChargeRange=[9-9]	HCD=0	ID=<ID>
 AllMass=5315.1289
 MS1 Scan# <SCAN> RT 0.2966 (Access ID <ID>) - 0 targets
 AllMass=
@@ -83,8 +83,7 @@ MS1 Scan# <SCAN> RT 0.3044 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.3121 (Access ID <ID>) - 0 targets
 AllMass=
-MS1 Scan# <SCAN> RT 0.3199 (Access ID <ID>) - 1 targets
-Mass=2256.1789	Z=4	Score=0.41977	Window=[564.6519-565.7027]	PrecursorIntensity=3336.41016	PrecursorMassIntensity=3336.41016	Features=[0.853377,1.307487,0.853377,0.528162,1.000000,0.161604]	ChargeRange=[4-4]	HCD=0	ID=<ID>
+MS1 Scan# <SCAN> RT 0.3199 (Access ID <ID>) - 0 targets
 AllMass=2256.1789 2019.3825
 MS1 Scan# <SCAN> RT 0.3277 (Access ID <ID>) - 0 targets
 AllMass=
@@ -93,7 +92,7 @@ AllMass=
 MS1 Scan# <SCAN> RT 0.3433 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.3510 (Access ID <ID>) - 0 targets
-AllMass=
+AllMass=3763.6611
 MS1 Scan# <SCAN> RT 0.3588 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.3666 (Access ID <ID>) - 1 targets
@@ -102,5 +101,5 @@ AllMass=4297.1774
 MS1 Scan# <SCAN> RT 0.3743 (Access ID <ID>) - 0 targets
 AllMass=
 MS1 Scan# <SCAN> RT 0.3821 (Access ID <ID>) - 1 targets
-Mass=2135.7138	Z=4	Score=0.36120	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.352326,1.000000,2.794748]	ChargeRange=[4-4]	HCD=0	ID=<ID>
+Mass=2135.7138	Z=4	Score=0.35651	Window=[534.5341-535.5877]	PrecursorIntensity=3519.71997	PrecursorMassIntensity=3519.71997	Features=[0.872528,12.504505,0.872528,0.251804,1.000000,2.794748]	ChargeRange=[4-4]	HCD=0	ID=<ID>
 AllMass=2135.7138
