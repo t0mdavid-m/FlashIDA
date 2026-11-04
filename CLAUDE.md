@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 **Scope: the C# side only.** This is a git submodule of the `flashida-development` workspace.
-The parent `../CLAUDE.md` owns the bridge/ABI contract, CI, the local container system, build
+The parent `../CLAUDE.md` owns the bridge/ABI contract, CI and the self-hosted runners, landing, build
 commands, goldens and config flow, and wins on any conflict; `../OpenMS/CLAUDE.md` owns the C++
 engine. Don't restate them here.
 
@@ -21,7 +21,7 @@ Two classes define a `Main`, and `src/Flash/Flash.csproj:38` picks between them:
 
 | `Main` | Contains | Built by the checked-in csproj? |
 |---|---|---|
-| `Flash.IDA.FLASHIdaWrapper.Main` (`IDA/FLASHIdaWrapper.cs:438`) | Offline deconvolution over a text spectrum file | **Yes — this is what CI and the Windows container build and test** |
+| `Flash.IDA.FLASHIdaWrapper.Main` (`IDA/FLASHIdaWrapper.cs:438`) | Offline deconvolution over a text spectrum file | **Yes — this is what CI builds and tests** |
 | `Flash.Flash.Main` (`Flash.cs:154`) | Thermo instrument connection, method load + run-folder composition + log4net wiring, the whole Mono.Options CLI (`-t/--test`, `-m`, `-o`, `-r`, …) | No — but **this is what ships** |
 
 **Do not read the second row as "dead code".** Owner-confirmed: the instrument path is what runs on
@@ -42,10 +42,9 @@ Consequences that are easy to get backwards:
 - **log4net *is* configured in production** — `XmlConfigurator.Configure` has exactly one call site
   and it is inside the instrument `Main`. "log4net is never configured" is false for real runs.
 - **`Flash.Flash` has zero automated coverage.** It needs a live Thermo
-  `IFusionInstrumentAccess`/`IFusionScans`, so **neither a CI job nor a container** can execute it
-  — the Windows container reproduces CI's suite, not the instrument — and defects there are found
-  by inspection only.
-- **"Just flip it back" is not a fix.** `regression-runner.ps1` and the CI *and container*
+  `IFusionInstrumentAccess`/`IFusionScans`, so **no CI job** can execute it, and defects there are
+  found by inspection only.
+- **"Just flip it back" is not a fix.** `regression-runner.ps1` and CI's
   golden-capture steps all drive `Flash.exe` through the offline positional interface; flipping the
   StartupObject breaks every one of them.
 
@@ -206,8 +205,8 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
     windows, at m/z 1000 and m/z 5. `ScanFactoryCultureTests` *imposes* `de-DE` via `[SetCulture]`
     to catch it, and asserts that its own `[SetCulture]` took effect
     (`ScanFactoryCultureTests.cs:55-57`) — so it is **not** a canary for the host's own locale.
-  - **The test host must be `en-US`, and the Windows container must pin it and ASSERT the pin.** CI
-    runners are `en-US`; this workspace is `de-DE`. `Mocks/MockMsScan.cs` parses every spectrum
+  - **The test host must be `en-US`.** The self-hosted runners log on as the owner's account,
+    whose format culture was set to `en-US` for this reason (ADR-0050); the system locale is `de-DE`. `Mocks/MockMsScan.cs` parses every spectrum
     fixture value with a bare, culture-sensitive `double.Parse` (`:265`, `:274`, `:275`, `:338`,
     `:354`, `:355`), and `FromTsv` / `FromTsvAsMS2` / `FromTsvAsMSn` are what the whole golden and
     continuity suite feeds through — under `de-DE`, `double.Parse("674.6919")` returns **6746919**.
@@ -479,11 +478,8 @@ Continuity goldens serialize via `ToJsonObject`, which deliberately omits `React
 > Never conclude "tests pass" from a capture run.
 
 Golden comparison tolerates float drift (ints/strings/structure stay exact) because a fresh
-`OpenMS.dll` is linked on every CI run and is not bit-reproducible. **A ccache-warm container can
-relink an identical DLL, so zero local jitter is not evidence the tolerance is unnecessary** — and a
-container DLL gone stale against the OpenMS SHA reintroduces exactly the bridge/ABI drift the
-fresh-DLL swap exists to detect. The container's DLL is also configured `WITH_GUI=OFF` where CI's is
-`ON`. **A golden captured locally must still survive a CI run before it is trusted.** Golden
+`OpenMS.dll` is linked on every CI run and is not bit-reproducible. **A golden is promoted on the feature branch and must go green there before `feature done` lands
+it.** Golden
 locations and recapture paths: see `../CLAUDE.md`.
 
 **The log comparer sees ADR-0060's decision survey but not its two `ida.log` ids.** In `LogGoldenComparer`,
@@ -528,14 +524,11 @@ compares the single largest fragment with the single smallest.
   `dependencies\*.dll` explicitly after msbuild. **Do not "fix" the asymmetry** — it encodes
   "the app must not ship this DLL; the test host may have a local copy."
 - **OpenMS runtime (in `dll/`)** — the 5 DLLs are `<None Include>` items with `<Link>` +
-  `CopyToOutputDirectory=PreserveNewest`, so they land flat in `bin/`. CI **and the Windows
-  container** overwrite 4 of the 5 with a freshly built engine before the C# build; `zlib.dll` stays
-  committed. **The container must reproduce that swap, not skip it** — it is the bridge/ABI drift
-  detector, and CI gets it for free from a fresh checkout while a container does not. Two local-only
-  hazards CI cannot hit: `dll/` is a **tracked** directory, so the swap leaves 4 modified tracked
-  files that a `finally` must restore (there is no opt-out flag); and `Copy-Item -Force` preserves
-  the **source** mtime, so a freshly built DLL can be *older* than a stale `bin/` copy and
-  `PreserveNewest` then silently skips it — delete `bin/` before every build.
+  `CopyToOutputDirectory=PreserveNewest`, so they land flat in `bin/`. CI overwrites 4 of the 5
+  with a freshly built engine before the C# build; `zlib.dll` stays committed. That swap is the
+  bridge/ABI drift detector, and every run's fresh checkout gives it for free. If you ever swap
+  them by hand: `dll/` is tracked (restore it), and `Copy-Item -Force` keeps the source mtime, so
+  `PreserveNewest` can skip a fresh DLL — delete `bin/` first.
 - **`share/OpenMS` exists twice and has drifted** — `FlashIDA/share/OpenMS` (148 files, pruned) is
   copied to `bin/share/OpenMS` and is what every C# process actually reads;
   `OpenMS/share/OpenMS` (254 files) is what `OPENMS_DATA_PATH` points at for ctest.
