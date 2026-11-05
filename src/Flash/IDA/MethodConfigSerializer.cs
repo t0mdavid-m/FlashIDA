@@ -77,12 +77,6 @@ namespace Flash
                 rootProp.SetValue(config, sectionObj);
             }
 
-            // conditional_ms2 lives at the TOP level of the bridge schema (not under a section);
-            // map it onto Tagging.ConditionalMS2 (fall back to a nested tagging.conditional_ms2).
-            object condObj;
-            if (raw.TryGetValue("conditional_ms2", out condObj) && condObj != null)
-                config.Tagging.ConditionalMS2 = Convert.ToBoolean(condObj);
-
             return config;
         }
 
@@ -157,9 +151,6 @@ namespace Flash
 
             foreach (var kv in raw)
             {
-                if (kv.Key == "conditional_ms2")   // top-level bool handled specially by Deserialize
-                    continue;
-
                 Type memberType;
                 if (!topAllowed.TryGetValue(kv.Key, out memberType))
                 {
@@ -238,7 +229,18 @@ namespace Flash
                     "precursor_selection.reselect_charges is retired: every survey now re-plans the "
                     + "waiting work of its CV (ADR-0060). Delete the key."
                 },
+                // ADR-0061. Refused even at their empty defaults ("", false, {}): every method the
+                // serializer ever wrote carries them, and accepting a default while refusing a real
+                // value would leave a class of keys that load and do nothing.
+                { "conditional_ms2", "conditional_ms2 was removed with the conditional ('C') follow-up MS2. " + RetiredTagTargeting },
+                { "tagging", "tagging (follow_up_scan, active, conditional_ms2) was removed with the conditional ('C') follow-up MS2. " + RetiredTagTargeting },
+                { "files.fasta", "files.fasta was the tag-targeting database. " + RetiredTagTargeting },
+                { "files.ptm_list", "files.ptm_list expanded tag-targeting hits into inclusion masses. " + RetiredTagTargeting },
+                { "precursor_selection.tag_expansion", "precursor_selection.tag_expansion bounded the tag-targeting PTM expansion. " + RetiredTagTargeting },
             };
+
+        private const string RetiredTagTargeting =
+            "Tag-based targeting was retired (ADR-0061): it existed only because nothing could search a proteome in real time, and real-time identification replaces it. Delete the key; FlashIDA/test-scripts/retire_tag_targeting.py strips all five retired keys from a method file or folder.";
 
         /// <summary>Recurse a raw JSON node against its model type, collecting unknown keys.</summary>
         private static void CollectUnknownKeys(object rawNode, Type modelType, string path, List<string> problems)

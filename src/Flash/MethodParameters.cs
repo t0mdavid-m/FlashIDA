@@ -155,14 +155,7 @@ namespace Flash
                     max_precursors = c.PrecursorSelection.MaxPrecursors,
                     min_precursor_charge = c.PrecursorSelection.MinPrecursorCharge,
                     additional_scans = (c.PrecursorSelection.AdditionalScans ?? new List<string>()).ToArray(),
-                    exploration = ToJsonExploration(c.PrecursorSelection.Exploration),
-                    // Always emitted: TagExpansion is initialised on the model, so a config that omits
-                    // the block still crosses the bridge carrying the defaults (3 / 50000).
-                    tag_expansion = new JsonTagExpansionConfig
-                    {
-                        max_ptm_count = c.PrecursorSelection.TagExpansion.MaxPtmCount,
-                        max_flanking_mass_diff = c.PrecursorSelection.TagExpansion.MaxFlankingMassDiff
-                    }
+                    exploration = ToJsonExploration(c.PrecursorSelection.Exploration)
                 },
                 flashtnt = new JsonFlashTnTConfig
                 {
@@ -173,13 +166,6 @@ namespace Flash
                     fixed_mod = (c.FlashTnT.FixedMod ?? new List<string>()).ToArray(),
                     max_blind_mod_count = c.FlashTnT.MaxBlindModCount,
                     max_mod_mass = c.FlashTnT.MaxModMass
-                },
-                tagging = new JsonTaggingConfig
-                {
-                    // A name, not a block. Empty means "no conditional follow-up configured", which
-                    // is what Config::validate() now checks conditional_ms2 against.
-                    follow_up_scan = string.IsNullOrEmpty(c.Tagging.FollowUpScan)
-                        ? null : c.Tagging.FollowUpScan
                 },
                 quantification = new JsonQuantificationConfig
                 {
@@ -286,13 +272,10 @@ namespace Flash
                     // instead of being dropped here unread.
                     refine = ToJsonRefine(c.Characterization.Refine)
                 },
-                conditional_ms2 = c.Tagging.ConditionalMS2,
                 files = new JsonFilesConfig
                 {
                     target_logs = (c.Files.TargetLogs ?? new List<string>()).ToArray(),
-                    fasta = c.Files.FastaFile ?? "",
-                    inclusion_list = c.Files.InclusionList ?? "",
-                    ptm_list = c.Files.PtmList ?? ""
+                    inclusion_list = c.Files.InclusionList ?? ""
                 },
                 // PURE PASSTHROUGH -- do not resolve here. No Path.GetFullPath, no "" -> ".", no
                 // timestamp. This method is the body of GenerateReferenceConfigJson (see below), so
@@ -418,12 +401,6 @@ namespace Flash
                 c.PrecursorSelection.MaxPrecursors, c.PrecursorSelection.RankBy);
             sb.AppendFormat("Inclusion: Strict={0}, TieThreshold={1}\n",
                 c.PrecursorSelection.StrictInclusion, c.PrecursorSelection.TieThreshold);
-            if (c.Tagging.Active)
-                sb.AppendFormat("Tagging: ConditionalMS2={0}, Tags=[{1},{2}], MaxPtm={3}\n",
-                    c.Tagging.ConditionalMS2, c.FlashTnT.MinLength, c.FlashTnT.MaxLength,
-                    c.PrecursorSelection.TagExpansion.MaxPtmCount);
-            else
-                sb.AppendLine("Tagging: Off");
             if (c.Quantification.Active)
                 sb.AppendFormat("Quant: MZTol={0}, Test={1}, FoldChange={2}, P={3}, EmptyCondition={4}\n",
                     c.Quantification.ReporterMZTol, c.Quantification.Test,
@@ -473,8 +450,8 @@ namespace Flash
         // ----------------------------------------------------------------
         /// <summary>
         /// Map one scan config to its bridge-JSON form. A scan config means the same thing at every
-        /// site it appears (ms_settings.ms2/ms3, tagging.follow_up_scan, quantification.follow_up_scan)
-        /// and must therefore be emitted identically at all of them — ADR-0009.
+        /// site it appears (ms_settings.ms2/ms2_quant/ms3 and every additional_ms2 entry) and must
+        /// therefore be emitted identically at all of them — ADR-0009.
         /// </summary>
         /// <remarks>
         /// Two overloads because MS2Parameters and MS3Parameters are distinct structs with identical
@@ -562,7 +539,7 @@ namespace Flash
         /// <summary>
         /// A fully-populated config whose emitted JSON exercises every key and passes C++ validate():
         /// tol covers MS3; MSn>=2 selection has a protein sequence; MS2 exploration has one scan and a
-        /// valid CE sweep; conditional_ms2 is off.
+        /// valid CE sweep.
         /// </summary>
         private static MethodConfig BuildFullReferenceConfig()
         {
@@ -610,14 +587,6 @@ namespace Flash
             c.FlashTnT.FixedMod = new List<string> { "Carbamidomethyl (C)" };
             c.FlashTnT.MaxBlindModCount = 1;
             c.FlashTnT.MaxModMass = 733;
-
-            // The two follow-up scan BLOCKS now live in ms_settings.additional_ms2 (assigned below);
-            // these sections carry only the NAME that references them.
-            // ETD requires its activation-coupled reaction parameters or Config::validate() rejects
-            // this reference (ADR-0009). Every key must also carry a distinct, non-default value so
-            // the parity tests can tell a correctly-bound key from a coincidentally-equal default.
-            c.Tagging.ConditionalMS2 = false;
-            c.Tagging.FollowUpScan = "tagging_reference";
 
             // Active stays FALSE deliberately, and it is the one key in this section whose binding
             // the parity tests cannot verify (a binding hardwired to false would pass). Enabling it
@@ -702,9 +671,14 @@ namespace Flash
                 DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
                 ScanRate = "Enhanced", RFLens = 35, SourceCID = 20, SourceCIDScaling = 0.15
             };
-            // Two named entries, one backing each follow-up reference, and BOTH referenced.
+            // ONE named entry, referenced by nothing. It used to back the tagging follow-up, retired with
+            // tag targeting (ADR-0061), and it stays because it is the only scan in the reference that
+            // is ETD with non-zero reaction_time / reagent_max_it / reagent_agc_target: without it no
+            // parity test would prove those three keys survive a reload. The engine only warns about an
+            // unreferenced definition. Every key carries a distinct, non-default value so the parity
+            // tests can tell a correctly-bound key from a coincidentally-equal default.
             //
-            // There is deliberately no third "dispatched extra" here. It would have to be listed in
+            // There is deliberately no "dispatched extra" here. It would have to be listed in
             // precursor_selection.additional_scans, and that is mutually exclusive with the live
             // precursor_selection.exploration below: a CE/RT sweep varies ONE base scan config, so
             // Config::validate() throws when an exploring level dispatches more than one. The
@@ -719,7 +693,7 @@ namespace Flash
             // Config_SchemaProjection_test::scan_name_resolution.
             c.MsSettings.AdditionalMS2 = new Dictionary<string, MS2Parameters>
             {
-                { "tagging_reference", new MS2Parameters
+                { "etd_reference", new MS2Parameters
                     {
                         Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 24, OrbitrapResolution = 15002,
                         AGCTarget = 400002, MaxIT = 102, FirstMass = 152, LastMass = 2002, Microscans = 2,
@@ -728,8 +702,7 @@ namespace Flash
                     } }
                 // "quant_reference" is gone (ADR-0038). Quantification no longer references
                 // additional_ms2 at all -- its two scans are the bare ms_settings.ms2_quant and
-                // ms_settings.ms2 slots -- and leaving the entry here would make it an unreferenced
-                // definition, which the engine warns about precisely because it never fires.
+                // ms_settings.ms2 slots.
             };
 
             c.Scheduling.CycleTime.Enabled = true;
@@ -761,12 +734,6 @@ namespace Flash
                 // writes both fields or neither.
                 MonitorMs1 = new MonitorMs1Config { Enabled = false, IntervalMs = 12345 }
             };
-            // Distinctive, deliberately non-default (defaults are 3 / 50000): the reference exists so
-            // that a DROPPED key is detectable, which a defaulted value would hide. These are the same
-            // two values that used to be asserted on c.FlashTnT.
-            c.PrecursorSelection.TagExpansion.MaxPtmCount = 5;
-            c.PrecursorSelection.TagExpansion.MaxFlankingMassDiff = 41001;
-
             // Mode stays "coverage", NOT "discriminating": this reference also authors
             // characterization.exploration (kinetic_model, below), and Config::validate refuses
             // discriminating together with an MS3 exploration block (ADR-0049). The reference must

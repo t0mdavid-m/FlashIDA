@@ -562,7 +562,7 @@ namespace Flash.IDA
                 Console.WriteLine("Could not copy the method file into the run folder: {0}", copyError);
             }
 
-            // Optional MS2 spectrum file for tag-based targeting
+            // Optional MS2 spectrum file: answers the MS2 commands of the offline run
             double[] ms2Mzs = null;
             double[] ms2Ints = null;
             if (args.Length > 3 && !String.IsNullOrEmpty(args[3]))
