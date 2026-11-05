@@ -304,12 +304,15 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
 
 ## Config (C# side)
 
-The 12 top-level sections are the `[JsonKey]`-annotated **properties of the `MethodConfig` class**,
-plus the special-cased root bool `conditional_ms2`:
-`global`, `deconvolution`, `precursor_selection`, `tagging`, `flashtnt`, `quantification`,
+The 11 top-level sections are the `[JsonKey]`-annotated **properties of the `MethodConfig` class**:
+`global`, `deconvolution`, `precursor_selection`, `flashtnt`, `quantification`,
 `faims`, `ms_settings`, `scheduling`, `characterization`, `files`, `runtime`.
-`selection_strategy` was the thirteenth and is **deleted** (ADR-0014); both loaders throw a
-migration message on it.
+`selection_strategy` was a thirteenth and is **deleted** (ADR-0014); both loaders throw a
+migration message on it. `tagging` and the root bool `conditional_ms2` went with tag-based
+targeting (ADR-0061), together with `files.fasta`, `files.ptm_list` and
+`precursor_selection.tag_expansion`: `MethodConfigSerializer.RetiredKeyHints` refuses all five
+with a migration hint even at their empty defaults, and `test-scripts/retire_tag_targeting.py`
+strips them from a method file or folder.
 
 > **Do not enumerate sections by grepping for class-level `[JsonKey]`.** Nested classes carry one
 > too (`ms1`/`ms2`/`ms3`/`cycle_time`/`scan_timeout`/`exploration`), which is exactly how a phantom
@@ -371,9 +374,7 @@ Every key is also documented **by hand** in `docs/site/method.schema.json` (ADR-
 the public site https://t0mdavid-m.github.io/FlashIDA/ through `docs/site/build.js` and
 `.github/workflows/pages.yml`. `KeyDocumentationParityTests` fails if a key is in the model but not
 documented, documented but not in the model, or documented without a description; the Pages
-workflow fails if a committed config does not validate against it. No loader reads it. The C#
-loader still accepts `tagging.active` and a nested `tagging.conditional_ms2`, which the emitter never
-forwards, so they are not documented keys.
+workflow fails if a committed config does not validate against it. No loader reads it.
 
 ## Tests (`src/Flash.Tests/`)
 

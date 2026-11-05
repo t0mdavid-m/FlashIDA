@@ -86,10 +86,11 @@ MsScanArrived ─► ProcessSpectrum(IMsScan)                     [instrument ev
 
 ## Config (C# side)
 
-Twelve `[JsonKey]` properties of `MethodConfig` plus the root bool `conditional_ms2`: `global`,
-`deconvolution`, `precursor_selection`, `tagging`, `flashtnt`, `quantification`, `faims`,
-`ms_settings`, `scheduling`, `characterization`, `files`, `runtime`. `selection_strategy` is a
-migration error. Do not find sections by grepping class-level `[JsonKey]` (nested classes have one).
+Eleven `[JsonKey]` properties of `MethodConfig`: `global`, `deconvolution`, `precursor_selection`,
+`flashtnt`, `quantification`, `faims`, `ms_settings`, `scheduling`, `characterization`, `files`,
+`runtime`. `selection_strategy` is a migration error; `tagging`, `conditional_ms2`, `files.fasta`,
+`files.ptm_list` and `precursor_selection.tag_expansion` are refused with a migration hint
+(ADR-0061), and `test-scripts/retire_tag_targeting.py` strips them. Do not find sections by grepping class-level `[JsonKey]` (nested classes have one).
 `ms1`/`ms2`/`ms3` are structs under `ms_settings` only; extra MS2 configs in `additional_ms2`.
 Structs validate against fields, classes against properties. A dictionary's keys are free but its
 values are validated.
