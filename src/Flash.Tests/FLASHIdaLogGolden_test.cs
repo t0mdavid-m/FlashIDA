@@ -171,10 +171,6 @@ namespace Flash.Tests
             RunCase("quant_multiplexed", "method_quant_multiplexed.json", "ms1_cytc.txt",
                     "ms2_quant_tmt.txt", minBoughtIdScans: 1);
 
-        [Test, Category("Tier2")]
-        public void Golden_TagTargeting() =>
-            RunCase("tag", "method_tag_targeting.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");
-
         // F8: inclusion goldens use the DEDICATED cytC configs (method_inclusion_cytc[_strict].json ->
         // inclusion_cytc.txt @ the engine's real monoisotopic cytC mass 12351.3). The shared
         // method_inclusion.json/_strict (-> test_inclusion_list.txt, the 12358.31 AVERAGE-mass decoy) is left

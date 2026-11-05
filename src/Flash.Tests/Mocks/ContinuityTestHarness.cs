@@ -63,8 +63,6 @@ namespace Flash.Tests.Mocks
             // Resolve relative file paths in config (relative to config directory)
             string configDir = Path.GetDirectoryName(methodXmlPath);
             ResolveRelativePath(configDir, () => MethodParams.Config.Files.InclusionList, v => MethodParams.Config.Files.InclusionList = v);
-            ResolveRelativePath(configDir, () => MethodParams.Config.Files.FastaFile, v => MethodParams.Config.Files.FastaFile = v);
-            ResolveRelativePath(configDir, () => MethodParams.Config.Files.PtmList, v => MethodParams.Config.Files.PtmList = v);
 
             // Resolve target log paths (List<string>)
             if (MethodParams.Config.Files.TargetLogs != null)

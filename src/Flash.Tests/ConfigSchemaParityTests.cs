@@ -99,10 +99,9 @@ namespace Flash.Tests
         /// The C++ side asserts the mirror image against kScanKeys (ConfigSchemaParity_test), so
         /// neither side can drop a key the other still expects.
         ///
-        /// The additional_ms2 sites are DISCOVERED from the emitted JSON rather than named here.
-        /// Both follow-up blocks live there now (tagging.follow_up_scan is a name string, not an
-        /// object), and hard-coding the generator's chosen names would make this test quietly stop
-        /// covering a site the day someone renames one.
+        /// The additional_ms2 sites are DISCOVERED from the emitted JSON rather than named here:
+        /// hard-coding the generator's chosen names would make this test quietly stop covering a
+        /// site the day someone renames one.
         /// </summary>
         [Test, Category("Tier1")]
         public void Emit_SourceRegion_AtEveryScanLevel()
@@ -125,7 +124,7 @@ namespace Flash.Tests
 
             Assert.GreaterOrEqual(msnSites.Count, 3,
                 "the reference config must define at least one additional_ms2 entry, or this test "
-                + "silently stops covering the follow-up scan sites");
+                + "silently stops covering the additional_ms2 scan sites");
 
             var missing = new List<string>();
             foreach (string site in msnSites)

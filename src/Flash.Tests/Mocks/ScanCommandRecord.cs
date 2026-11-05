@@ -36,9 +36,9 @@ namespace Flash.Tests.Mocks
         public string ScanDescription { get; set; }
 
         /// <summary>
-        /// Encoded tracking id (3-char) of this command's logical parent. For a conditional follow-up the engine
-        /// sets this to the triggering MS2's own scan_id (ScanCommandQueue.cpp:396-398). Captured for provenance
-        /// assertions (e.g. CT34); intentionally NOT serialized to golden JSON (see ToJsonObject).
+        /// Encoded tracking id (3-char) of this command's logical parent. For a follow-up (the bought 'R') the
+        /// engine sets this to the triggering scan's own scan_id (ScanCommandQueue::buildFollowUp). Captured for
+        /// provenance assertions; intentionally NOT serialized to golden JSON (see ToJsonObject).
         /// </summary>
         public string ParentScanId { get; set; }
 

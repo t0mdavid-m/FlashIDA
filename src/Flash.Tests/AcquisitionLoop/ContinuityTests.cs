@@ -534,62 +534,7 @@ namespace Flash.Tests.AcquisitionLoop
 
         #endregion
 
-        #region AL-CT17 through CT21: Tag Targeting + Quant
-
-        [Test, Category("Tier2")]
-        public void P0_AL_CT17_TagTargeting_TriggersFollowUpMS2()
-        {
-            using (var harness = CreateHarness("method_tag_targeting.json"))
-            {
-                // Push MS1 to get initial MS2 commands
-                var ms1Results = PushSmokeSpectrumAndCollect(harness);
-
-                // Verify that tag targeting mode produces MS2 commands from MS1 processing
-                Assert.That(ms1Results.Count, Is.GreaterThan(0),
-                    "Tag targeting should produce MS2 scan commands from MS1 input");
-
-                Assert.IsTrue(ms1Results.All(r => r.ScanType == "MSn"),
-                    "All scan commands should be MSn type");
-            }
-        }
-
-        [Test, Category("Tier2")]
-        public void P0_AL_CT18_ConditionalMS2_FollowUpOnlyWhenTagsDetected()
-        {
-            using (var harness = CreateHarness("method_tag_targeting.json"))
-            {
-                // Push MS1 scan
-                var smokeScan = MockMsScan.FromTsv(Path.Combine(SpectraDir, "ms1_smoke_test.txt"));
-                var ms1Scans = harness.PushMs1(smokeScan);
-                smokeScan.Dispose();
-
-                // Get the MS2 commands from MS1 processing
-                var ms2Commands = harness.CollectResults();
-
-                // In conditional MS2 mode, the first MS2 type is sent for each precursor.
-                // Follow-up MS2 types are only sent if tags are detected in the first MS2.
-                // Verify that at most 1 MS2 per precursor was sent initially
-                // (the conditional mode sends only the first MS2 parameter set)
-                Assert.That(ms2Commands.Count, Is.GreaterThan(0),
-                    "Conditional MS2 test requires MS2 commands from MS1 processing");
-                Assert.That(harness.MethodParams.Config.Tagging.ConditionalMS2, Is.True,
-                    "Config must have ConditionalMS2 enabled for this test");
-
-                int maxPrecursors = harness.MethodParams.Config.PrecursorSelection.MaxPrecursors;
-                Assert.That(ms2Commands.Count, Is.LessThanOrEqualTo(maxPrecursors),
-                    "Conditional MS2: initial batch should have at most 1 scan per precursor");
-            }
-        }
-
-        [Test, Category("Tier2")]
-        public void P0_AL_CT19_TagTargeting_BehavioralReference()
-        {
-            using (var harness = CreateHarness("method_tag_targeting.json"))
-            {
-                var results = PushSmokeSpectrumAndCollect(harness);
-                AssertGolden("continuity_tag_targeting.json", results);
-            }
-        }
+        #region AL-CT20 through CT21: Quant (CT17-CT19, tag targeting, retired with ADR-0061)
 
         [Test, Category("Tier2")]
         public void P0_AL_CT20_QuantMode_ConstructsWithoutError()
@@ -749,7 +694,7 @@ namespace Flash.Tests.AcquisitionLoop
 
         #endregion
 
-        #region Phase 4 MS2 Return Path Tests (CT33–CT42)
+        #region Phase 4 MS2 Return Path Tests (CT35–CT42; CT33/CT34, tag targeting, retired with ADR-0061)
 
         // Phase 2 migration: the bespoke PushMS1ThenMS2Return helper (push all MS1, then feed MS2 returns,
         // capped by maxMS2Returns) has been ABSORBED into the canonical interleaved driver
@@ -779,97 +724,6 @@ namespace Flash.Tests.AcquisitionLoop
                 scan.Dispose();
             }
             return harness.CollectResults();
-        }
-
-        // --- CT33: Tag Targeting MS2 Return (golden) ---
-
-        [Test, Category("Tier2")]
-        public void P4_AL_CT33_TagTargeting_MS2Return()
-        {
-            using (var harness = CreateHarness("method_tag_targeting.json"))
-            {
-                // Interleaved engine-id-echo drive: standard MS1 surveys + HCD-fragment MS2 returns for every
-                // MS2 command (no cap). Replaces the staged PushMS1ThenMS2Return(all returns).
-                harness.PushScanAndDrainFull(
-                    Path.Combine(SpectraDir, "ms1_standard.txt"),
-                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"));
-
-                // R1a — byte-exact golden restored over the SAME captured MSn stream the drive produced.
-                // One cheap non-empty guard ensures an empty capture cannot vacuously pass AssertGolden.
-                var results = CapturedMsn(harness);
-                Assert.That(results.Count, Is.GreaterThan(0),
-                    "MS1->MS2 return pipeline must produce results (non-empty guard before AssertGolden)");
-
-                AssertGolden("continuity_tag_ms2return.json", results);
-            }
-        }
-
-        // --- CT34: Conditional MS2 Follow-Up (structural assertion) ---
-        // Proves conditionality: initial MS2 commands (from MS1) are ETD with tracking-ID
-        // descriptions. Follow-up HCD scans only appear AFTER MS2 return, proving they
-        // were triggered by tag detection.
-
-        [Test, Category("Tier2")]
-        public void P4_AL_CT34_ConditionalMS2_FollowUp()
-        {
-            using (var harness = CreateHarness("method_tag_targeting.json"))
-            {
-                // The conditional-MS2 proof is a BEFORE/AFTER comparison across one point in the drive:
-                //   BEFORE the first MS2 return -> only the initial (ETD) MS2 commands the MS1 surveys emit;
-                //   AFTER  the MS2 returns      -> tag detection has triggered follow-up HCD commands.
-                // The interleaved driver interleaves surveys and returns, so we capture the "before" set via
-                // the onFirstMs2Response mid-drive snapshot (fired once, just before the first MS2 response):
-                // at that instant CapturedRecords holds only MS1-survey-emitted commands (no follow-ups yet).
-                List<ScanCommandRecord> initialResults = null;
-
-                harness.PushScanAndDrainFull(
-                    Path.Combine(SpectraDir, "ms1_standard.txt"),
-                    Path.Combine(SpectraDir, "ms2_hcd_fragment.txt"),
-                    onFirstMs2Response: h => initialResults = CapturedMsn(h));
-
-                // Snapshot must have fired and captured the initial (pre-return) MS2 batch.
-                Assert.That(initialResults, Is.Not.Null,
-                    "Mid-drive snapshot must fire before the first MS2 return");
-                Assert.That(initialResults.Count, Is.GreaterThan(0),
-                    "MS1 processing must produce initial MS2 commands");
-                Assert.IsTrue(initialResults.All(r => r.ActivationType == "ETD"),
-                    "Initial MS2 commands should all be ETD (HCD is conditional on tag detection)");
-                Assert.IsTrue(initialResults.All(r => r.ScanDescription.Length >= 4 && "ARFCE".Contains(r.ScanDescription[3])),
-                    "Initial MS2 commands should have compact tracking-ID scan descriptions (XXXR...)");
-
-                // AFTER the full interleaved drive: tag detection must have triggered follow-up HCD scans.
-                var allResults = CapturedMsn(harness);
-                var hcdFollowUps = allResults.Where(r =>
-                    r.ActivationType == "HCD" && r.MsnLevel == 2).ToList();
-
-                // The HCD follow-ups must exist (tag detection fired). This also guards the linkage loop below:
-                // a foreach over an empty list passes vacuously, so assert non-empty adjacent to the loop it guards.
-                Assert.That(hcdFollowUps.Count, Is.GreaterThan(0),
-                    "Tag detection must trigger at least one HCD follow-up");
-
-                // Each HCD follow-up must descend from a REAL triggering ETD MS2 via the engine's parent edge:
-                // buildFollowUp sets parent_scan_id = encode(trigger ETD scan_id) (ScanCommandQueue.cpp:396-398);
-                // the ETD's own id is its description prefix (<id>R<mass>@<z>) and the follow-up carries the
-                // conditional 'C' suffix at char[3] (FLASHIda.cpp:1031). Join on the unique scan_id edge — NOT on
-                // precursor m/z, which the engine struct-copies verbatim (matching it would be vacuously true).
-                var etdMs2 = allResults.Where(r => r.ActivationType == "ETD" && r.MsnLevel == 2).ToList();
-                foreach (var hcd in hcdFollowUps)
-                {
-                    Assert.IsTrue(hcd.ScanDescription.Length >= 4 && hcd.ScanDescription[3] == 'C',
-                        string.Format("HCD follow-up '{0}' must carry the conditional 'C' description suffix",
-                            hcd.ScanDescription));
-
-                    var trigger = etdMs2.FirstOrDefault(e =>
-                        e.ScanDescription.Length >= 3 && e.ScanDescription.Substring(0, 3) == hcd.ParentScanId);
-
-                    Assert.IsNotNull(trigger,
-                        string.Format("HCD follow-up '{0}' parent '{1}' must reference a real ETD MS2 command in the drive",
-                            hcd.ScanDescription, hcd.ParentScanId));
-                    Assert.That(hcd.PrecursorMz, Is.EqualTo(trigger.PrecursorMz).Within(1e-9),
-                        string.Format("HCD follow-up '{0}' precursor must equal its named trigger ETD '{1}' (engine struct-copies ctx)",
-                            hcd.ScanDescription, hcd.ParentScanId));
-                }
-            }
         }
 
         // --- CT35: MS3 Mode 1 MS2 return pipeline ---

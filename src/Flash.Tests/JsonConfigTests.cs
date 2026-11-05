@@ -42,7 +42,7 @@ namespace Flash.Tests
             var serializer = new JavaScriptSerializer();
             var parsed = serializer.Deserialize<Dictionary<string, object>>(json);
             string[] requiredKeys = new[] {
-                "global", "deconvolution", "precursor_selection", "flashtnt", "tagging",
+                "global", "deconvolution", "precursor_selection", "flashtnt",
                 "quantification", "faims", "ms_settings",
                 "scheduling", "characterization", "files", "runtime"
             };
@@ -57,7 +57,6 @@ namespace Flash.Tests
             var mp = LoadJsonMethod("method_default.json");
             Assert.AreEqual(3, mp.Config.FlashTnT.MinLength);
             Assert.AreEqual(8, mp.Config.FlashTnT.MaxLength);
-            Assert.AreEqual(3, mp.Config.PrecursorSelection.TagExpansion.MaxPtmCount);
             Assert.AreEqual(2, mp.Config.FlashTnT.MaxAaInGap);
             Assert.IsFalse(mp.Config.FlashTnT.AllowGap);
             Assert.AreEqual(2, mp.Config.FlashTnT.MaxBlindModCount);
@@ -72,11 +71,6 @@ namespace Flash.Tests
         public void FlashTnT_Deserialize_ReadsAllParams()
         {
             string json = @"{
-                ""precursor_selection"": {
-                    ""tag_expansion"": {
-                        ""max_ptm_count"": 6, ""max_flanking_mass_diff"": 42000
-                    }
-                },
                 ""flashtnt"": {
                     ""min_length"": 5, ""max_length"": 12,
                     ""allow_gap"": true, ""max_aa_in_gap"": 3,
@@ -86,8 +80,6 @@ namespace Flash.Tests
             var config = MethodConfigSerializer.Deserialize(json);
             Assert.AreEqual(5, config.FlashTnT.MinLength);
             Assert.AreEqual(12, config.FlashTnT.MaxLength);
-            Assert.AreEqual(6, config.PrecursorSelection.TagExpansion.MaxPtmCount);
-            Assert.AreEqual(42000.0, config.PrecursorSelection.TagExpansion.MaxFlankingMassDiff, 0.001);
             Assert.IsTrue(config.FlashTnT.AllowGap);
             Assert.AreEqual(3, config.FlashTnT.MaxAaInGap);
             Assert.AreEqual(1, config.FlashTnT.FixedMod.Count);
@@ -97,7 +89,7 @@ namespace Flash.Tests
         }
 
         [Test, Category("Tier1")]
-        public void FlashTnT_ToCppJson_EmitsFlashtntBlock_NotUnderTagging()
+        public void FlashTnT_ToCppJson_EmitsFlashtntBlock_AndNoTagging()
         {
             var mp = LoadJsonMethod("method_default.json");
             var parsed = new JavaScriptSerializer()
@@ -106,10 +98,9 @@ namespace Flash.Tests
             var ft = (Dictionary<string, object>)parsed["flashtnt"];
             Assert.IsTrue(ft.ContainsKey("min_length"));
             Assert.IsTrue(ft.ContainsKey("max_mod_mass"));
-            // The four moved keys must NOT remain under tagging.
-            if (parsed.ContainsKey("tagging") && parsed["tagging"] is Dictionary<string, object> tagging)
-                Assert.IsFalse(tagging.ContainsKey("min_tag_length"),
-                    "min_tag_length must have moved out of tagging into flashtnt");
+            // tagging is retired (ADR-0061); it must not cross the bridge in any shape.
+            Assert.IsFalse(parsed.ContainsKey("tagging"), "ToCppJson must not emit a tagging block");
+            Assert.IsFalse(parsed.ContainsKey("conditional_ms2"), "ToCppJson must not emit conditional_ms2");
         }
 
         [Test, Category("Tier1")]
@@ -142,6 +133,38 @@ namespace Flash.Tests
             // simply delete it and silently lose multi-charge acquisition.
             StringAssert.Contains("precursor_selection.charge_based_exclusion", ex.Message);
             StringAssert.Contains("precursor_charges", ex.Message);
+        }
+
+        // Tag-based targeting and the conditional MS2 are retired (ADR-0061). Every method the
+        // serializer ever wrote carries all five keys at their EMPTY defaults, so the default value is
+        // the case that matters: it proves an untouched old method is refused with a migration hint,
+        // not merely one that used the feature.
+        [Test, Category("Tier1")]
+        public void Deserialize_RetiredTagTargetingKeys_AreRejectedWithMigrationHint()
+        {
+            string path = Path.Combine(ConfigsDir, "method_default.json");
+            Assert.IsTrue(File.Exists(path), "Test config not found: " + path);
+            var cases = new[]
+            {
+                new { Section = (string)null, Key = "conditional_ms2", Value = (object)false },
+                new { Section = (string)null, Key = "tagging", Value = (object)new Dictionary<string, object>() },
+                new { Section = "files", Key = "fasta", Value = (object)"" },
+                new { Section = "files", Key = "ptm_list", Value = (object)"" },
+                new { Section = "precursor_selection", Key = "tag_expansion", Value = (object)new Dictionary<string, object>() },
+            };
+            var js = new JavaScriptSerializer();
+            foreach (var c in cases)
+            {
+                var raw = js.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+                if (c.Section == null) raw[c.Key] = c.Value;
+                else ((Dictionary<string, object>)raw[c.Section])[c.Key] = c.Value;
+                string reported = c.Section == null ? c.Key : c.Section + "." + c.Key;
+
+                var ex = Assert.Throws<ArgumentException>(() => MethodConfigSerializer.Deserialize(js.Serialize(raw)),
+                    reported + " at its default must be refused");
+                StringAssert.Contains(reported, ex.Message);
+                StringAssert.Contains("ADR-0061", ex.Message);
+            }
         }
 
         [Test, Category("Tier1")]
