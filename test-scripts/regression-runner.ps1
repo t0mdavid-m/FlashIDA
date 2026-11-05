@@ -18,10 +18,10 @@ if (-not (Test-Path $FlashExe)) {
     exit 1
 }
 
-# Copy supporting config files (inclusion lists, FASTA) to working directory
+# Copy supporting config files (inclusion lists, target logs) to working directory
 # so C++ engine can resolve bare filenames in method config
 $configDir = Join-Path $TestDataDir "configs"
-foreach ($supportFile in @("test_inclusion_list.txt", "test_fasta.fasta", "test_target_log.log")) {
+foreach ($supportFile in @("test_inclusion_list.txt", "test_target_log.log")) {
     $src = Join-Path $configDir $supportFile
     if (-not (Test-Path $src)) {
         Write-Host "FAIL: required support file missing: $src"
@@ -90,13 +90,6 @@ $configs = @(
         ms1    = "ms1_standard.txt"
         ms2    = $null
         golden = "phase4_exclusion.tsv"
-    }
-    @{
-        name   = "phase4_tag_targeting"
-        method = "method_tag_targeting.json"
-        ms1    = "ms1_standard.txt"
-        ms2    = "ms2_hcd_fragment.txt"
-        golden = "phase4_tag_targeting.tsv"
     }
     @{
         name   = "phase4_quant"

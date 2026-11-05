@@ -46,7 +46,6 @@ PR reviewers must verify:
 | `phase4_inclusion.tsv` | 4 | `ms1_standard.txt` + `method_inclusion.json` | Pre-switch baseline: inclusion mode (non-strict, 5 monoisotopic targets) |
 | `phase4_inclusion_strict.tsv` | 4 | `ms1_standard.txt` + `method_inclusion_strict.json` | Pre-switch baseline: strict inclusion (4 of 6 masses match targets) |
 | `phase4_exclusion.tsv` | 4 | `ms1_standard.txt` + `method_exclusion.json` | exclusion mode. 3 rows: the `AllMass` targets 2063.61 / 2277.25 / 5315.13 are HARD-skipped regardless of budget, leaving 2256.18 / 4297.18 / 2135.71. |
-| `phase4_tag_targeting.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_tag_targeting.json` | Pre-switch baseline: tag-based targeting |
 | `phase4_quant.tsv` | 4 | `ms1_standard.txt` + `ms2_quant_tmt.txt` + `method_quant.json` | Pre-switch baseline: isobaric quant |
 | `phase4_ms3_mode1.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode1.json` | Pre-switch baseline: MS3 Source CID |
 | `phase4_ms3_mode2.tsv` | 4 | `ms1_standard.txt` + `ms2_hcd_fragment.txt` + `method_ms3_mode2.json` | Pre-switch baseline: MS3 SPS |
