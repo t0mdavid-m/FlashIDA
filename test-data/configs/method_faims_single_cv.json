@@ -26,7 +26,6 @@
     "max_blind_mod_count": 2,
     "max_mod_mass": 700
   },
-  "conditional_ms2": false,
   "faims": {
     "cv_values": [
       -45
@@ -47,9 +46,7 @@
   },
   "files": {
     "target_logs": [],
-    "fasta": "",
-    "inclusion_list": "",
-    "ptm_list": ""
+    "inclusion_list": ""
   },
   "precursor_selection": {
     "rt_window": 180,
@@ -106,7 +103,6 @@
       "collision_energy": 25
     }
   },
-  "tagging": {},
   "quantification": {
     "enabled": false,
     "reporter_mz_tol": 0.002,

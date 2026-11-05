@@ -91,7 +91,7 @@
       "properties": {
         "rt_window": {
           "type": "number",
-          "description": "Retention-time window that bounds every time-based memory of selection. An acquired mass is held back from reselection for this long, and a tag-expanded target stays active for this long. Under `in_depth` and `exclusion_masses` only target-log entries observed within this distance of the current scan count.",
+          "description": "Retention-time window that bounds every time-based memory of selection. An acquired mass is held back from reselection for this long. Under `in_depth` and `exclusion_masses` only target-log entries observed within this distance of the current scan count.",
           "default": 180,
           "x-unit": "s"
         },
@@ -169,7 +169,7 @@
         },
         "tie_threshold": {
           "type": "number",
-          "description": "Qscore difference below which two candidates count as tied and are ordered by their inclusion row's priority, higher first. Read only under `targeting: inclusion` when an inclusion list or tag-expanded targets are loaded.",
+          "description": "Qscore difference below which two candidates count as tied and are ordered by their inclusion row's priority, higher first. Read only under `targeting: inclusion` when an inclusion list is loaded.",
           "default": 0.1
         },
         "precursor_charges": {
@@ -250,7 +250,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Names of `ms_settings.additional_ms2` entries acquired for every selected precursor, after the primary MS2 and in array order. A named entry fires unconditionally, while an entry referenced only as a `follow_up_scan` fires only when its condition holds. A level-2 exploration sweep varies a single scan config, so it cannot be combined with this list.",
+          "description": "Names of `ms_settings.additional_ms2` entries acquired for every selected precursor, after the primary MS2 and in array order. A named entry fires unconditionally. A level-2 exploration sweep varies a single scan config, so it cannot be combined with this list.",
           "default": [],
           "x-adr": [
             "0014"
@@ -260,24 +260,6 @@
           "$ref": "#/$defs/exploration",
           "description": "Level-2 exploration: for each selected precursor the engine acquires MS2 pre-scans across a collision energy or reaction time range, scores them, and acquires the production MS2 at the winning setting. Absent, `ms_settings.ms2` fires once per precursor at its own settings. Its keys are documented on the exploration page.",
           "x-default-text": "absent"
-        },
-        "tag_expansion": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "max_ptm_count": {
-              "type": "integer",
-              "description": "Most modification occurrences combined into one expanded target mass. Each `files.ptm_list` entry is added or removed up to its own count, and the counts summed across entries may not exceed this value.",
-              "default": 3
-            },
-            "max_flanking_mass_diff": {
-              "type": "number",
-              "description": "Largest difference allowed between a tag's flanking mass and the residue mass of the protein sequence beside it, when the tag is placed on a `files.fasta` protein. A placement outside it is not a protein match, and a negative value removes the limit.",
-              "default": 50000,
-              "x-unit": "Da"
-            }
-          },
-          "description": "Tag-based target expansion. When an MS2's sequence tags match a protein in `files.fasta`, the precursor mass shifted by combinations of the modifications in `files.ptm_list` is added to the inclusion targets for `rt_window` at priority 100. The unmodified mass is not added, and the added targets are read only under `targeting: inclusion`."
         }
       },
       "description": "Decides which intact species each survey MS1 fragments: how candidates are ranked, how many are taken, which of their charge states are acquired, and which target list steers the choice. A survey's choice is a plan until its first MS2 is sent: a newer survey at the same FAIMS CV re-plans the MS2s still waiting in FLASHIda's queue, and a species counts as acquired, for `rt_window` and every bar below, only once one of its scans has been sent. The MS2 scan settings themselves live in `ms_settings`, and whether a fragment is characterized by MS3 is decided in `characterization`.",
@@ -330,23 +312,7 @@
           "x-unit": "Da"
         }
       },
-      "description": "Tuning for FLASHTnT, the tagger and extender the engine runs on MS2 spectra. The tag keys feed both tag-based targeting against `files.fasta` and the FLASHTnT match against `characterization.protein_sequence`. The modification keys bound only that match, which `characterization.method: refine` replaces for identification."
-    },
-    "tagging": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "follow_up_scan": {
-          "type": "string",
-          "description": "Name of the `ms_settings.additional_ms2` entry acquired as the conditional follow-up, marked `C`. It reuses the triggering MS2's isolation and FAIMS CV, takes every instrument parameter from the named entry, and is queued at priority 0. Read only under `conditional_ms2: true`.",
-          "default": "",
-          "x-default-text": "required when conditional_ms2 is true",
-          "x-adr": [
-            "0014"
-          ]
-        }
-      },
-      "description": "Configures the conditional follow-up MS2 that sequence tags can buy. Whenever `files.fasta` is set, every MS2 is tagged with the `flashtnt` tag keys, and a tag that matches a FASTA protein can buy a follow-up and expand the inclusion targets. `tagging.active` is accepted but never reaches the engine, and a nested `tagging.conditional_ms2` is an alias of the root `conditional_ms2`."
+      "description": "Tuning for FLASHTnT, the tagger and extender the engine runs on MS2 spectra. Its keys tune the FLASHTnT match against `characterization.protein_sequence`, which `characterization.method: refine` replaces for identification."
     },
     "quantification": {
       "type": "object",
@@ -354,7 +320,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "The switch. `false`: the section is inert and `ms_settings.ms2` fires once per selected precursor as in every other mode. `true`: `ms_settings.ms2_quant` fires once per selected precursor and is the only scan whose reporter ions are read, and `ms_settings.ms2` becomes the identification scan a passing verdict buys. Sequence tagging and MS3 targeting skip the quantification scan and run on the bought `ms2`.",
+          "description": "The switch. `false`: the section is inert and `ms_settings.ms2` fires once per selected precursor as in every other mode. `true`: `ms_settings.ms2_quant` fires once per selected precursor and is the only scan whose reporter ions are read, and `ms_settings.ms2` becomes the identification scan a passing verdict buys. Identification and MS3 targeting skip the quantification scan and run on the bought `ms2`.",
           "default": false,
           "x-adr": [
             "0038"
@@ -402,7 +368,7 @@
         },
         "identify": {
           "type": "string",
-          "description": "Which group verdicts buy the identification scan `ms_settings.ms2`. The verdict is logged the same whatever this key says; the key decides only the purchase. Because tagging and MS3 run on the bought scan, it also decides what gets characterized.",
+          "description": "Which group verdicts buy the identification scan `ms_settings.ms2`. The verdict is logged the same whatever this key says; the key decides only the purchase. Because identification and MS3 run on the bought scan, it also decides what gets characterized.",
           "default": "differential",
           "enum": [
             "differential",
@@ -661,14 +627,14 @@
           "additionalProperties": {
             "$ref": "#/$defs/scan"
           },
-          "description": "Named extra MS2 scan configs, each taking the same keys as `ms2`, under snake_case names of up to 32 characters. An entry fires only where it is named: `precursor_selection.additional_scans` acquires it for every selected precursor after the first MS2, in that array's order, and `tagging.follow_up_scan` acquires it as the conditional follow-up. An entry nobody names is never acquired, and the load prints a warning for it.",
+          "description": "Named extra MS2 scan configs, each taking the same keys as `ms2`, under snake_case names of up to 32 characters. An entry fires only where it is named: `precursor_selection.additional_scans` acquires it for every selected precursor after the first MS2, in that array's order. An entry nobody names is never acquired, and the load prints a warning for it.",
           "x-default-text": "absent",
           "x-adr": [
             "0014"
           ]
         }
       },
-      "description": "The scan configs: instrument parameters only, and no key here decides whether a scan is acquired. `precursor_selection`, `characterization`, `quantification` and `tagging` decide when each config fires, and every config takes the same scan keys.",
+      "description": "The scan configs: instrument parameters only, and no key here decides whether a scan is acquired. `precursor_selection`, `characterization` and `quantification` decide when each config fires, and every config takes the same scan keys.",
       "x-adr": [
         "0009",
         "0014"
@@ -746,13 +712,8 @@
           "items": {
             "type": "string"
           },
-          "description": "`ida.log` files from earlier runs, read for their `Mass` and `AllMass` lines. Under `targeting: inclusion`, when no `inclusion_list` rows are loaded, their acquired masses are the inclusion targets: a mass is a target only within `precursor_selection.rt_window` of a reference acquisition of it (`log_target_rt_window`), and it matches at any charge (`log_target_charges`). Masses from `files.fasta` tag expansion are added to these targets rather than replacing them. Under `in_depth` their masses and qscores drive the soft reorder gated by `deconvolution.tqscore_threshold`, and under `exclusion_masses` every `AllMass` mass logged within `precursor_selection.rt_window` of the current survey is excluded. A `Mass` line whose command a later survey re-planned away (named on a `Superseded=` line) is not read. An unreadable file is skipped without a warning.",
+          "description": "`ida.log` files from earlier runs, read for their `Mass` and `AllMass` lines. Under `targeting: inclusion`, when no `inclusion_list` rows are loaded, their acquired masses are the inclusion targets: a mass is a target only within `precursor_selection.rt_window` of a reference acquisition of it (`log_target_rt_window`), and it matches at any charge (`log_target_charges`). Under `in_depth` their masses and qscores drive the soft reorder gated by `deconvolution.tqscore_threshold`, and under `exclusion_masses` every `AllMass` mass logged within `precursor_selection.rt_window` of the current survey is excluded. A `Mass` line whose command a later survey re-planned away (named on a `Superseded=` line) is not read. An unreadable file is skipped without a warning.",
           "default": []
-        },
-        "fasta": {
-          "type": "string",
-          "description": "Protein database for tag-based targeting. When set, every regular MS2 is tagged and its tags matched against these sequences; a match buys a conditional follow-up scan when `conditional_ms2` is on, and adds the precursor mass shifted by each PTM combination from `ptm_list` as an inclusion target for `precursor_selection.rt_window`. Those added targets steer selection only under `targeting: inclusion`, and with an empty `ptm_list` a match adds none. Quantification scans are not tagged.",
-          "default": ""
         },
         "inclusion_list": {
           "type": "string",
@@ -761,14 +722,9 @@
           "x-adr": [
             "0028"
           ]
-        },
-        "ptm_list": {
-          "type": "string",
-          "description": "Tab-separated PTM list for tag-based targeting: name, mass shift and `max_count`, one PTM per row, with a header row starting `name` skipped. When a `fasta` match fires, the precursor mass is shifted by every combination of these PTMs, each added or removed up to its `max_count` times and all together up to `precursor_selection.tag_expansion.max_ptm_count`. The unmodified mass is never added. Unused without `fasta`.",
-          "default": ""
         }
       },
-      "description": "Paths to the external inputs the engine loads once when the run starts: target logs from earlier runs, an inclusion list, a FASTA database and a PTM list. An empty string or an empty array loads nothing, and a relative path resolves against the process working directory."
+      "description": "Paths to the external inputs the engine loads once when the run starts: target logs from earlier runs and an inclusion list. An empty string or an empty array loads nothing, and a relative path resolves against the process working directory."
     },
     "characterization": {
       "type": "object",
@@ -949,11 +905,6 @@
         }
       },
       "description": "Decides whether MS3 runs, which fragments of a precursor's MS2 it targets, and which method annotates those MS2 fragments. `mode` is the single MS3 switch; the MS3 scan's instrument parameters come from `ms_settings.ms3`, and `exploration` optionally sweeps their energy per target. It acts on what `precursor_selection` chose to fragment at MS2."
-    },
-    "conditional_ms2": {
-      "type": "boolean",
-      "description": "`true`: an MS2 whose sequence tags match a protein in `files.fasta` buys one follow-up MS2 built from `tagging.follow_up_scan`. A follow-up never buys another, and a quantification scan is never tagged. Without `files.fasta` nothing is tagged, so nothing is bought. A root key, also accepted as `tagging.conditional_ms2`.",
-      "default": false
     },
     "runtime": {
       "type": "object",
@@ -1324,7 +1275,7 @@
           "ref": "files",
           "exemplars": [
             {
-              "config": "method_tag_targeting.json"
+              "config": "method_inclusion.json"
             }
           ]
         },
@@ -1370,9 +1321,6 @@
       "sections": [
         {
           "ref": "precursor_selection",
-          "exclude": [
-            "tag_expansion"
-          ],
           "exemplars": [
             {
               "config": "method_cytc_separate_charges.json"
@@ -1408,14 +1356,22 @@
     {
       "slug": "characterization",
       "title": "Characterization",
-      "subtitle": "JSON keys of `characterization`",
-      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `ProteoformTracker.cpp`, `Refine`, ADR-0013, ADR-0023, ADR-0049, ADR-0052, ADR-0054, ADR-0055",
+      "subtitle": "JSON keys of `characterization` and `flashtnt`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `ProteoformTracker.cpp`, `FragmentAnalysis.cpp`, `Refine`, ADR-0013, ADR-0023, ADR-0049, ADR-0052, ADR-0054, ADR-0055",
       "sections": [
         {
           "ref": "characterization",
           "exemplars": [
             {
               "config": "method_ms3_cytc_exhaustive.json"
+            }
+          ]
+        },
+        {
+          "ref": "flashtnt",
+          "exemplars": [
+            {
+              "config": "method_default.json"
             }
           ]
         }
@@ -1488,47 +1444,6 @@
           "exemplars": [
             {
               "config": "method_faims_3cv.json"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "slug": "tagging",
-      "title": "Tagging",
-      "subtitle": "JSON keys of `tagging`, `conditional_ms2`, `precursor_selection.tag_expansion` and `flashtnt`",
-      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `MethodConfigSerializer.cs`, `FragmentAnalysis.cpp`",
-      "sections": [
-        {
-          "ref": "tagging",
-          "exemplars": [
-            {
-              "config": "method_tag_targeting.json"
-            }
-          ]
-        },
-        {
-          "ref": "conditional_ms2",
-          "exemplars": [
-            {
-              "config": "method_tag_targeting.json"
-            }
-          ]
-        },
-        {
-          "ref": "precursor_selection.tag_expansion",
-          "heading": "precursor_selection.tag_expansion",
-          "exemplars": [
-            {
-              "config": "method_tag_targeting.json"
-            }
-          ]
-        },
-        {
-          "ref": "flashtnt",
-          "exemplars": [
-            {
-              "config": "method_default.json"
             }
           ]
         }

@@ -26,7 +26,6 @@
     "max_blind_mod_count": 2,
     "max_mod_mass": 700
   },
-  "conditional_ms2": false,
   "faims": {
     "cv_values": [
       -40,
@@ -49,9 +48,7 @@
   },
   "files": {
     "target_logs": [],
-    "fasta": "",
-    "inclusion_list": "",
-    "ptm_list": ""
+    "inclusion_list": ""
   },
   "precursor_selection": {
     "rt_window": 120,
@@ -63,11 +60,7 @@
     "max_precursors": 3,
     "additional_scans": [
       "secondary"
-    ],
-    "tag_expansion": {
-      "max_ptm_count": 5,
-      "max_flanking_mass_diff": 40000
-    }
+    ]
   },
   "characterization": {
     "mode": "off",
@@ -129,7 +122,6 @@
       }
     }
   },
-  "tagging": {},
   "quantification": {
     "enabled": false,
     "reporter_mz_tol": 0.003,
