@@ -18,9 +18,11 @@ One command migrates any pre-ADR-0061 method. It first strips the five tag-targe
 
 A method with no protein sequence matched nothing, so it gets no `identification` section at all; a
 method with `mode: "off"` gets no `identification.characterization` (its presence is now the MS3
-switch). Keys are moved as authored and never filled with defaults. A key that is dropped because it
-was never read (FLASHTnT tuning with no sequence, MS3 keys under "off") is reported when it held a
-non-default value. A file today's loader refuses (an MS3 mode with no sequence) is refused here too.
+switch). Keys are moved as authored and never filled with defaults. A key that is dropped (FLASHTnT
+tuning with no sequence, MS3 keys under "off") is reported when it held a non-default value. All of
+them were unread but one: under "off" with a sequence, max_targets still capped the matched fragments
+behind the MS2 tic_coverage column, and an identification without characterization uses 3. A file
+today's loader refuses (an MS3 mode with no sequence) is refused here too.
 
 The `identification` block takes the place of `characterization` in the file; the rest of the file
 keeps its own text. Every rewrite is checked: the result must parse to exactly migrate(original).
@@ -54,7 +56,7 @@ def _non_default(block, defaults):
 
 def migrate_obj(d):
     """Returns (new_dict, kind, dropped). kind: None (nothing to do) | 'none' | 'identify' | 'characterize'.
-    `dropped` lists the non-default keys that were dropped because nothing read them."""
+    `dropped` lists the non-default keys that were dropped, each marked when the engine still read it."""
     if "characterization" not in d and "flashtnt" not in d:
         return d, None, []
     out = {}
@@ -86,7 +88,9 @@ def migrate_obj(d):
         if c.get("refine") is not None:
             ident["refine"] = c["refine"]
         if off:
-            dropped += ["characterization." + k for k in _non_default(ms3, MS3_DEFAULTS)]
+            for k in _non_default(ms3, MS3_DEFAULTS):
+                dropped.append("characterization." + k + (
+                    " (WAS read: it capped the matched fragments behind tic_coverage; now 3)" if k == "max_targets" else ""))
             kind = "identify"
         else:
             ident["characterization"] = dict([("mode", mode)] + list(ms3.items()))
@@ -178,7 +182,7 @@ def main():
         extra = f"; stripped {', '.join(k for k, _ in stripped)}" if stripped else ""
         print(f"{verb}: {f} -> {what}{extra}")
         if dropped:
-            print(f"  dropped, never read: {', '.join(dropped)}")
+            print(f"  dropped: {', '.join(dropped)}")
         if a.write:
             with open(f, "w", encoding="utf-8", newline="") as fh:
                 fh.write(new)
