@@ -51,10 +51,6 @@
         "interval_ms": 12345
       },
       "kinetic_model": null
-    },
-    "tag_expansion": {
-      "max_ptm_count": 5,
-      "max_flanking_mass_diff": 41001
     }
   },
   "flashtnt": {
@@ -67,9 +63,6 @@
     ],
     "max_blind_mod_count": 1,
     "max_mod_mass": 733
-  },
-  "tagging": {
-    "follow_up_scan": "tagging_reference"
   },
   "quantification": {
     "enabled": false,
@@ -202,7 +195,7 @@
       "reagent_agc_target": 0
     },
     "additional_ms2": {
-      "tagging_reference": {
+      "etd_reference": {
         "analyzer": "Orbitrap",
         "activation": "ETD",
         "collision_energy": 24,
@@ -237,9 +230,7 @@
   },
   "files": {
     "target_logs": [],
-    "fasta": "",
-    "inclusion_list": "",
-    "ptm_list": ""
+    "inclusion_list": ""
   },
   "characterization": {
     "mode": "coverage",
@@ -281,7 +272,6 @@
       "jump_penalty": 3
     }
   },
-  "conditional_ms2": false,
   "runtime": {
     "log_dir": "schema_reference_logs"
   }
