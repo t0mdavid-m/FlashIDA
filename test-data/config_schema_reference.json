@@ -53,16 +53,60 @@
       "kinetic_model": null
     }
   },
-  "flashtnt": {
-    "min_length": 4,
-    "max_length": 9,
-    "allow_gap": true,
-    "max_aa_in_gap": 3,
-    "fixed_mod": [
-      "Carbamidomethyl (C)"
-    ],
-    "max_blind_mod_count": 1,
-    "max_mod_mass": 733
+  "identification": {
+    "reference": {
+      "sequence": "MSENTINELPEPTIDESEQ"
+    },
+    "method": "refine",
+    "flashtnt": {
+      "min_length": 4,
+      "max_length": 9,
+      "allow_gap": true,
+      "max_aa_in_gap": 3,
+      "fixed_mod": [
+        "Carbamidomethyl (C)"
+      ],
+      "max_blind_mod_count": 1,
+      "max_mod_mass": 733
+    },
+    "refine": {
+      "fdr": 0.25,
+      "shuffles": 77,
+      "grid_da": 0.02,
+      "max_shift_da": 333,
+      "min_ions": 5,
+      "max_levels": 7,
+      "jump_penalty": 3
+    },
+    "characterization": {
+      "mode": "coverage",
+      "max_targets": 4,
+      "min_fragment_charge": 1,
+      "min_target_mass": 617.5,
+      "fragment_charges": "separate",
+      "exploration": {
+        "metric": "kinetic_model",
+        "ce_min": 16,
+        "ce_max": 34,
+        "ce_step": 2,
+        "overrides": null,
+        "remaining_precursor_target": 0.13,
+        "reaction_time_min": 0,
+        "reaction_time_max": 0,
+        "reaction_time_step": 1,
+        "activations": null,
+        "tolerance_ppm": 15,
+        "monitor_ms1": {
+          "enabled": false,
+          "interval_ms": 23456
+        },
+        "kinetic_model": {
+          "k2": {
+            "CID": 0.0123
+          }
+        }
+      }
+    }
   },
   "quantification": {
     "enabled": false,
@@ -231,46 +275,6 @@
   "files": {
     "target_logs": [],
     "inclusion_list": ""
-  },
-  "characterization": {
-    "mode": "coverage",
-    "protein_sequence": "MSENTINELPEPTIDESEQ",
-    "max_targets": 4,
-    "min_fragment_charge": 1,
-    "min_target_mass": 617.5,
-    "fragment_charges": "separate",
-    "exploration": {
-      "metric": "kinetic_model",
-      "ce_min": 16,
-      "ce_max": 34,
-      "ce_step": 2,
-      "overrides": null,
-      "remaining_precursor_target": 0.13,
-      "reaction_time_min": 0,
-      "reaction_time_max": 0,
-      "reaction_time_step": 1,
-      "activations": null,
-      "tolerance_ppm": 15,
-      "monitor_ms1": {
-        "enabled": false,
-        "interval_ms": 23456
-      },
-      "kinetic_model": {
-        "k2": {
-          "CID": 0.0123
-        }
-      }
-    },
-    "method": "refine",
-    "refine": {
-      "fdr": 0.25,
-      "shuffles": 77,
-      "grid_da": 0.02,
-      "max_shift_da": 333,
-      "min_ions": 5,
-      "max_levels": 7,
-      "jump_penalty": 3
-    }
   },
   "runtime": {
     "log_dir": "schema_reference_logs"
