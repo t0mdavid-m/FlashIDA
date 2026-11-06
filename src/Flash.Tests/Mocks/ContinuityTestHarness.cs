@@ -107,6 +107,9 @@ namespace Flash.Tests.Mocks
             //harness's reading rather than the engine's. One factory, one definition of what a scan
             //means to the engine.
             Processor.ProcessMS(ScanData.From(msScan));
+            //ADR-0062: wait for the engine's search pool, so the drain below sees the order a synchronous
+            //ProcessScan produced. Production never waits; every harness does, after every feed.
+            Wrapper.WaitForSearchIdle();
 
             var scanList = new List<IFusionCustomScan>();
             var cmd = new ScanCommand();
@@ -225,6 +228,7 @@ namespace Flash.Tests.Mocks
                         for (int i = 0; i < mon.Count; i++) if (i != monPick) mon[i].Dispose();
                         // Same feed path and the same no-Dispose contract as every other response below.
                         Processor.ProcessMS(ScanData.From(monResponse));
+                        Wrapper.WaitForSearchIdle();
                     }
                     else { foreach (var s in mon) s.Dispose(); }
                     cmd = new ScanCommand();
@@ -320,6 +324,9 @@ namespace Flash.Tests.Mocks
                 //ScanData.From. Reading the response any other way here would let the goldens and the
                 //engine disagree about what a scan contains.
                 Processor.ProcessMS(ScanData.From(response));
+                //ADR-0062 d.7: an MS2's MS3s are pushed by a search worker's apply step; wait for it, so the
+                //next GetNextScanCommand sees exactly what a synchronous ProcessScan left queued.
+                Wrapper.WaitForSearchIdle();
                 cmd = new ScanCommand();
             }
         }

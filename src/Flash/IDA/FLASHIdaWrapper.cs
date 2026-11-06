@@ -143,7 +143,8 @@ namespace Flash.IDA
         private static ILog log = LogManager.GetLogger("General");
         private static ILog IDAlog = LogManager.GetLogger("IDA");
 
-        //binding for FlashIda engine — exactly 5 bridge functions (Phase 8)
+        //binding for FlashIda engine — 6 bridge functions: the Phase 8 five, plus WaitForSearchIdle (ADR-0062),
+        //which only harnesses call
         const string dllName = "OpenMS.dll";
         [DllImport(dllName)]
         static private extern IntPtr CreateFLASHIda(string arg);
@@ -167,6 +168,9 @@ namespace Flash.IDA
 
         [DllImport(dllName)]
         static private extern int GetNextTrackingId(IntPtr pObject);
+
+        [DllImport(dllName)]
+        static private extern int WaitForSearchIdle(IntPtr pObject);
 
         private IntPtr m_pNativeObject;
 
@@ -272,6 +276,25 @@ namespace Flash.IDA
             catch (Exception ex)
             {
                 log.Error(String.Format("GetNextTrackingId error: {0}\n{1}", ex.Message, ex.StackTrace));
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Block until the engine's search pool is idle -- nothing waiting, nothing running -- and return the
+        /// commands the search workers pushed since the previous call (ADR-0062). HARNESSES ONLY: a drive that
+        /// calls this after every ProcessScan sees exactly the order a synchronous ProcessScan produced.
+        /// Production (Flash.cs, UnifiedScanProcessor) never waits on the pool. -1 on error.
+        /// </summary>
+        public int WaitForSearchIdle()
+        {
+            try
+            {
+                return WaitForSearchIdle(m_pNativeObject);
+            }
+            catch (Exception ex)
+            {
+                log.Error(String.Format("WaitForSearchIdle error: {0}\n{1}", ex.Message, ex.StackTrace));
                 return -1;
             }
         }
@@ -441,6 +464,7 @@ namespace Flash.IDA
                         && survey.ScanDescription[3] == 'M')
                     {
                         w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, 1, survey.ScanDescription, 0.0, 0);
+                        w.WaitForSearchIdle();
                         survey = new ScanCommand();
                         continue;
                     }
@@ -463,6 +487,9 @@ namespace Flash.IDA
             if (scanNumMatch.Success) int.TryParse(scanNumMatch.Groups[1].Value, out offlineScanNumber);
 
             w.ProcessScan(mzs.ToArray(), ints.ToArray(), rt, msLevel, desc, 0.0, offlineScanNumber);
+            //ADR-0062: wait for the engine's search pool after every feed, so this drain sees the order a
+            //synchronous ProcessScan produced (an MS2's MS3s are pushed by a search worker's apply step).
+            w.WaitForSearchIdle();
 
             double scoreSum = 0.0;
             var cmd = new ScanCommand();
@@ -491,6 +518,7 @@ namespace Flash.IDA
                     if (ms2Mzs != null)
                     {
                         w.ProcessScan(ms2Mzs, ms2Ints, rt, 2, cmd.ScanDescription);
+                        w.WaitForSearchIdle();
                         var followup = new ScanCommand();
                         while (w.GetNextScanCommand(ref followup) == 1 && !(followup.MsnLevel == 1 && followup.Priority == 3)) { followup = new ScanCommand(); }
                     }
