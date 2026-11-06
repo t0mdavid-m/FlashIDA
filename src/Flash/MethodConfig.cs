@@ -423,7 +423,7 @@ namespace Flash
 
     // ADR-0049. The seven knobs of the Refine annotation method (shift scan at an FDR -> levels ->
     // one DP per total). Defaults mirror RefineSettings.h exactly. Read ONLY under
-    // characterization.method "refine": the C++ loader refuses this block under "flashtnt" rather
+    // identification.method "refine": the C++ loader refuses this block under "flashtnt" rather
     // than carrying it unread, so the property is null by default and emitted only when authored.
     // Declared ABOVE CharacterizationConfig for the CS0579 reason MonitorMs1Config gives: an
     // attribute binds to the next type declaration.
@@ -460,37 +460,24 @@ namespace Flash
     }
 
     /// <summary>
-    /// Decision section 2: HOW do we pin that proteoform down?
+    /// identification.characterization: HOW do we pin that proteoform down with MS3?
     ///
-    /// This section holds decisions only -- no scan plumbing. The MS3 scan's instrument parameters
+    /// This block holds decisions only -- no scan plumbing. The MS3 scan's instrument parameters
     /// stay in ms_settings.ms3 like every other scan config.
     ///
-    /// `mode` is THE MS3 switch and it is the only one. It replaces three scattered gates
-    /// (selection_strategy.ms2.selection, selection_strategy.ms3.selection, and the presence of
-    /// ms_settings.ms3) plus the old `objective` key, whose absence silently meant "ambiguity".
-    /// Supersedes ADR-0004, which decided there would be no enable flag.
+    /// Its PRESENCE is THE MS3 switch and it is the only one (ADR-0061): there is no mode "off", and
+    /// `mode` names the objective. It replaces three scattered gates (selection_strategy.ms2.selection,
+    /// selection_strategy.ms3.selection, and the presence of ms_settings.ms3) plus the old `objective`
+    /// key, whose absence silently meant "ambiguity".
     /// </summary>
     [JsonKey("characterization")]
     public class CharacterizationConfig
     {
+        // Null = unauthored; C++ refuses a characterization block without a mode, because the block's
+        // presence turns MS3 on and must name an objective.
         [JsonKey("mode")]
-        [Description("MS3 characterization: off (no MS3), ambiguity (resolve PTM site ambiguity), coverage (every fragment whose interior holds a bond MS2 never witnessed, strongest first, up to max_targets -- ADR-0052), fragments (every mapped fragment with a bond inside it, strongest first, up to max_targets -- ADR-0052), exhaustive (fragment every deconvolved mass of the winner MS2 scan, mapped or not -- ADR-0023), or discriminating (fragment the MS2 masses the two best Refine paths explain differently; requires method \"refine\" and no characterization.exploration -- ADR-0049). Unknown values are rejected, not defaulted.")]
-        public string Mode { get; set; } = "off";
-
-        // ADR-0049. Which annotation method reads the MS2 fragments. Emitted verbatim (not
-        // lower-cased): the C++ loader is case-sensitive and hard-rejects anything but these two,
-        // so a typo'd "Refine" fails loudly instead of silently running FLASHTnT.
-        [JsonKey("method")]
-        [Description("MS2 annotation method: flashtnt (tag-based search, the default) or refine (no-search shift scan + per-total DP -- ADR-0049). Case-sensitive.")]
-        public string Method { get; set; } = "flashtnt";
-
-        // Null = unauthored; C++ then uses RefineSettings' defaults. See RefineBlockConfig.
-        [JsonKey("refine")]
-        public RefineBlockConfig Refine { get; set; }
-
-        [JsonKey("protein_sequence")]
-        [Description("Protein sequence fragments are matched against. Required when mode is not off.")]
-        public string ProteinSequence { get; set; } = "";
+        [Description("The MS3 objective; required, because the block's presence turns MS3 on (delete the block for no MS3): ambiguity (resolve PTM site ambiguity), coverage (every fragment whose interior holds a bond MS2 never witnessed, strongest first, up to max_targets -- ADR-0052), fragments (every mapped fragment with a bond inside it, strongest first, up to max_targets -- ADR-0052), exhaustive (fragment every deconvolved mass of the winner MS2 scan, mapped or not -- ADR-0023), or discriminating (fragment the MS2 masses the two best Refine paths explain differently; requires identification.method \"refine\" and no characterization.exploration -- ADR-0049). Unknown values are rejected, not defaulted.")]
+        public string Mode { get; set; }
 
         [JsonKey("max_targets")]
         [Description("Maximum MS3 scans planned per identified precursor. This is the MS3 budget (was selection_strategy.ms2.max_targets).")]
@@ -517,6 +504,48 @@ namespace Flash
         [JsonKey("min_target_mass")]
         [Description("Exhaustive mode only: deconvolved masses below this (Da) are not MS3 targets. 0 = off.")]
         public double MinTargetMass { get; set; } = 0.0;
+    }
+
+    // ADR-0061. The protein every MS2 is matched against. Declared ABOVE IdentificationConfig for the
+    // CS0579 reason MonitorMs1Config gives: an attribute binds to the next type declaration.
+    [JsonKey("reference")]
+    public class ReferenceConfig
+    {
+        [JsonKey("sequence")]
+        [Description("The one protein sequence every MS2 is matched against. Required and non-empty.")]
+        public string Sequence { get; set; } = "";
+    }
+
+    /// <summary>
+    /// The `identification` section (ADR-0061): WHICH protein every MS2 is matched against, and HOW.
+    ///
+    /// Its PRESENCE is the matching switch -- MethodConfig.Identification is null by default and an
+    /// absent section matches nothing -- and the presence of the nested `characterization` block is
+    /// the MS3 switch.
+    /// </summary>
+    [JsonKey("identification")]
+    public class IdentificationConfig
+    {
+        [JsonKey("reference")]
+        public ReferenceConfig Reference { get; set; } = new ReferenceConfig();
+
+        // ADR-0049. Which annotation method reads the MS2 fragments. Emitted verbatim (not
+        // lower-cased): the C++ loader is case-sensitive and hard-rejects anything but these two,
+        // so a typo'd "Refine" fails loudly instead of silently running FLASHTnT.
+        [JsonKey("method")]
+        [Description("MS2 annotation method: flashtnt (tag-based search, the default) or refine (no-search shift scan + per-total DP -- ADR-0049). Case-sensitive.")]
+        public string Method { get; set; } = "flashtnt";
+
+        [JsonKey("flashtnt")]
+        public FlashTnTConfig FlashTnT { get; set; } = new FlashTnTConfig();
+
+        // Null = unauthored; C++ then uses RefineSettings' defaults. See RefineBlockConfig.
+        [JsonKey("refine")]
+        public RefineBlockConfig Refine { get; set; }
+
+        // Null = absent = no MS3.
+        [JsonKey("characterization")]
+        public CharacterizationConfig Characterization { get; set; }
     }
 
     [JsonKey("files")]
@@ -671,8 +700,9 @@ namespace Flash
         [JsonKey("precursor_selection")]
         public PrecursorSelectionConfig PrecursorSelection { get; set; } = new PrecursorSelectionConfig();
 
-        [JsonKey("flashtnt")]
-        public FlashTnTConfig FlashTnT { get; set; } = new FlashTnTConfig();
+        // ADR-0061. Null by default: an absent identification section matches nothing.
+        [JsonKey("identification")]
+        public IdentificationConfig Identification { get; set; }
 
         [JsonKey("quantification")]
         public QuantificationConfig Quantification { get; set; } = new QuantificationConfig();
@@ -685,9 +715,6 @@ namespace Flash
 
         [JsonKey("scheduling")]
         public SchedulingConfig Scheduling { get; set; } = new SchedulingConfig();
-
-        [JsonKey("characterization")]
-        public CharacterizationConfig Characterization { get; set; } = new CharacterizationConfig();
 
         [JsonKey("files")]
         public FilesConfig Files { get; set; } = new FilesConfig();
@@ -957,15 +984,27 @@ namespace Flash
     public class JsonCharacterizationConfig
     {
         public string mode { get; set; }
-        public string protein_sequence { get; set; }
         public int max_targets { get; set; }
         public int min_fragment_charge { get; set; }
         public double min_target_mass { get; set; }
         public string fragment_charges { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
-        // ADR-0049. `refine` is emitted as null when unauthored (the C++ parser reads null as absent).
+    }
+
+    public class JsonReferenceConfig
+    {
+        public string sequence { get; set; }
+    }
+
+    // ADR-0061. The whole section is emitted as null when unauthored, and so are `refine` and
+    // `characterization` inside it (the C++ parser reads null as absent).
+    public class JsonIdentificationConfig
+    {
+        public JsonReferenceConfig reference { get; set; }
         public string method { get; set; }
+        public JsonFlashTnTConfig flashtnt { get; set; }
         public JsonRefineBlockConfig refine { get; set; }
+        public JsonCharacterizationConfig characterization { get; set; }
     }
 
     // ADR-0049. Emit DTO for RefineBlockConfig; all seven keys written whenever the block is.
@@ -992,13 +1031,12 @@ namespace Flash
         public JsonGlobalConfig global { get; set; }
         public JsonDeconvolutionConfig deconvolution { get; set; }
         public JsonPrecursorSelectionConfig precursor_selection { get; set; }
-        public JsonFlashTnTConfig flashtnt { get; set; }
+        public JsonIdentificationConfig identification { get; set; }
         public JsonQuantificationConfig quantification { get; set; }
         public JsonFaimsConfig faims { get; set; }
         public JsonMsSettingsConfig ms_settings { get; set; }
         public JsonSchedulingConfig scheduling { get; set; }
         public JsonFilesConfig files { get; set; }
-        public JsonCharacterizationConfig characterization { get; set; }
         public JsonRuntimeConfig runtime { get; set; }
     }
 }

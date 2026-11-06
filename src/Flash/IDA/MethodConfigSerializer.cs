@@ -47,10 +47,14 @@ namespace Flash
                 string sectionKey = keyAttr.Key;
                 Type sectionType = rootProp.PropertyType;
 
-                // Get or create the section object
+                // Get or create the section object. A section whose default is null (identification,
+                // ADR-0061) stays null when the JSON does not author it: its absence is the setting.
                 object sectionObj = rootProp.GetValue(config);
                 if (sectionObj == null)
                 {
+                    object authored;
+                    if (!raw.TryGetValue(sectionKey, out authored) || authored == null)
+                        continue;
                     sectionObj = Activator.CreateInstance(sectionType);
                     rootProp.SetValue(config, sectionObj);
                 }
@@ -237,7 +241,24 @@ namespace Flash
                 { "files.fasta", "files.fasta was the tag-targeting database. " + RetiredTagTargeting },
                 { "files.ptm_list", "files.ptm_list expanded tag-targeting hits into inclusion masses. " + RetiredTagTargeting },
                 { "precursor_selection.tag_expansion", "precursor_selection.tag_expansion bounded the tag-targeting PTM expansion. " + RetiredTagTargeting },
+                // ADR-0061, second push. Refused even at their defaults for the reason above: every
+                // method the serializer ever wrote carries a top-level characterization and flashtnt.
+                {
+                    "characterization",
+                    "characterization moved into the identification section (ADR-0061): protein_sequence -> "
+                    + "identification.reference.sequence, method and refine -> identification.method and "
+                    + "identification.refine, and mode with the MS3 keys -> identification.characterization. "
+                    + "mode \"off\" is gone: no characterization block means no MS3, and no identification "
+                    + "section means no MS2 is matched. " + MigrateIdentification
+                },
+                { "flashtnt", "flashtnt moved to identification.flashtnt (ADR-0061), with the same keys and defaults. " + MigrateIdentification },
+                { "identification.characterization.protein_sequence", "identification.characterization.protein_sequence moved to identification.reference.sequence (ADR-0061)." },
+                { "identification.characterization.method", "identification.characterization.method moved to identification.method (ADR-0061)." },
+                { "identification.characterization.refine", "identification.characterization.refine moved to identification.refine (ADR-0061)." },
             };
+
+        private const string MigrateIdentification =
+            "FlashIDA/test-scripts/migrate_identification.py rewrites a method file or folder (it also strips the tag-targeting keys).";
 
         private const string RetiredTagTargeting =
             "Tag-based targeting was retired (ADR-0061): it existed only because nothing could search a proteome in real time, and real-time identification replaces it. Delete the key; FlashIDA/test-scripts/retire_tag_targeting.py strips all five retired keys from a method file or folder.";

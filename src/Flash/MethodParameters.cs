@@ -157,16 +157,7 @@ namespace Flash
                     additional_scans = (c.PrecursorSelection.AdditionalScans ?? new List<string>()).ToArray(),
                     exploration = ToJsonExploration(c.PrecursorSelection.Exploration)
                 },
-                flashtnt = new JsonFlashTnTConfig
-                {
-                    min_length = c.FlashTnT.MinLength,
-                    max_length = c.FlashTnT.MaxLength,
-                    allow_gap = c.FlashTnT.AllowGap,
-                    max_aa_in_gap = c.FlashTnT.MaxAaInGap,
-                    fixed_mod = (c.FlashTnT.FixedMod ?? new List<string>()).ToArray(),
-                    max_blind_mod_count = c.FlashTnT.MaxBlindModCount,
-                    max_mod_mass = c.FlashTnT.MaxModMass
-                },
+                identification = ToJsonIdentification(c.Identification),
                 quantification = new JsonQuantificationConfig
                 {
                     enabled = c.Quantification.Active,
@@ -254,24 +245,6 @@ namespace Flash
                     agc_interval_seconds = c.Scheduling.AgcIntervalSeconds,
                     target_depth = c.Scheduling.TargetDepth
                 },
-                characterization = new JsonCharacterizationConfig
-                {
-                    mode = (c.Characterization.Mode ?? "off").ToLower(),
-                    protein_sequence = c.Characterization.ProteinSequence ?? "",
-                    max_targets = c.Characterization.MaxTargets,
-                    min_fragment_charge = c.Characterization.MinFragmentCharge,
-                    min_target_mass = c.Characterization.MinTargetMass,
-                    fragment_charges = c.Characterization.FragmentCharges,
-                    exploration = ToJsonExploration(c.Characterization.Exploration),
-                    // ADR-0049. Verbatim, not lower-cased: C++ rejects anything but the two exact
-                    // spellings, which is what keeps a typo from silently running FLASHTnT.
-                    method = c.Characterization.Method ?? "flashtnt",
-                    // Forwarded verbatim when AUTHORED, null otherwise -- never gated on `method`.
-                    // A block authored under "flashtnt" therefore reaches C++, which refuses it
-                    // ("characterization.refine is set but characterization.method is flashtnt"),
-                    // instead of being dropped here unread.
-                    refine = ToJsonRefine(c.Characterization.Refine)
-                },
                 files = new JsonFilesConfig
                 {
                     target_logs = (c.Files.TargetLogs ?? new List<string>()).ToArray(),
@@ -293,7 +266,53 @@ namespace Flash
             return new JavaScriptSerializer().Serialize(config);
         }
 
-        /// <summary>Convert the characterization.refine block for the wire (ADR-0049).</summary>
+        /// <summary>
+        /// Convert the identification section for the wire (ADR-0061). Null in, null out: an absent
+        /// section crosses the bridge as null, which C++ reads as absent -- no MS2 is matched.
+        /// </summary>
+        private static JsonIdentificationConfig ToJsonIdentification(IdentificationConfig id)
+        {
+            if (id == null)
+                return null;
+            var ft = id.FlashTnT ?? new FlashTnTConfig();
+            var cz = id.Characterization;
+            return new JsonIdentificationConfig
+            {
+                // Null when unauthored, so C++ reports the missing reference rather than an empty one.
+                reference = id.Reference == null ? null : new JsonReferenceConfig { sequence = id.Reference.Sequence ?? "" },
+                // ADR-0049. Verbatim, not lower-cased: C++ rejects anything but the two exact
+                // spellings, which is what keeps a typo from silently running FLASHTnT.
+                method = id.Method ?? "flashtnt",
+                flashtnt = new JsonFlashTnTConfig
+                {
+                    min_length = ft.MinLength,
+                    max_length = ft.MaxLength,
+                    allow_gap = ft.AllowGap,
+                    max_aa_in_gap = ft.MaxAaInGap,
+                    fixed_mod = (ft.FixedMod ?? new List<string>()).ToArray(),
+                    max_blind_mod_count = ft.MaxBlindModCount,
+                    max_mod_mass = ft.MaxModMass
+                },
+                // Forwarded verbatim when AUTHORED, null otherwise -- never gated on `method`.
+                // A block authored under "flashtnt" therefore reaches C++, which refuses it
+                // ("identification.refine is set but identification.method is flashtnt"),
+                // instead of being dropped here unread.
+                refine = ToJsonRefine(id.Refine),
+                // Null = no MS3. The mode is lower-cased as it always was; a missing one stays null
+                // and C++ refuses the block, which must name an objective.
+                characterization = cz == null ? null : new JsonCharacterizationConfig
+                {
+                    mode = cz.Mode == null ? null : cz.Mode.ToLower(),
+                    max_targets = cz.MaxTargets,
+                    min_fragment_charge = cz.MinFragmentCharge,
+                    min_target_mass = cz.MinTargetMass,
+                    fragment_charges = cz.FragmentCharges,
+                    exploration = ToJsonExploration(cz.Exploration)
+                }
+            };
+        }
+
+        /// <summary>Convert the identification.refine block for the wire (ADR-0049).</summary>
         // Null in, null out -- the same "verbatim or null, never synthesized" shape as
         // exploration.kinetic_model, so an unauthored block crosses the bridge as absent and C++
         // falls back to RefineSettings' defaults.
@@ -408,15 +427,18 @@ namespace Flash
                     c.Quantification.EmptyCondition);
             else
                 sb.AppendLine("Quant: Off");
-            if (string.Equals(c.Characterization.Mode, "off", StringComparison.OrdinalIgnoreCase))
+            var id = c.Identification;
+            string seq = id == null || id.Reference == null ? null : id.Reference.Sequence;
+            if (id == null)
+                sb.AppendLine("Identification: Off");
+            else
+                sb.AppendFormat("Identification: method={0}, Sequence={1}\n", id.Method,
+                    string.IsNullOrEmpty(seq) ? "(none)" : seq.Substring(0, Math.Min(20, seq.Length)) + "...");
+            if (id == null || id.Characterization == null)
                 sb.AppendLine("MS3: Off");
             else
-                sb.AppendFormat("MS3: mode={0}, budget={1}, ProteinSequence={2}\n",
-                    c.Characterization.Mode, c.Characterization.MaxTargets,
-                    string.IsNullOrEmpty(c.Characterization.ProteinSequence)
-                        ? "(none)"
-                        : c.Characterization.ProteinSequence.Substring(
-                              0, Math.Min(20, c.Characterization.ProteinSequence.Length)) + "...");
+                sb.AppendFormat("MS3: mode={0}, budget={1}\n",
+                    id.Characterization.Mode, id.Characterization.MaxTargets);
             sb.AppendFormat("Developer: AllCharges={0}, MaxCVSkip={1}\n",
                 c.PrecursorSelection.ConsiderAllChargeStates, c.Faims.MaxCVSkip);
             sb.AppendFormat("FAIMS: CV=[{0}]\n", String.Join(",", c.Faims.CVValues));
@@ -580,13 +602,19 @@ namespace Flash
             c.PrecursorSelection.LogTargetRtWindow = false;
             c.PrecursorSelection.LogTargetCharges = "reference";
 
-            c.FlashTnT.MinLength = 4;
-            c.FlashTnT.MaxLength = 9;
-            c.FlashTnT.AllowGap = true;
-            c.FlashTnT.MaxAaInGap = 3;
-            c.FlashTnT.FixedMod = new List<string> { "Carbamidomethyl (C)" };
-            c.FlashTnT.MaxBlindModCount = 1;
-            c.FlashTnT.MaxModMass = 733;
+            // ADR-0061. The identification section is null by default; the reference authors it.
+            c.Identification = new IdentificationConfig
+            {
+                Reference = new ReferenceConfig { Sequence = "MSENTINELPEPTIDESEQ" },
+                Characterization = new CharacterizationConfig()
+            };
+            c.Identification.FlashTnT.MinLength = 4;
+            c.Identification.FlashTnT.MaxLength = 9;
+            c.Identification.FlashTnT.AllowGap = true;
+            c.Identification.FlashTnT.MaxAaInGap = 3;
+            c.Identification.FlashTnT.FixedMod = new List<string> { "Carbamidomethyl (C)" };
+            c.Identification.FlashTnT.MaxBlindModCount = 1;
+            c.Identification.FlashTnT.MaxModMass = 733;
 
             // Active stays FALSE deliberately, and it is the one key in this section whose binding
             // the parity tests cannot verify (a binding hardwired to false would pass). Enabling it
@@ -735,28 +763,27 @@ namespace Flash
                 MonitorMs1 = new MonitorMs1Config { Enabled = false, IntervalMs = 12345 }
             };
             // Mode stays "coverage", NOT "discriminating": this reference also authors
-            // characterization.exploration (kinetic_model, below), and Config::validate refuses
+            // identification.characterization.exploration (kinetic_model, below), and Config::validate refuses
             // discriminating together with an MS3 exploration block (ADR-0049). The reference must
             // load through the C++ Config constructor in ConfigSchemaParity_test, so the two cannot
             // both be in it -- and the exploration block carries more keys (the k2 map, monitor_ms1).
-            c.Characterization.Mode = "coverage";
+            c.Identification.Characterization.Mode = "coverage";
             // ADR-0049. Method + every refine key non-default, so a dropped key is visible. Mode
             // "coverage" is legal under "refine"; only discriminating is method-gated.
-            c.Characterization.Method = "refine";
-            c.Characterization.Refine = new RefineBlockConfig
+            c.Identification.Method = "refine";
+            c.Identification.Refine = new RefineBlockConfig
             {
                 Fdr = 0.25, Shuffles = 77, GridDa = 0.02, MaxShiftDa = 333, MinIons = 5,
                 MaxLevels = 7, JumpPenalty = 3
             };
-            c.Characterization.ProteinSequence = "MSENTINELPEPTIDESEQ";
-            c.Characterization.MaxTargets = 4;
-            c.Characterization.MinFragmentCharge = 1;
+            c.Identification.Characterization.MaxTargets = 4;
+            c.Identification.Characterization.MinFragmentCharge = 1;
             // Distinctive, per this builder's own rule: every key carries a non-default value so a
             // DROPPED key is detectable. Leaving this at 0.0 would make the regenerated reference
             // vacuous for exactly the key it is being regenerated for.
-            c.Characterization.MinTargetMass = 617.5;
-            c.Characterization.FragmentCharges = "separate";
-            c.Characterization.Exploration = new ExplorationBlockConfig
+            c.Identification.Characterization.MinTargetMass = 617.5;
+            c.Identification.Characterization.FragmentCharges = "separate";
+            c.Identification.Characterization.Exploration = new ExplorationBlockConfig
             {
                 // ADR-0047. kinetic_model at level 3 (level 2 stays mass_count: a kinetic_model block
                 // there would be refused and the reference must load). The k2 value is distinctive and
