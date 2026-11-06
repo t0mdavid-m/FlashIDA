@@ -153,10 +153,9 @@ namespace Flash.Tests
                     // Config::validate() rejects the config and CreateFLASHIda returns null.
                     MS2 = new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", OrbitrapResolution = 120000, CollisionEnergy = 0, ReactionTime = 10.0 }
                 },
-                // MS3 off. This used to take three keys across two sections to say; it is now one.
-                // No ms_settings.ms3 is needed because mode is off -- and if mode were NOT off,
-                // Config::validate() would now require one rather than OOB-reading scans[0].
-                Characterization = new CharacterizationConfig { Mode = "off" }
+                // No identification section: nothing is matched and no MS3 is planned (ADR-0061), so
+                // no ms_settings.ms3 is needed. With an identification.characterization block,
+                // Config::validate() would require one rather than OOB-reading scans[0].
             };
             return mp.ToCppJson();
         }
