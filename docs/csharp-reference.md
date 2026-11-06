@@ -167,15 +167,24 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
 
 ### Key components
 
-- **`IDA/FLASHIdaWrapper.cs`** — the P/Invoke bridge: 5 `[DllImport]`s, the mirrored 2048-byte
+- **`IDA/FLASHIdaWrapper.cs`** — the P/Invoke bridge: 6 `[DllImport]`s (pinned by
+  `CleanupTests.P8_U01_ExactlySixDllImports`), the mirrored 2048-byte
   `ScanCommand` struct, and the offline `Main`. Its **static constructor unconditionally sets
   `OPENMS_DATA_PATH` to `<assembly dir>/share/OpenMS`**, so any externally exported value is
   discarded for every C# process. Constructor serializes via `mp.ToCppJson()` and throws
   `InvalidOperationException` if `CreateFLASHIda` returns null. Standard Dispose pattern; the
   null-pointer guard makes double-dispose safe.
   - Data-path error sentinels (all swallow exceptions into log4net): `ProcessScan` → `-1`,
-    `GetNextScanCommand` → `0`, `GetNextTrackingId` → `-1`. The native null-argument guards use
-    the same values, so the two error sources are indistinguishable to the caller.
+    `GetNextScanCommand` → `0`, `GetNextTrackingId` → `-1`, `WaitForSearchIdle` → `-1`. The native
+    null-argument guards use the same values, so the two error sources are indistinguishable to the
+    caller.
+  - **`WaitForSearchIdle()` is for harnesses only** (ADR-0062, the sixth export). It blocks until the
+    engine's search pool is idle and returns the commands the search workers pushed since the previous
+    call. `ContinuityTestHarness.PushScanAndDrainFull`/`PushScan` and the offline `ProcessScanUnified`
+    drain call it after every `ProcessScan`, so they see the order a synchronous `ProcessScan`
+    produced. `Flash.cs` and `UnifiedScanProcessor` never call it: on the instrument a matched MS2's
+    MS3s, `scan_results` row and `identification` rows come from a search worker after `ProcessScan`
+    has returned, in completion order.
   - **Offline `Main` bootstraps a tracking id before feeding MS1**: it drains up to 16 commands
     hunting the first non-AGC MS1 with a non-empty description, uses it, and discards the rest
     (`:377-398`). Without this the MS1 gate would reject every scan and the run would silently
@@ -238,7 +247,8 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
 - **`DataPipe.cs`** — `BufferBlock` → `ActionBlock` with an explicit `MaxDegreeOfParallelism = 1`,
   so `ProcessMS` calls are serialized. It was always 1, but as a TPL *default*; it is now stated,
   because the engine leans on it — `processScan` is serialized against itself by this block and by
-  nothing else, which is why `analysis_mutex_` only has to defend against the drain.
+  nothing else. `analysis_mutex_` serializes it against the engine's search workers, whose apply step
+  is the lock's second acquisition site (ADR-0062); the drain takes no analysis lock (ADR-0025).
   - **The queue holds a `ScanData` snapshot, not the `IMsScan`.** `Push` takes the handle and copies
     the seven values the engine needs (`ScanData.From`) **on the caller's thread**, i.e. while the
     handle is still live. An `IMsScan` is a window onto framework-owned memory the iAPI releases as
@@ -398,6 +408,12 @@ one response scan stamped with **that command's own engine-emitted `ScanDescript
 Idle predicate, identical both sides:
 `IsAgc != 0 || string.IsNullOrEmpty(ScanDescription) || (level <= 1 && ms1Fed >= nMs1)`.
 Terminate on `idle >= 3` or `maxIters` (C# default 600).
+
+**Both mirrors wait for the engine's search pool after every feed** (ADR-0062 d.7): C# calls
+`Wrapper.WaitForSearchIdle()` after each `Processor.ProcessMS(...)` in `PushScanAndDrainFull` and
+`PushScan`, C++ calls `ida->waitForSearchIdle()` after each `processScan`. A matched MS2's MS3s are
+pushed by a search worker's apply, so a drain that does not wait reads the queue before they land and
+the goldens stop being deterministic. Production never waits.
 
 You cannot invent a scan id — the engine's MS1 gate rejects any description it did not mint. That
 gate is what forces interleaved driving, and it is pinned by

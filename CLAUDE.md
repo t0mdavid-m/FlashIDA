@@ -59,9 +59,13 @@ MsScanArrived ─► ProcessSpectrum(IMsScan)                     [instrument ev
 
 ## Components
 
-- **`IDA/FLASHIdaWrapper.cs`**: 5 `[DllImport]`s, the mirrored 2048-byte `ScanCommand`, the offline
+- **`IDA/FLASHIdaWrapper.cs`**: 6 `[DllImport]`s, the mirrored 2048-byte `ScanCommand`, the offline
   `Main`. Its static constructor **overwrites `OPENMS_DATA_PATH`** with `<assembly dir>/share/OpenMS`.
-  Error sentinels: `ProcessScan` −1, `GetNextScanCommand` 0, `GetNextTrackingId` −1.
+  Error sentinels: `ProcessScan` −1, `GetNextScanCommand` 0, `GetNextTrackingId` −1,
+  `WaitForSearchIdle` −1. **`WaitForSearchIdle` is harness-only** (ADR-0062): it blocks until the
+  engine's search pool is idle; the offline drain calls it after every `ProcessScan`, and `Flash.cs`
+  and `UnifiedScanProcessor` never do, so on the instrument a matched MS2's MS3s arrive later, pushed
+  by a search worker.
 - **`IDA/UnifiedScanProcessor.cs`**: the only `IScanProcessor`; every MS level goes through
   `ProcessScan`. (`ScanScheduler`, `FAIMSScanProcessor`, `IDAScanProcessor`, `QuantScanProcessor`
   do not exist.)
@@ -117,6 +121,9 @@ values are validated.
   C++ `runInterleaved`: one command → one response stamped with that command's description; idle
   predicate `IsAgc != 0 || empty description || (level <= 1 && ms1Fed >= nMs1)`; stop at
   `idle >= 3` or `maxIters`. The two sides change together (`driver-sync-reminder.sh`).
+- **Every harness feed is followed by `Wrapper.WaitForSearchIdle()`** (ADR-0062), in
+  `PushScanAndDrainFull` and `PushScan`, so the drain sees the order a synchronous `ProcessScan`
+  produced. A new feed site without it reads the queue before a search worker's MS3s land.
 - **Vacuity trap**: `MockMsScan`'s default description `"~~~S"` always fails the engine's gate, so a
   raw `PushScan` MS1 is rejected regardless of content. Use `PushMs1` or `PushScanAndDrainFull`.
 - **The test host must be `en-US`**: `MockMsScan` parses fixtures with a culture-sensitive
