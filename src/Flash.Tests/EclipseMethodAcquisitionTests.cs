@@ -45,17 +45,17 @@ namespace Flash.Tests
             // that lives in another language. Four committed configs used to state an MS3 budget of
             // 200 into a dead key and silently run 3; asserting the stated values here is what stops
             // that class of drift coming back through this method.
-            Assert.AreEqual("ambiguity", mp.Config.Characterization.Mode,
-                "mode is the single MS3 switch and must be stated, not defaulted");
-            Assert.AreEqual(3, mp.Config.Characterization.MaxTargets,
-                "the MS3 budget is authored in characterization");
+            Assert.AreEqual("ambiguity", mp.Config.Identification.Characterization.Mode,
+                "the characterization block is the single MS3 switch and its mode must be stated");
+            Assert.AreEqual(3, mp.Config.Identification.Characterization.MaxTargets,
+                "the MS3 budget is authored in identification.characterization");
             Assert.AreEqual(5, mp.Config.PrecursorSelection.MaxPrecursors,
                 "max_precursors is the MS2 count per survey");
             Assert.AreEqual("none", mp.Config.PrecursorSelection.Targeting,
                 "untargeted DDA -- 'all proteoforms', not an inclusion list");
             Assert.IsEmpty(mp.Config.Files.InclusionList ?? "",
                 "an inclusion list would contradict targeting: none");
-            Assert.AreEqual(105, (mp.Config.Characterization.ProteinSequence ?? "").Length,
+            Assert.AreEqual(105, (mp.Config.Identification.Reference.Sequence ?? "").Length,
                 "the 105-residue equine cytC sequence MS3 fragments are matched against");
 
             // fragment_count is the metric that makes the CE sweep meaningful: it scores each energy
@@ -97,7 +97,7 @@ namespace Flash.Tests
                 //    zero MS3 is the silent no-op this whole change exists to eliminate.
                 int ms3 = cmds.Count(r => r.MsnLevel == 3);
                 Assert.That(ms3, Is.GreaterThanOrEqualTo(1),
-                    "no MS3 command was emitted. characterization.mode is 'ambiguity', so this config "
+                    "no MS3 command was emitted. identification.characterization.mode is 'ambiguity', so this config "
                     + "claims to characterize -- if it acquires no MS3 the claim is false. Commands by "
                     + "level: " + string.Join(", ", cmds.GroupBy(r => r.MsnLevel)
                         .OrderBy(g => g.Key).Select(g => "MS" + g.Key + "=" + g.Count())));

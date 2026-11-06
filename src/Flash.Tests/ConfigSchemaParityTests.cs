@@ -217,7 +217,7 @@ namespace Flash.Tests
             AssertRejects("{ \"ms_settings\": { \"ms1\": { \"FirstMass\": 1 } } }", "ms_settings.ms1.FirstMass");
             AssertRejects("{ \"ms_settings\": { \"ms3\": { \"IsolationMode\": \"Quadrupole\" } } }",
                 "ms_settings.ms3.IsolationMode");
-            AssertRejects("{ \"flashtnt\": { \"typo\": 1 } }", "flashtnt.typo");
+            AssertRejects("{ \"identification\": { \"flashtnt\": { \"typo\": 1 } } }", "identification.flashtnt.typo");
             AssertRejects("{ \"ms3\": { \"active\": true } }", "ms3");   // legacy top-level section
         }
 
