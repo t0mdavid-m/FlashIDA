@@ -247,6 +247,28 @@ namespace Flash.Tests
                 back.Identification.Characterization.MaxTargets);
         }
 
+        // ADR-0062: identification.search_threads. No corpus config authors it, and unauthored it reaches C++ as
+        // null or not at all, so the engine sizes the pool from the core count; authored, it survives the
+        // round trip and crosses the bridge as the number.
+        [Test, Category("Tier1")]
+        public void Identification_SearchThreads_UnauthoredStaysNull_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_ms3_cytc_real.json");
+            Assert.IsNotNull(mp.Config.Identification);
+            Assert.IsNull(mp.Config.Identification.SearchThreads, "no corpus config authors search_threads");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var ident = (Dictionary<string, object>)parsed["identification"];
+            Assert.IsTrue(!ident.ContainsKey("search_threads") || ident["search_threads"] == null,
+                "an unauthored search_threads must not reach C++ as a number");
+
+            mp.Config.Identification.SearchThreads = 5;
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual(5, back.Identification.SearchThreads);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            ident = (Dictionary<string, object>)parsed["identification"];
+            Assert.AreEqual(5, Convert.ToInt32(ident["search_threads"]));
+        }
+
         [Test, Category("Tier1")]
         public void Deserialize_RoundTrip()
         {

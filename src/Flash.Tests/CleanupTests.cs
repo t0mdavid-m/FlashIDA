@@ -12,11 +12,12 @@ namespace Flash.Tests
     public class CleanupTests
     {
         /// <summary>
-        /// P8-U01: Exactly 5 DllImport declarations remain in FLASHIdaWrapper.
+        /// P8-U01: Exactly 6 DllImport declarations in FLASHIdaWrapper: the Phase 8 five, plus
+        /// WaitForSearchIdle (ADR-0062), which only harnesses call.
         /// Uses reflection to count methods decorated with DllImportAttribute.
         /// </summary>
         [Test]
-        public void P8_U01_ExactlyFiveDllImports()
+        public void P8_U01_ExactlySixDllImports()
         {
             var wrapperType = typeof(FLASHIdaWrapper);
             var dllImportMethods = wrapperType
@@ -24,8 +25,8 @@ namespace Flash.Tests
                 .Where(m => m.GetCustomAttribute<DllImportAttribute>() != null)
                 .ToList();
 
-            Assert.AreEqual(5, dllImportMethods.Count,
-                "Expected exactly 5 [DllImport] declarations. Found: " +
+            Assert.AreEqual(6, dllImportMethods.Count,
+                "Expected exactly 6 [DllImport] declarations. Found: " +
                 string.Join(", ", dllImportMethods.Select(m => m.Name)));
         }
 

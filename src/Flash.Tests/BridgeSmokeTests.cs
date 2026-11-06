@@ -126,10 +126,39 @@ namespace Flash.Tests
                 DisposeFLASHIda(ptr);
         }
 
+        // ADR-0062: the sixth export. WaitForSearchIdle returns at once on an idle engine -- one with a search
+        // pool (an identification section) and one without -- with nothing pushed, and never the -1 of an
+        // error on a live engine.
+        [Test]
+        [Category("Tier2")]
+        public void WaitForSearchIdle_ReturnsOnAnIdleEngine()
+        {
+            var noPool = BuildMethodParameters();
+            var withPool = BuildMethodParameters();
+            withPool.Config.Identification = new IdentificationConfig
+            {
+                Reference = new ReferenceConfig { Sequence = "PEPTIDEK" },
+                SearchThreads = 2
+            };
+            foreach (var mp in new[] { noPool, withPool })
+            {
+                using (var wrapper = new FLASHIdaWrapper(mp))
+                {
+                    Assert.AreEqual(0, wrapper.WaitForSearchIdle(), "an idle engine has pushed nothing");
+                    Assert.AreEqual(0, wrapper.WaitForSearchIdle(), "and still nothing on a second call");
+                }
+            }
+        }
+
         /// <summary>
         /// Build a JSON config string matching method_default.json values.
         /// </summary>
         private static string BuildJsonConfigString()
+        {
+            return BuildMethodParameters().ToCppJson();
+        }
+
+        private static MethodParameters BuildMethodParameters()
         {
             var mp = new MethodParameters();
             mp.Config = new MethodConfig
@@ -157,7 +186,7 @@ namespace Flash.Tests
                 // no ms_settings.ms3 is needed. With an identification.characterization block,
                 // Config::validate() would require one rather than OOB-reading scans[0].
             };
-            return mp.ToCppJson();
+            return mp;
         }
     }
 }
