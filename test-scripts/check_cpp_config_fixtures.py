@@ -43,7 +43,7 @@ SRC = os.path.join(os.path.dirname(__file__), "..", "..",
 LITERAL = re.compile(r'R"\((.*?)\)"', re.S)
 
 # Only literals that look like a config: they mention a top-level section we own.
-CONFIG_MARKERS = ("deconvolution", "ms_settings", "precursor_selection", "characterization")
+CONFIG_MARKERS = ("deconvolution", "ms_settings", "precursor_selection", "identification", "characterization")
 
 
 def braces_balance(s):
