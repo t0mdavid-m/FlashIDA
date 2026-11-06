@@ -86,11 +86,17 @@ MsScanArrived ─► ProcessSpectrum(IMsScan)                     [instrument ev
 
 ## Config (C# side)
 
-Eleven `[JsonKey]` properties of `MethodConfig`: `global`, `deconvolution`, `precursor_selection`,
-`flashtnt`, `quantification`, `faims`, `ms_settings`, `scheduling`, `characterization`, `files`,
-`runtime`. `selection_strategy` is a migration error; `tagging`, `conditional_ms2`, `files.fasta`,
+Ten `[JsonKey]` properties of `MethodConfig`: `global`, `deconvolution`, `precursor_selection`,
+`identification`, `quantification`, `faims`, `ms_settings`, `scheduling`, `files`, `runtime`.
+**`Identification` is null by default** and `Deserialize` leaves it null when unauthored (absent = no
+MS2 is matched); it holds `Reference.Sequence`, `Method`, `FlashTnT`, `Refine` and
+`Characterization` (also null when unauthored = no MS3). `ToCppJson` emits `identification: null`
+when absent. `selection_strategy` is a migration error; `tagging`, `conditional_ms2`, `files.fasta`,
 `files.ptm_list` and `precursor_selection.tag_expansion` are refused with a migration hint
-(ADR-0061), and `test-scripts/retire_tag_targeting.py` strips them. Do not find sections by grepping class-level `[JsonKey]` (nested classes have one).
+(ADR-0061), and `test-scripts/retire_tag_targeting.py` strips them. Root `characterization` and
+`flashtnt`, and `identification.characterization.protein_sequence`/`.method`/`.refine`, are refused
+the same way (`MethodConfigSerializer.RetiredKeyHints`), even at default values;
+`uv run test-scripts/migrate_identification.py --check|--write <file-or-folder>` migrates both. Do not find sections by grepping class-level `[JsonKey]` (nested classes have one).
 `ms1`/`ms2`/`ms3` are structs under `ms_settings` only; extra MS2 configs in `additional_ms2`.
 Structs validate against fields, classes against properties. A dictionary's keys are free but its
 values are validated.
@@ -99,7 +105,7 @@ values are validated.
 - **C++ `.value(key, default)` fallbacks are dead in production** (`ToCppJson` emits every key);
   hand-written C++ fixtures do get them, so their defaults differ (MS3 budget 10 vs 3).
 - No level-1 exploration exists. `metric: "none"` rewrites the sweep values.
-- `exploration.kinetic_model` and `characterization.refine` are forwarded verbatim or `null`, never
+- `exploration.kinetic_model` and `identification.refine` are forwarded verbatim or `null`, never
   synthesised; C++ decides whether they are required or refused.
 - Unknown keys are rejected here and in C++. `test-data/config_schema_reference.json` is generated;
   regenerate, never hand-edit. Every key is also documented by hand in `docs/site/method.schema.json`

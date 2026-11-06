@@ -304,9 +304,20 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
 
 ## Config (C# side)
 
-The 11 top-level sections are the `[JsonKey]`-annotated **properties of the `MethodConfig` class**:
-`global`, `deconvolution`, `precursor_selection`, `flashtnt`, `quantification`,
-`faims`, `ms_settings`, `scheduling`, `characterization`, `files`, `runtime`.
+The 10 top-level sections are the `[JsonKey]`-annotated **properties of the `MethodConfig` class**:
+`global`, `deconvolution`, `precursor_selection`, `identification`, `quantification`,
+`faims`, `ms_settings`, `scheduling`, `files`, `runtime`.
+**`identification` (ADR-0061) is the one section that is null by default.** `MethodConfigSerializer.Deserialize`
+leaves a null-default root section null when the file does not author it, because its absence is
+the setting: no MS2 is matched and no MS3 is planned. `IdentificationConfig` holds
+`Reference.Sequence`, `Method`, `FlashTnT`, `Refine` and `Characterization`; the last is also null
+unless authored, and its presence is the MS3 switch (`Mode` is required, `"off"` refused in C++).
+`ToCppJson` emits `identification` (`null` when absent). The root `FlashTnT` and `Characterization`
+properties are gone: `RetiredKeyHints` refuses root `characterization` and `flashtnt`, and
+`identification.characterization.protein_sequence`/`.method`/`.refine` (moved up one level), with a
+migration hint even at default values, since every method file the serializer ever wrote carries
+them; `uv run test-scripts/migrate_identification.py --check|--write <file-or-folder>` migrates a
+method, tag-targeting strip included.
 `selection_strategy` was a thirteenth and is **deleted** (ADR-0014); both loaders throw a
 migration message on it. `tagging` and the root bool `conditional_ms2` went with tag-based
 targeting (ADR-0061), together with `files.fasta`, `files.ptm_list` and
@@ -345,9 +356,10 @@ adding a decision key means one on a class property.
   `reporter_mz_tol` 0.0 vs 0.002, `fold_change_threshold` 0.0 vs 1.4.
   **This bites hardest in hand-written C++ test fixtures**, which bypass the emitter entirely and so
   DO get the C++ literals: the MS3 budget defaulted to 10 there and to 3 here, so a fixture that
-  omits `characterization.max_targets` silently changes budget.
+  omits `identification.characterization.max_targets` silently changes budget.
 - **There is no level-1 exploration.** It was modelled and emitted but discarded on both sides; only
-  `precursor_selection.exploration` (MS2) and `characterization.exploration` (MS3) exist now.
+  `precursor_selection.exploration` (MS2) and `identification.characterization.exploration` (MS3)
+  exist now.
 - **An exploration block with `metric: "none"` has its sweep values silently rewritten** to
   ce 20/40/5. The forwarding guard is an ordinal, case-sensitive `!= "none"`, so `"None"` takes
   the *other* branch. Each block now gets a **fresh** instance — the old code shared one
@@ -360,8 +372,8 @@ adding a decision key means one on a class property.
   with a value the operator never wrote would be the stomped-key shape ADR-0040 removed. The schema
   reference authors it at level 3 with `{"CID": 0.0123}` because CID is `ms_settings.ms3.activation`
   there and the loader requires an entry for the swept activation.
-- **`characterization.refine` has the same verbatim-or-`null` shape, and is never gated on
-  `method`** (ADR-0049). `RefineBlockConfig` (seven keys, defaults mirroring the engine's
+- **`identification.refine` has the same verbatim-or-`null` shape, and is never gated on
+  `identification.method`** (ADR-0049). `RefineBlockConfig` (seven keys, defaults mirroring the engine's
   `RefineSettings.h`) is null unless authored; `ToJsonRefine` forwards it as written, so a block
   authored under `method: "flashtnt"` reaches C++ and is **refused there** rather than dropped here
   unread. `method` itself crosses verbatim, not lower-cased — C++ accepts only the two exact
