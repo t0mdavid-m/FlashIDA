@@ -17,15 +17,6 @@
       12
     ]
   },
-  "flashtnt": {
-    "min_length": 4,
-    "max_length": 10,
-    "allow_gap": false,
-    "max_aa_in_gap": 2,
-    "fixed_mod": [],
-    "max_blind_mod_count": 2,
-    "max_mod_mass": 700
-  },
   "faims": {
     "cv_values": [
       -40,
@@ -61,11 +52,6 @@
     "additional_scans": [
       "secondary"
     ]
-  },
-  "characterization": {
-    "mode": "off",
-    "protein_sequence": "",
-    "max_targets": 3
   },
   "ms_settings": {
     "ms1": {

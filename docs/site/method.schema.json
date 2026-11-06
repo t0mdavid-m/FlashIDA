@@ -58,7 +58,7 @@
         },
         "min_mass": {
           "type": "number",
-          "description": "Lowest monoisotopic mass MS1 deconvolution reports. MSn deconvolution uses a fixed 50 Da floor instead, and `characterization.min_target_mass` floors the `exhaustive` MS3 target pool.",
+          "description": "Lowest monoisotopic mass MS1 deconvolution reports. MSn deconvolution uses a fixed 50 Da floor instead, and `identification.characterization.min_target_mass` floors the `exhaustive` MS3 target pool.",
           "default": 500,
           "x-unit": "Da"
         },
@@ -262,57 +262,264 @@
           "x-default-text": "absent"
         }
       },
-      "description": "Decides which intact species each survey MS1 fragments: how candidates are ranked, how many are taken, which of their charge states are acquired, and which target list steers the choice. A survey's choice is a plan until its first MS2 is sent: a newer survey at the same FAIMS CV re-plans the MS2s still waiting in FLASHIda's queue, and a species counts as acquired, for `rt_window` and every bar below, only once one of its scans has been sent. The MS2 scan settings themselves live in `ms_settings`, and whether a fragment is characterized by MS3 is decided in `characterization`.",
+      "description": "Decides which intact species each survey MS1 fragments: how candidates are ranked, how many are taken, which of their charge states are acquired, and which target list steers the choice. A survey's choice is a plan until its first MS2 is sent: a newer survey at the same FAIMS CV re-plans the MS2s still waiting in FLASHIda's queue, and a species counts as acquired, for `rt_window` and every bar below, only once one of its scans has been sent. The MS2 scan settings themselves live in `ms_settings`, and whether a fragment is characterized by MS3 is decided in `identification.characterization`.",
       "x-adr": [
         "0014",
         "0060"
       ]
     },
-    "flashtnt": {
+    "identification": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "min_length": {
-          "type": "integer",
-          "description": "Shortest sequence tag FLASHTagger reports, in residues, a mass gap counting as one. FLASHTagger's own range is 3 to 9.",
-          "default": 3
-        },
-        "max_length": {
-          "type": "integer",
-          "description": "Longest sequence tag FLASHTagger reports, in residues, a mass gap counting as one. FLASHTagger's own range is 3 to 30.",
-          "default": 8
-        },
-        "allow_gap": {
-          "type": "boolean",
-          "description": "`true`: a tag may contain one mass gap standing for several consecutive residues. `false`: every tag position is a single residue.",
-          "default": false
-        },
-        "max_aa_in_gap": {
-          "type": "integer",
-          "description": "Most residues one mass gap may stand for. Read only under `allow_gap: true`. FLASHTagger's own range is 2 to 3.",
-          "default": 2
-        },
-        "fixed_mod": {
-          "type": "array",
-          "items": {
-            "type": "string"
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sequence": {
+              "type": "string",
+              "description": "The protein sequence every MS2 is matched against, in one-letter code. Required and non-empty: an empty sequence would match nothing, so it is refused; delete the `identification` section instead. `metric: fragment_count` needs it at either exploration level.",
+              "x-default-text": "required",
+              "x-adr": [
+                "0027",
+                "0061"
+              ]
+            }
           },
-          "description": "Fixed modifications handed to FLASHTagger and FLASHExtender. Neither algorithm reads them today, so the key has no effect on tagging, identification or acquisition.",
-          "default": []
+          "description": "The protein every MS2 is matched against: one inline sequence.",
+          "x-default-text": "required",
+          "x-adr": [
+            "0061"
+          ]
         },
-        "max_blind_mod_count": {
-          "type": "integer",
-          "description": "Most unknown modifications FLASHExtender may place on one proteoform when matching an MS2 against `characterization.protein_sequence`.",
-          "default": 2
+        "method": {
+          "type": "string",
+          "description": "The method that annotates MS2 fragments against `reference`, feeding identification and MS3 planning. Every `characterization.mode` accepts either method except `discriminating`, which needs `refine`. Matched exactly as written.",
+          "default": "flashtnt",
+          "enum": [
+            "flashtnt",
+            "refine"
+          ],
+          "enumDescriptions": [
+            "Tag-based search with FLASHTnT.",
+            "No-search shift scan: mass-shift levels are detected against shuffled sequences at an FDR, and a dynamic program assembles the best path for each candidate total shift."
+          ],
+          "x-adr": [
+            "0049"
+          ]
         },
-        "max_mod_mass": {
-          "type": "number",
-          "description": "Largest absolute mass of one unknown modification in that match, passed to both FLASHTagger's protein matching and FLASHExtender. The engine always passes it, so FLASHExtender's own default of 500 never applies.",
-          "default": 700,
-          "x-unit": "Da"
+        "flashtnt": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min_length": {
+              "type": "integer",
+              "description": "Shortest sequence tag FLASHTagger reports, in residues, a mass gap counting as one. FLASHTagger's own range is 3 to 9.",
+              "default": 3
+            },
+            "max_length": {
+              "type": "integer",
+              "description": "Longest sequence tag FLASHTagger reports, in residues, a mass gap counting as one. FLASHTagger's own range is 3 to 30.",
+              "default": 8
+            },
+            "allow_gap": {
+              "type": "boolean",
+              "description": "`true`: a tag may contain one mass gap standing for several consecutive residues. `false`: every tag position is a single residue.",
+              "default": false
+            },
+            "max_aa_in_gap": {
+              "type": "integer",
+              "description": "Most residues one mass gap may stand for. Read only under `allow_gap: true`. FLASHTagger's own range is 2 to 3.",
+              "default": 2
+            },
+            "fixed_mod": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Fixed modifications handed to FLASHTagger and FLASHExtender. Neither algorithm reads them today, so the key has no effect on tagging, identification or acquisition.",
+              "default": []
+            },
+            "max_blind_mod_count": {
+              "type": "integer",
+              "description": "Most unknown modifications FLASHExtender may place on one proteoform when matching an MS2 against `reference`.",
+              "default": 2
+            },
+            "max_mod_mass": {
+              "type": "number",
+              "description": "Largest absolute mass of one unknown modification in that match, passed to both FLASHTagger's protein matching and FLASHExtender. The engine always passes it, so FLASHExtender's own default of 500 never applies.",
+              "default": 700,
+              "x-unit": "Da"
+            }
+          },
+          "description": "Tuning for FLASHTnT, the tagger and extender that match each MS2 against `reference`. `method: refine` replaces that match for identification."
+        },
+        "refine": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fdr": {
+              "type": "number",
+              "description": "False-discovery rate a shift level must pass. The cut is the smallest matched-ion height, at least `min_ions`, whose rate against the shuffled sequences is at or below this. Above 0 and at most 1.",
+              "default": 0.2,
+              "x-adr": [
+                "0049"
+              ]
+            },
+            "shuffles": {
+              "type": "integer",
+              "description": "Number of shuffled sequences the FDR is estimated from. The shuffle seed is fixed, so the same spectrum always gives the same cut.",
+              "default": 300,
+              "x-adr": [
+                "0049"
+              ]
+            },
+            "grid_da": {
+              "type": "number",
+              "description": "Step of the grid of trial mass shifts.",
+              "default": 0.01,
+              "x-unit": "Da",
+              "x-adr": [
+                "0049"
+              ]
+            },
+            "max_shift_da": {
+              "type": "number",
+              "description": "The trial-shift grid runs from minus this value to plus this value, so a larger shift is never detected.",
+              "default": 700,
+              "x-unit": "Da",
+              "x-adr": [
+                "0049"
+              ]
+            },
+            "min_ions": {
+              "type": "integer",
+              "description": "Smallest cut tried: a shift level needs at least this many matched ions beyond what the unshifted sequence already explains.",
+              "default": 3,
+              "x-adr": [
+                "0049"
+              ]
+            },
+            "max_levels": {
+              "type": "integer",
+              "description": "Most shift levels kept, highest signal first, after neutral losses and neutron satellites are excluded. It bounds the number of candidate totals.",
+              "default": 20,
+              "x-adr": [
+                "0049"
+              ]
+            },
+            "jump_penalty": {
+              "type": "integer",
+              "description": "Ions one jump between levels costs in a path's score: score = matched ions minus `jump_penalty` times jumps. The `discriminating` round recounts with the same penalty.",
+              "default": 2,
+              "x-adr": [
+                "0049"
+              ]
+            }
+          },
+          "description": "Settings of the Refine method, read only under `method: refine`. Refine matches at the MS2 tolerance, the second `deconvolution.tol` entry, which is not a key here.",
+          "x-default-text": "absent: Refine runs at the defaults listed below",
+          "x-adr": [
+            "0049"
+          ]
+        },
+        "characterization": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "description": "The MS3 objective, and the choice of targets. Required: the block's presence is what turns MS3 on, so it must name an objective, and deleting the block is how MS3 is switched off. Every value plans up to `max_targets` targets. `ambiguity`, `coverage` and `fragments` rank by best-MS2 intensity and never target a full-length b or y ion. An MS3 on a c, z, a or x fragment is acquired and logged but not annotated.",
+              "enum": [
+                "ambiguity",
+                "coverage",
+                "fragments",
+                "exhaustive",
+                "discriminating"
+              ],
+              "enumDescriptions": [
+                "Targets fragments that contain an ambiguously placed modification, round-robin across modifications so each site gets its strongest container first. A precursor with nothing ambiguous gets no MS3.",
+                "Targets every observed fragment whose interior holds a backbone bond that no MS2 fragment witnessed.",
+                "Targets every mapped fragment that has a bond inside it, with no coverage test.",
+                "Targets every deconvolved mass of the winner MS2 scan, mapped or not, and also plans for a precursor whose MS2 matched nothing. `min_target_mass` sets its mass floor.",
+                "Targets the MS2 masses that the two best Refine paths explain differently, then lets the MS3 evidence decide between the paths. Needs `identification.method: refine` and no `exploration`."
+              ],
+              "x-adr": [
+                "0013",
+                "0023",
+                "0049",
+                "0052",
+                "0054",
+                "0055",
+                "0061"
+              ],
+              "x-default-text": "required"
+            },
+            "max_targets": {
+              "type": "integer",
+              "description": "The MS3 budget: fragments one planning round of a precursor may target. It counts fragments in every `fragment_charges` mode, so the extra charge states of one fragment cost no extra slot. With `exploration` set, every target becomes a whole sweep.",
+              "default": 3,
+              "x-adr": [
+                "0013",
+                "0016",
+                "0052"
+              ]
+            },
+            "min_fragment_charge": {
+              "type": "integer",
+              "description": "Fragments below this charge are not MS3 targets, in every mode. 0 means no floor. Distinct from `precursor_selection.min_precursor_charge`, which filters precursors.",
+              "default": 0
+            },
+            "min_target_mass": {
+              "type": "number",
+              "description": "Deconvolved masses below this are not MS3 targets. Read only under `mode: exhaustive`; 0 means no floor. `deconvolution.min_mass` does not reach MS2 output, so this is the only mass floor on that pool.",
+              "default": 0,
+              "x-unit": "Da",
+              "x-adr": [
+                "0023"
+              ]
+            },
+            "fragment_charges": {
+              "type": "string",
+              "description": "How many charge states of one target fragment its MS3 acquires. Extra charges must pass `precursor_selection.snr_threshold` and are ranked by intensity, up to ten in all. The budget counts fragments in all three modes.",
+              "default": "single",
+              "enum": [
+                "single",
+                "separate",
+                "multiplexed"
+              ],
+              "enumDescriptions": [
+                "One MS3 at the fragment's most intense MS2 charge.",
+                "One MS3 per charge state in the set.",
+                "One MS3 that co-isolates the whole set."
+              ],
+              "x-adr": [
+                "0016"
+              ]
+            },
+            "exploration": {
+              "$ref": "#/$defs/exploration",
+              "description": "Sweeps the collision energy or reaction time of every MS3 target in place of its single MS3, scored by the chosen metric. A measuring metric or non-empty `overrides` adds a follow-up MS3 per target, so a target then costs its grid points plus one. The keys are those of the shared exploration block; see the exploration page.",
+              "x-default-text": "absent: no sweep, one MS3 per target at the energy of `ms_settings.ms3`",
+              "x-adr": [
+                "0020"
+              ]
+            }
+          },
+          "description": "Decides whether MS3 runs and which fragments of a precursor's matched MS2 it targets. The block's presence is the single MS3 switch and `mode` names the objective; the MS3 scan's instrument parameters come from `ms_settings.ms3`, and `exploration` optionally sweeps their energy per target.",
+          "x-default-text": "absent: no MS3",
+          "x-adr": [
+            "0013",
+            "0061"
+          ]
         }
       },
-      "description": "Tuning for FLASHTnT, the tagger and extender the engine runs on MS2 spectra. Its keys tune the FLASHTnT match against `characterization.protein_sequence`, which `characterization.method: refine` replaces for identification."
+      "description": "Real-time identification: which protein every MS2 is matched against and how, and, in `characterization`, whether and how MS3 characterizes what was matched. The section's presence is the switch: without it no MS2 is matched, `identification.tsv` gets no rows and no MS3 runs. Every MS2 except a quantification scan is matched. It acts on what `precursor_selection` chose to fragment at MS2.",
+      "x-default-text": "absent: no MS2 is matched and no MS3 runs",
+      "x-adr": [
+        "0049",
+        "0061"
+      ]
     },
     "quantification": {
       "type": "object",
@@ -616,10 +823,11 @@
         },
         "ms3": {
           "$ref": "#/$defs/scan",
-          "description": "The MS3 scan config, built for every characterization target when `characterization.mode` is not `off`, and the base every MS3 exploration variant is built from. Its activation, collision energy and reaction keys drive the fragment stage, while the first stage carries the isolation and activation of the MS2 that produced the fragment. It is inert under `mode: off`, so switching MS3 off stays a one-word edit.",
-          "x-default-text": "required when characterization.mode is not off",
+          "description": "The MS3 scan config, built for every characterization target when `identification.characterization` is set, and the base every MS3 exploration variant is built from. Its activation, collision energy and reaction keys drive the fragment stage, while the first stage carries the isolation and activation of the MS2 that produced the fragment. It is inert without that block, so deleting the block switches MS3 off and nothing else needs to change.",
+          "x-default-text": "required when identification.characterization is set",
           "x-adr": [
-            "0013"
+            "0013",
+            "0061"
           ]
         },
         "additional_ms2": {
@@ -634,7 +842,7 @@
           ]
         }
       },
-      "description": "The scan configs: instrument parameters only, and no key here decides whether a scan is acquired. `precursor_selection`, `characterization` and `quantification` decide when each config fires, and every config takes the same scan keys.",
+      "description": "The scan configs: instrument parameters only, and no key here decides whether a scan is acquired. `precursor_selection`, `identification.characterization` and `quantification` decide when each config fires, and every config takes the same scan keys.",
       "x-adr": [
         "0009",
         "0014"
@@ -726,186 +934,6 @@
       },
       "description": "Paths to the external inputs the engine loads once when the run starts: target logs from earlier runs and an inclusion list. An empty string or an empty array loads nothing, and a relative path resolves against the process working directory."
     },
-    "characterization": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "mode": {
-          "type": "string",
-          "description": "The MS3 switch, and the choice of targets. Every on-value plans up to `max_targets` targets. `ambiguity`, `coverage` and `fragments` rank by best-MS2 intensity and never target a full-length b or y ion. An MS3 on a c, z, a or x fragment is acquired and logged but not annotated.",
-          "default": "off",
-          "enum": [
-            "off",
-            "ambiguity",
-            "coverage",
-            "fragments",
-            "exhaustive",
-            "discriminating"
-          ],
-          "enumDescriptions": [
-            "No MS3. `ms_settings.ms3` and the other keys of this section may stay authored and are not read, except that a non-empty `protein_sequence` still identifies every MS2.",
-            "Targets fragments that contain an ambiguously placed modification, round-robin across modifications so each site gets its strongest container first. A precursor with nothing ambiguous gets no MS3.",
-            "Targets every observed fragment whose interior holds a backbone bond that no MS2 fragment witnessed.",
-            "Targets every mapped fragment that has a bond inside it, with no coverage test.",
-            "Targets every deconvolved mass of the winner MS2 scan, mapped or not, and also plans for a precursor whose MS2 matched nothing. `min_target_mass` sets its mass floor.",
-            "Targets the MS2 masses that the two best Refine paths explain differently, then lets the MS3 evidence decide between the paths. Needs `method: refine` and no `characterization.exploration`."
-          ],
-          "x-adr": [
-            "0013",
-            "0023",
-            "0049",
-            "0052",
-            "0054",
-            "0055"
-          ]
-        },
-        "protein_sequence": {
-          "type": "string",
-          "description": "The protein sequence MS2 and MS3 fragments are matched against. A non-empty sequence turns on MS2 identification even under `mode: off`, and `metric: fragment_count` needs it at either exploration level.",
-          "default": "",
-          "x-default-text": "required when mode is not off",
-          "x-adr": [
-            "0027"
-          ]
-        },
-        "max_targets": {
-          "type": "integer",
-          "description": "The MS3 budget: fragments one planning round of a precursor may target. It counts fragments in every `fragment_charges` mode, so the extra charge states of one fragment cost no extra slot. With `exploration` set, every target becomes a whole sweep.",
-          "default": 3,
-          "x-adr": [
-            "0013",
-            "0016",
-            "0052"
-          ]
-        },
-        "min_fragment_charge": {
-          "type": "integer",
-          "description": "Fragments below this charge are not MS3 targets, in every mode. 0 means no floor. Distinct from `precursor_selection.min_precursor_charge`, which filters precursors.",
-          "default": 0
-        },
-        "min_target_mass": {
-          "type": "number",
-          "description": "Deconvolved masses below this are not MS3 targets. Read only under `mode: exhaustive`; 0 means no floor. `deconvolution.min_mass` does not reach MS2 output, so this is the only mass floor on that pool.",
-          "default": 0,
-          "x-unit": "Da",
-          "x-adr": [
-            "0023"
-          ]
-        },
-        "fragment_charges": {
-          "type": "string",
-          "description": "How many charge states of one target fragment its MS3 acquires. Extra charges must pass `precursor_selection.snr_threshold` and are ranked by intensity, up to ten in all. The budget counts fragments in all three modes.",
-          "default": "single",
-          "enum": [
-            "single",
-            "separate",
-            "multiplexed"
-          ],
-          "enumDescriptions": [
-            "One MS3 at the fragment's most intense MS2 charge.",
-            "One MS3 per charge state in the set.",
-            "One MS3 that co-isolates the whole set."
-          ],
-          "x-adr": [
-            "0016"
-          ]
-        },
-        "exploration": {
-          "$ref": "#/$defs/exploration",
-          "description": "Sweeps the collision energy or reaction time of every MS3 target in place of its single MS3, scored by the chosen metric. A measuring metric or non-empty `overrides` adds a follow-up MS3 per target, so a target then costs its grid points plus one. The keys are those of the shared exploration block; see the exploration page.",
-          "x-default-text": "absent: no sweep, one MS3 per target at the energy of `ms_settings.ms3`",
-          "x-adr": [
-            "0020"
-          ]
-        },
-        "method": {
-          "type": "string",
-          "description": "The method that annotates MS2 fragments against `protein_sequence`, feeding identification and MS3 planning. Every `mode` accepts either method except `discriminating`, which needs `refine`. Matched exactly as written.",
-          "default": "flashtnt",
-          "enum": [
-            "flashtnt",
-            "refine"
-          ],
-          "enumDescriptions": [
-            "Tag-based search with FLASHTnT.",
-            "No-search shift scan: mass-shift levels are detected against shuffled sequences at an FDR, and a dynamic program assembles the best path for each candidate total shift."
-          ],
-          "x-adr": [
-            "0049"
-          ]
-        },
-        "refine": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "fdr": {
-              "type": "number",
-              "description": "False-discovery rate a shift level must pass. The cut is the smallest matched-ion height, at least `min_ions`, whose rate against the shuffled sequences is at or below this. Above 0 and at most 1.",
-              "default": 0.2,
-              "x-adr": [
-                "0049"
-              ]
-            },
-            "shuffles": {
-              "type": "integer",
-              "description": "Number of shuffled sequences the FDR is estimated from. The shuffle seed is fixed, so the same spectrum always gives the same cut.",
-              "default": 300,
-              "x-adr": [
-                "0049"
-              ]
-            },
-            "grid_da": {
-              "type": "number",
-              "description": "Step of the grid of trial mass shifts.",
-              "default": 0.01,
-              "x-unit": "Da",
-              "x-adr": [
-                "0049"
-              ]
-            },
-            "max_shift_da": {
-              "type": "number",
-              "description": "The trial-shift grid runs from minus this value to plus this value, so a larger shift is never detected.",
-              "default": 700,
-              "x-unit": "Da",
-              "x-adr": [
-                "0049"
-              ]
-            },
-            "min_ions": {
-              "type": "integer",
-              "description": "Smallest cut tried: a shift level needs at least this many matched ions beyond what the unshifted sequence already explains.",
-              "default": 3,
-              "x-adr": [
-                "0049"
-              ]
-            },
-            "max_levels": {
-              "type": "integer",
-              "description": "Most shift levels kept, highest signal first, after neutral losses and neutron satellites are excluded. It bounds the number of candidate totals.",
-              "default": 20,
-              "x-adr": [
-                "0049"
-              ]
-            },
-            "jump_penalty": {
-              "type": "integer",
-              "description": "Ions one jump between levels costs in a path's score: score = matched ions minus `jump_penalty` times jumps. The `discriminating` round recounts with the same penalty.",
-              "default": 2,
-              "x-adr": [
-                "0049"
-              ]
-            }
-          },
-          "description": "Settings of the Refine method, read only under `method: refine`. Refine matches at the MS2 tolerance, the second `deconvolution.tol` entry, which is not a key here.",
-          "x-default-text": "absent: Refine runs at the defaults listed below",
-          "x-adr": [
-            "0049"
-          ]
-        }
-      },
-      "description": "Decides whether MS3 runs, which fragments of a precursor's MS2 it targets, and which method annotates those MS2 fragments. `mode` is the single MS3 switch; the MS3 scan's instrument parameters come from `ms_settings.ms3`, and `exploration` optionally sweeps their energy per target. It acts on what `precursor_selection` chose to fragment at MS2."
-    },
     "runtime": {
       "type": "object",
       "additionalProperties": false,
@@ -922,7 +950,7 @@
       "description": "Where the run's output goes. The host resolves it once at start, and the engine receives a finished folder path."
     }
   },
-  "description": "`method.json` is the one file that configures a FLASHIda run: which precursors to fragment, whether and how to characterize them, and the instrument parameters of every scan. It is read twice, by the C# host and then by the C++ engine, and both loaders reject a key they do not know, so a misspelled key stops the run instead of being ignored. Every run copies the file verbatim into its run folder as `method.json`, beside the logs it produced. Each page covers one section: for every key it gives the type, the value an omitted key produces, the values and rules that apply, and the value a named committed config sets.",
+  "description": "`method.json` is the one file that configures a FLASHIda run: which precursors to fragment, how to identify them in real time and whether to characterize them, and the instrument parameters of every scan. It is read twice, by the C# host and then by the C++ engine, and both loaders reject a key they do not know, so a misspelled key stops the run instead of being ignored. Every run copies the file verbatim into its run folder as `method.json`, beside the logs it produced. Each page covers one section: for every key it gives the type, the value an omitted key produces, the values and rules that apply, and the value a named committed config sets.",
   "$defs": {
     "scan": {
       "type": "object",
@@ -1107,7 +1135,7 @@
             "No sweep. The level fires its scan config at its authored energy, and every other key of the block except `monitor_ms1` is discarded before it reaches the engine.",
             "Scores a pre-scan by the number of deconvolved masses and takes the highest. A measuring metric, so at level 3 a follow-up MS3 is acquired at the winning energy.",
             "Scores a pre-scan by how close its precursor share lies to `remaining_precursor_target` and takes the closest. A measuring metric, and with `kinetic_model` the only one that can decide an ion-trap sweep.",
-            "Scores a pre-scan by the fragment ions it matches against `characterization.protein_sequence`, which it therefore needs at either level. A reading metric: at level 3 the winning pre-scan is its own evidence and no follow-up is acquired unless `overrides` is set.",
+            "Scores a pre-scan by the fragment ions it matches against `identification.reference`, which it therefore needs at either level. A reading metric: at level 3 the winning pre-scan is its own evidence and no follow-up is acquired unless `overrides` is set.",
             "Fits a Gompertz curve to the precursor shares and acquires a follow-up at the modeled maximum, an integer energy between 1 and `ce_max` that need not be a grid point. Follows up at both levels, needs `kinetic_model.k2`, and sweeps exactly one activation, HCD or CID."
           ],
           "x-adr": [
@@ -1332,7 +1360,7 @@
     {
       "slug": "exploration",
       "title": "Exploration",
-      "subtitle": "JSON keys of `precursor_selection.exploration` and `characterization.exploration`",
+      "subtitle": "JSON keys of `precursor_selection.exploration` and `identification.characterization.exploration`",
       "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `Exploration.cpp`, ADR-0020, ADR-0029, ADR-0030, ADR-0042, ADR-0044, ADR-0045, ADR-0047, ADR-0048",
       "sections": [
         {
@@ -1347,31 +1375,52 @@
             {
               "config": "method_exploration_ms3.json",
               "label": "level 3",
-              "base": "characterization.exploration"
+              "base": "identification.characterization.exploration"
             }
           ]
         }
       ]
     },
     {
-      "slug": "characterization",
-      "title": "Characterization",
-      "subtitle": "JSON keys of `characterization` and `flashtnt`",
-      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `ProteoformTracker.cpp`, `FragmentAnalysis.cpp`, `Refine`, ADR-0013, ADR-0023, ADR-0049, ADR-0052, ADR-0054, ADR-0055",
+      "slug": "identification",
+      "title": "Identification",
+      "subtitle": "JSON keys of `identification`: the reference, the annotation method, FLASHTnT and Refine tuning, and `characterization`",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `ProteoformTracker.cpp`, `FragmentAnalysis.cpp`, `Refine`, ADR-0013, ADR-0023, ADR-0049, ADR-0052, ADR-0054, ADR-0055, ADR-0061",
       "sections": [
         {
-          "ref": "characterization",
+          "ref": "identification",
+          "exclude": [
+            "flashtnt",
+            "refine",
+            "characterization"
+          ],
           "exemplars": [
             {
-              "config": "method_ms3_cytc_exhaustive.json"
+              "config": "method_refine_cytc.json"
             }
           ]
         },
         {
-          "ref": "flashtnt",
+          "ref": "identification.flashtnt",
           "exemplars": [
             {
-              "config": "method_default.json"
+              "config": "method_identify_only.json"
+            }
+          ]
+        },
+        {
+          "ref": "identification.refine",
+          "exemplars": [
+            {
+              "config": "method_refine_cytc.json"
+            }
+          ]
+        },
+        {
+          "ref": "identification.characterization",
+          "exemplars": [
+            {
+              "config": "method_ms3_cytc_exhaustive.json"
             }
           ]
         }

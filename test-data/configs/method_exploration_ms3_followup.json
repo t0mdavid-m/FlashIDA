@@ -17,15 +17,6 @@
       10
     ]
   },
-  "flashtnt": {
-    "min_length": 3,
-    "max_length": 8,
-    "allow_gap": false,
-    "max_aa_in_gap": 2,
-    "fixed_mod": [],
-    "max_blind_mod_count": 2,
-    "max_mod_mass": 700
-  },
   "faims": {
     "cv_values": [],
     "max_cv_skip": 0,
@@ -64,20 +55,33 @@
       ]
     }
   },
-  "characterization": {
-    "mode": "ambiguity",
-    "protein_sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE",
-    "max_targets": 3,
-    "exploration": {
-      "metric": "fragment_count",
-      "ce_min": 15,
-      "ce_max": 35,
-      "ce_step": 5,
-      "activations": [
-        "CID"
-      ],
-      "overrides": {
-        "analyzer": "Orbitrap"
+  "identification": {
+    "reference": {
+      "sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
+    },
+    "flashtnt": {
+      "min_length": 3,
+      "max_length": 8,
+      "allow_gap": false,
+      "max_aa_in_gap": 2,
+      "fixed_mod": [],
+      "max_blind_mod_count": 2,
+      "max_mod_mass": 700
+    },
+    "characterization": {
+      "mode": "ambiguity",
+      "max_targets": 3,
+      "exploration": {
+        "metric": "fragment_count",
+        "ce_min": 15,
+        "ce_max": 35,
+        "ce_step": 5,
+        "activations": [
+          "CID"
+        ],
+        "overrides": {
+          "analyzer": "Orbitrap"
+        }
       }
     }
   },
