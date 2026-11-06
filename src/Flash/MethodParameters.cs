@@ -298,6 +298,8 @@ namespace Flash
                 // ("identification.refine is set but identification.method is flashtnt"),
                 // instead of being dropped here unread.
                 refine = ToJsonRefine(id.Refine),
+                // ADR-0062. Null when unauthored, so C++ sizes the pool from the core count.
+                search_threads = id.SearchThreads,
                 // Null = no MS3. The mode is lower-cased as it always was; a missing one stays null
                 // and C++ refuses the block, which must name an objective.
                 characterization = cz == null ? null : new JsonCharacterizationConfig
@@ -606,6 +608,7 @@ namespace Flash
             c.Identification = new IdentificationConfig
             {
                 Reference = new ReferenceConfig { Sequence = "MSENTINELPEPTIDESEQ" },
+                SearchThreads = 3,   // ADR-0062; unauthored means the core count minus two
                 Characterization = new CharacterizationConfig()
             };
             c.Identification.FlashTnT.MinLength = 4;

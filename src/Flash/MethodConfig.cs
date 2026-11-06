@@ -543,6 +543,12 @@ namespace Flash
         [JsonKey("refine")]
         public RefineBlockConfig Refine { get; set; }
 
+        // ADR-0062. The search pool's size. Null = unauthored: C++ uses the core count minus two (at
+        // least 1). C++ refuses anything but an integer >= 1.
+        [JsonKey("search_threads")]
+        [Description("Search workers that match MS2s beside the analysis thread (ADR-0062). Unset: the core count minus two, at least 1.")]
+        public int? SearchThreads { get; set; }
+
         // Null = absent = no MS3.
         [JsonKey("characterization")]
         public CharacterizationConfig Characterization { get; set; }
@@ -1004,6 +1010,7 @@ namespace Flash
         public string method { get; set; }
         public JsonFlashTnTConfig flashtnt { get; set; }
         public JsonRefineBlockConfig refine { get; set; }
+        public int? search_threads { get; set; }
         public JsonCharacterizationConfig characterization { get; set; }
     }
 

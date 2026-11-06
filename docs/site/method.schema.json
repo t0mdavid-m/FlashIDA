@@ -423,6 +423,15 @@
             "0049"
           ]
         },
+        "search_threads": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of search workers. Each MS2 is matched on one of them, beside the thread that deconvolves and selects, so a slow match never delays the next survey. Each worker applies its own result as soon as it finishes. When more matches are waiting than four per worker, the oldest waiting one is skipped and its scan identifies nothing.",
+          "x-default-text": "absent: the number of cores minus two, at least 1",
+          "x-adr": [
+            "0062"
+          ]
+        },
         "characterization": {
           "type": "object",
           "additionalProperties": false,
