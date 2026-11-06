@@ -78,6 +78,7 @@
       "max_levels": 7,
       "jump_penalty": 3
     },
+    "search_threads": 3,
     "characterization": {
       "mode": "coverage",
       "max_targets": 4,
