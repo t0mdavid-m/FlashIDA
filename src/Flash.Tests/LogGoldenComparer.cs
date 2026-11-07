@@ -77,7 +77,10 @@ namespace Flash.Tests
             { "dequeue_ts", "<TS>" },
             { "queue_duration_ms", "<DUR>" },
             { "instrument_duration_ms", "<DUR>" },
-            { "processing_duration_ms", "<DUR>" }
+            { "processing_duration_ms", "<DUR>" },
+            // ADR-0061 push 4b: the search pool's timings (wall-clock ms; -1 off the pool).
+            { "search_wait_ms", "<DUR>" },
+            { "search_ms", "<DUR>" }
         };
         private static readonly Dictionary<string, string> NoMaskNames = new Dictionary<string, string>();
 
