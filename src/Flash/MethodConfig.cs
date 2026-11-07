@@ -146,36 +146,68 @@ namespace Flash
         public ExplorationBlockConfig Exploration { get; set; }
     }
 
+    // ADR-0061 d.13. Every key is null when unauthored and crosses the bridge as null, so C++ takes
+    // FLASHTnT's own default (FlashTnTSettings; skip_precursor_inference defaults to true). The C#
+    // side holds no default and validates nothing here: C++ refuses a non-empty fixed_mod and a
+    // gapped_tags other than off/fallback.
     [JsonKey("flashtnt")]
     public class FlashTnTConfig
     {
         [JsonKey("min_length")]
-        [Description("Minimum sequence tag length (FLASHTagger)")]
-        public int MinLength { get; set; } = 3;
+        [Description("Minimum sequence tag length (tag:min_length). Unset: FLASHTnT's default, 3.")]
+        public int? MinLength { get; set; }
 
         [JsonKey("max_length")]
-        [Description("Maximum sequence tag length (FLASHTagger)")]
-        public int MaxLength { get; set; } = 8;
+        [Description("Maximum sequence tag length (tag:max_length). Unset: FLASHTnT's default, 8.")]
+        public int? MaxLength { get; set; }
 
         [JsonKey("allow_gap")]
-        [Description("Allow mass gaps in sequence tags (FLASHTagger)")]
-        public bool AllowGap { get; set; } = false;
+        [Description("Allow mass gaps in sequence tags (tag:allow_gap). Unset: FLASHTnT's default, false.")]
+        public bool? AllowGap { get; set; }
 
         [JsonKey("max_aa_in_gap")]
-        [Description("Maximum amino acids in a tag mass gap (FLASHTagger)")]
-        public int MaxAaInGap { get; set; } = 2;
+        [Description("Maximum amino acids in a tag mass gap (tag:max_aa_in_gap). Unset: FLASHTnT's default, 2.")]
+        public int? MaxAaInGap { get; set; }
 
         [JsonKey("fixed_mod")]
-        [Description("Fixed modifications applied by the tagger and extender")]
-        public List<string> FixedMod { get; set; } = new List<string>();
+        [Description("Must be empty: fixed modifications are not supported in real time, and C++ refuses a non-empty list.")]
+        public List<string> FixedMod { get; set; }
 
         [JsonKey("max_blind_mod_count")]
-        [Description("Maximum blind modifications per proteoform (FLASHExtender)")]
-        public int MaxBlindModCount { get; set; } = 2;
+        [Description("Maximum blind modifications per proteoform (max_blind_mod_count). Unset: FLASHTnT's default, 1.")]
+        public int? MaxBlindModCount { get; set; }
 
         [JsonKey("max_mod_mass")]
-        [Description("Maximum absolute mass of a blind modification in Da (FLASHExtender). 700 preserves prior behavior.")]
-        public double MaxModMass { get; set; } = 700;
+        [Description("Maximum absolute mass of a blind modification in Da (max_mod_mass). Unset: FLASHTnT's default, 500.")]
+        public double? MaxModMass { get; set; }
+
+        [JsonKey("var_mod")]
+        [Description("Variable modifications by Unimod/PSI-MOD name with site (var_mod). Unset: FLASHTnT's default, Acetyl (Protein N-term).")]
+        public List<string> VarMod { get; set; }
+
+        [JsonKey("max_var_mod_count")]
+        [Description("Maximum variable modifications per proteoform (max_var_mod_count). Unset: FLASHTnT's default, 3.")]
+        public int? MaxVarModCount { get; set; }
+
+        [JsonKey("max_protein_hits")]
+        [Description("Candidate proteins kept per spectrum (max_protein_hits). Unset: FLASHTnT's default, 50.")]
+        public int? MaxProteinHits { get; set; }
+
+        [JsonKey("gapped_tags")]
+        [Description("Candidate proteins from gapped tags: off or fallback (gapped_tags). Unset: FLASHTnT's default, fallback.")]
+        public string GappedTags { get; set; }
+
+        [JsonKey("terminal_ladders")]
+        [Description("Candidate proteins from terminal ladders (terminal_ladders). Unset: FLASHTnT's default, true.")]
+        public bool? TerminalLadders { get; set; }
+
+        [JsonKey("precursor_ladders")]
+        [Description("Candidate proteins from precursor-anchored ladders (precursor_ladders). Unset: FLASHTnT's default, true.")]
+        public bool? PrecursorLadders { get; set; }
+
+        [JsonKey("skip_precursor_inference")]
+        [Description("Skip precursor-mass inference from complementary fragment pairs (ex:skip_precursor_inference). Unset: true (ADR-0061).")]
+        public bool? SkipPrecursorInference { get; set; }
     }
 
     [JsonKey("quantification")]
@@ -511,9 +543,16 @@ namespace Flash
     [JsonKey("reference")]
     public class ReferenceConfig
     {
+        // Exactly one of Fasta and Sequence, non-empty. Both null when unauthored and emitted as
+        // authored, so C++ (which owns the refusal) sees which one was written: both, neither or an
+        // empty value is refused there.
+        [JsonKey("fasta")]
+        [Description("Path of the FASTA reference every MS2 is searched against, read as authored (a relative path resolves against the process working directory). Exactly one of fasta and sequence.")]
+        public string Fasta { get; set; }
+
         [JsonKey("sequence")]
-        [Description("The one protein sequence every MS2 is matched against. Required and non-empty.")]
-        public string Sequence { get; set; } = "";
+        [Description("One inline protein sequence every MS2 is matched against. Exactly one of fasta and sequence.")]
+        public string Sequence { get; set; }
     }
 
     /// <summary>
@@ -790,15 +829,23 @@ namespace Flash
         public JsonExplorationBlockConfig exploration { get; set; }
     }
 
+    // ADR-0061 d.13. Every key null when unauthored; C++ reads null as unset (FLASHTnT's default).
     public class JsonFlashTnTConfig
     {
-        public int min_length { get; set; }
-        public int max_length { get; set; }
-        public bool allow_gap { get; set; }
-        public int max_aa_in_gap { get; set; }
+        public int? min_length { get; set; }
+        public int? max_length { get; set; }
+        public bool? allow_gap { get; set; }
+        public int? max_aa_in_gap { get; set; }
         public string[] fixed_mod { get; set; }
-        public int max_blind_mod_count { get; set; }
-        public double max_mod_mass { get; set; }
+        public int? max_blind_mod_count { get; set; }
+        public double? max_mod_mass { get; set; }
+        public string[] var_mod { get; set; }
+        public int? max_var_mod_count { get; set; }
+        public int? max_protein_hits { get; set; }
+        public string gapped_tags { get; set; }
+        public bool? terminal_ladders { get; set; }
+        public bool? precursor_ladders { get; set; }
+        public bool? skip_precursor_inference { get; set; }
     }
 
     public class JsonGlobalConfig
@@ -999,6 +1046,7 @@ namespace Flash
 
     public class JsonReferenceConfig
     {
+        public string fasta { get; set; }
         public string sequence { get; set; }
     }
 

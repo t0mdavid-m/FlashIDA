@@ -276,17 +276,61 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "fasta": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "description": "Path of a FASTA file holding the proteins every MS2 is searched against. Read as written: a relative path resolves against the working directory of the FLASHIda process, which is not necessarily the folder of the method file, so use an absolute path. Entries carrying FLASHTnT's decoy prefix (`DECOY`) are dropped at load, so a FASTA prepared for an offline search can be used unchanged. Exactly one of `fasta` and `sequence`; an empty path is refused.",
+              "x-default-text": "absent",
+              "x-adr": [
+                "0061"
+              ]
+            },
             "sequence": {
-              "type": "string",
-              "description": "The protein sequence every MS2 is matched against, in one-letter code. Required and non-empty: an empty sequence would match nothing, so it is refused; delete the `identification` section instead. `metric: fragment_count` needs it at either exploration level.",
-              "x-default-text": "required",
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "description": "One protein sequence, in one-letter code, that every MS2 is matched against: a reference of one entry. Exactly one of `fasta` and `sequence`; an empty sequence would match nothing, so it is refused (delete the `identification` section instead). `metric: fragment_count` needs a reference at either exploration level.",
+              "x-default-text": "absent",
               "x-adr": [
                 "0027",
                 "0061"
               ]
             }
           },
-          "description": "The protein every MS2 is matched against: one inline sequence.",
+          "oneOf": [
+            {
+              "required": [
+                "fasta"
+              ],
+              "properties": {
+                "fasta": {
+                  "type": "string"
+                },
+                "sequence": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "required": [
+                "sequence"
+              ],
+              "properties": {
+                "sequence": {
+                  "type": "string"
+                },
+                "fasta": {
+                  "type": "null"
+                }
+              }
+            }
+          ],
+          "description": "The protein reference every MS2 is searched against: a FASTA file (`fasta`) or one inline sequence (`sequence`). Exactly one of the two, and not empty; a reference with both, with neither or with an empty value is refused at load. A key set to `null` counts as absent.",
           "x-default-text": "required",
           "x-adr": [
             "0061"
@@ -314,45 +358,140 @@
           "properties": {
             "min_length": {
               "type": "integer",
-              "description": "Shortest sequence tag FLASHTagger reports, in residues, a mass gap counting as one. FLASHTagger's own range is 3 to 9.",
-              "default": 3
+              "description": "Shortest sequence tag the search reports, in residues, a mass gap counting as one. FLASHTnT's range is 3 to 9. Unset: FLASHTnT's default.",
+              "default": 3,
+              "x-adr": [
+                "0061"
+              ]
             },
             "max_length": {
               "type": "integer",
-              "description": "Longest sequence tag FLASHTagger reports, in residues, a mass gap counting as one. FLASHTagger's own range is 3 to 30.",
-              "default": 8
+              "description": "Longest sequence tag the search reports, in residues, a mass gap counting as one. FLASHTnT's range is 3 to 30. Unset: FLASHTnT's default.",
+              "default": 8,
+              "x-adr": [
+                "0061"
+              ]
             },
             "allow_gap": {
               "type": "boolean",
-              "description": "`true`: a tag may contain one mass gap standing for several consecutive residues. `false`: every tag position is a single residue.",
-              "default": false
+              "description": "`true`: a tag may contain one mass gap standing for several consecutive residues. `false`: every tag position is a single residue. Unset: FLASHTnT's default.",
+              "default": false,
+              "x-adr": [
+                "0061"
+              ]
             },
             "max_aa_in_gap": {
               "type": "integer",
-              "description": "Most residues one mass gap may stand for. Read only under `allow_gap: true`. FLASHTagger's own range is 2 to 3.",
-              "default": 2
+              "description": "Most residues one mass gap may stand for. Read only under `allow_gap: true`. FLASHTnT's range is 2 to 3. Unset: FLASHTnT's default.",
+              "default": 2,
+              "x-adr": [
+                "0061"
+              ]
             },
             "fixed_mod": {
               "type": "array",
               "items": {
                 "type": "string"
               },
-              "description": "Fixed modifications handed to FLASHTagger and FLASHExtender. Neither algorithm reads them today, so the key has no effect on tagging, identification or acquisition.",
-              "default": []
+              "maxItems": 0,
+              "description": "Must be empty. Fixed modifications are not supported in real time, and a non-empty list is refused at load.",
+              "default": [],
+              "x-adr": [
+                "0061"
+              ]
             },
             "max_blind_mod_count": {
               "type": "integer",
-              "description": "Most unknown modifications FLASHExtender may place on one proteoform when matching an MS2 against `reference`.",
-              "default": 2
+              "description": "Most unknown modifications (mass shifts of no named modification) the search may place on one proteoform, besides the `var_mod` ones. Unset: FLASHTnT's default.",
+              "default": 1,
+              "x-adr": [
+                "0061"
+              ]
             },
             "max_mod_mass": {
               "type": "number",
-              "description": "Largest absolute mass of one unknown modification in that match, passed to both FLASHTagger's protein matching and FLASHExtender. The engine always passes it, so FLASHExtender's own default of 500 never applies.",
-              "default": 700,
-              "x-unit": "Da"
+              "description": "Largest absolute mass of one unknown modification. Unset: FLASHTnT's default of 500, so a protein carrying a heavier modification is only explained with this authored above that mass: a heme protein such as cytochrome c (heme +616 Da) needs at least 616.",
+              "default": 500,
+              "x-unit": "Da",
+              "x-adr": [
+                "0061"
+              ]
+            },
+            "var_mod": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Variable modifications the search tries, each by Unimod or PSI-MOD name with its site (`Oxidation (M)`, `Acetyl (N-term)`, `Phospho (S)`) or by Unimod accession with its site (`35 (M)`). They are counted apart from the unknown modifications (`max_var_mod_count`), and both can occur on one proteoform. `[]` tries none. Unset: FLASHTnT's default, `Acetyl (Protein N-term)`: the acetylation of the protein's first residue, or of its second after the initiator Met, which is always also tried removed.",
+              "default": [
+                "Acetyl (Protein N-term)"
+              ],
+              "x-adr": [
+                "0061"
+              ]
+            },
+            "max_var_mod_count": {
+              "type": "integer",
+              "description": "Most `var_mod` modifications on one proteoform. Unset: FLASHTnT's default.",
+              "default": 3,
+              "x-adr": [
+                "0061"
+              ]
+            },
+            "max_protein_hits": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Candidate proteins kept for one MS2 before they are extended, the best by FLASHTnT's learned candidate ranking. A reference small enough to fit keeps every proposed protein. Unset: FLASHTnT's default.",
+              "default": 50,
+              "x-adr": [
+                "0061"
+              ]
+            },
+            "gapped_tags": {
+              "type": "string",
+              "description": "Whether gapped tags (masses whose differences are sums of one or more residues) also propose candidate proteins. Where a gapped tag lands on a protein anchors the extension as a sequence tag does. FLASHTnT's other two modes, `both` and `only`, are refused. Unset: FLASHTnT's default.",
+              "default": "fallback",
+              "enum": [
+                "off",
+                "fallback"
+              ],
+              "enumDescriptions": [
+                "sequence tags alone propose candidates.",
+                "gapped tags propose candidates for an MS2 in which no sequence tag proposes a protein."
+              ],
+              "x-adr": [
+                "0061"
+              ]
+            },
+            "terminal_ladders": {
+              "type": "boolean",
+              "description": "`true`: proteins whose intact terminus explains deconvolved masses as residue sums (the N-terminus also without the initiator Met and acetylated) are candidates too, without a sequence tag, anchored on that ladder. Unset: FLASHTnT's default.",
+              "default": true,
+              "x-adr": [
+                "0061"
+              ]
+            },
+            "precursor_ladders": {
+              "type": "boolean",
+              "description": "`true`: every stretch of a protein whose unmodified mass equals the MS2's precursor mass is scored by the fragment masses on its two sides, and the best stretches are candidates too. Unset: FLASHTnT's default.",
+              "default": true,
+              "x-adr": [
+                "0061"
+              ]
+            },
+            "skip_precursor_inference": {
+              "type": "boolean",
+              "description": "`true`: a proteoform is extended against the commanded precursor mass only. `false`: it may also be extended against a precursor mass inferred from complementary fragment pairs; when that mass differs from the commanded one, both are recorded and logged. Unset: `true`, FLASHIda's choice (FLASHTnT's own default is `false`).",
+              "default": true,
+              "x-adr": [
+                "0061"
+              ]
             }
           },
-          "description": "Tuning for FLASHTnT, the tagger and extender that match each MS2 against `reference`. `method: refine` replaces that match for identification."
+          "description": "Tuning of FLASHTnT's search, which matches every MS2 against `reference`. A key left out takes FLASHTnT's own default, shown below, except `skip_precursor_inference`. Under `method: refine` the search still runs and chooses the protein, and Refine annotates it.",
+          "x-adr": [
+            "0061"
+          ]
         },
         "refine": {
           "type": "object",

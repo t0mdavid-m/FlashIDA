@@ -279,19 +279,34 @@ namespace Flash
             return new JsonIdentificationConfig
             {
                 // Null when unauthored, so C++ reports the missing reference rather than an empty one.
-                reference = id.Reference == null ? null : new JsonReferenceConfig { sequence = id.Reference.Sequence ?? "" },
+                // fasta and sequence cross as authored (null = unauthored): C++ refuses both, neither
+                // or an empty one (ADR-0061).
+                reference = id.Reference == null ? null : new JsonReferenceConfig
+                {
+                    fasta = id.Reference.Fasta,
+                    sequence = id.Reference.Sequence
+                },
                 // ADR-0049. Verbatim, not lower-cased: C++ rejects anything but the two exact
                 // spellings, which is what keeps a typo from silently running FLASHTnT.
                 method = id.Method ?? "flashtnt",
+                // ADR-0061 d.13. A passthrough: an unauthored key is null and C++ takes FLASHTnT's
+                // default for it; C++ also owns every refusal (fixed_mod non-empty, gapped_tags).
                 flashtnt = new JsonFlashTnTConfig
                 {
                     min_length = ft.MinLength,
                     max_length = ft.MaxLength,
                     allow_gap = ft.AllowGap,
                     max_aa_in_gap = ft.MaxAaInGap,
-                    fixed_mod = (ft.FixedMod ?? new List<string>()).ToArray(),
+                    fixed_mod = ft.FixedMod == null ? null : ft.FixedMod.ToArray(),
                     max_blind_mod_count = ft.MaxBlindModCount,
-                    max_mod_mass = ft.MaxModMass
+                    max_mod_mass = ft.MaxModMass,
+                    var_mod = ft.VarMod == null ? null : ft.VarMod.ToArray(),
+                    max_var_mod_count = ft.MaxVarModCount,
+                    max_protein_hits = ft.MaxProteinHits,
+                    gapped_tags = ft.GappedTags,
+                    terminal_ladders = ft.TerminalLadders,
+                    precursor_ladders = ft.PrecursorLadders,
+                    skip_precursor_inference = ft.SkipPrecursorInference
                 },
                 // Forwarded verbatim when AUTHORED, null otherwise -- never gated on `method`.
                 // A block authored under "flashtnt" therefore reaches C++, which refuses it
@@ -431,8 +446,11 @@ namespace Flash
                 sb.AppendLine("Quant: Off");
             var id = c.Identification;
             string seq = id == null || id.Reference == null ? null : id.Reference.Sequence;
+            string fasta = id == null || id.Reference == null ? null : id.Reference.Fasta;
             if (id == null)
                 sb.AppendLine("Identification: Off");
+            else if (!string.IsNullOrEmpty(fasta))
+                sb.AppendFormat("Identification: method={0}, Fasta={1}\n", id.Method, fasta);
             else
                 sb.AppendFormat("Identification: method={0}, Sequence={1}\n", id.Method,
                     string.IsNullOrEmpty(seq) ? "(none)" : seq.Substring(0, Math.Min(20, seq.Length)) + "...");
@@ -611,13 +629,24 @@ namespace Flash
                 SearchThreads = 3,   // ADR-0062; unauthored means the core count minus two
                 Characterization = new CharacterizationConfig()
             };
-            c.Identification.FlashTnT.MinLength = 4;
-            c.Identification.FlashTnT.MaxLength = 9;
-            c.Identification.FlashTnT.AllowGap = true;
-            c.Identification.FlashTnT.MaxAaInGap = 3;
-            c.Identification.FlashTnT.FixedMod = new List<string> { "Carbamidomethyl (C)" };
-            c.Identification.FlashTnT.MaxBlindModCount = 1;
-            c.Identification.FlashTnT.MaxModMass = 733;
+            // ADR-0061 d.13. Every knob NON-default against FLASHTnT's own default, so the reference
+            // proves each authored value crosses the bridge. fixed_mod is the exception: [] is the only
+            // value C++ accepts. The reference keeps an inline sequence (fasta crosses as null): the
+            // two are exclusive, and the C++ parity test reads the sequence.
+            c.Identification.FlashTnT.MinLength = 4;                 // 3
+            c.Identification.FlashTnT.MaxLength = 9;                 // 8
+            c.Identification.FlashTnT.AllowGap = true;               // false
+            c.Identification.FlashTnT.MaxAaInGap = 3;                // 2
+            c.Identification.FlashTnT.FixedMod = new List<string>(); // must be empty
+            c.Identification.FlashTnT.MaxBlindModCount = 2;          // 1
+            c.Identification.FlashTnT.MaxModMass = 733;              // 500
+            c.Identification.FlashTnT.VarMod = new List<string> { "Oxidation (M)" };  // Acetyl (Protein N-term)
+            c.Identification.FlashTnT.MaxVarModCount = 2;            // 3
+            c.Identification.FlashTnT.MaxProteinHits = 37;           // 50
+            c.Identification.FlashTnT.GappedTags = "off";            // fallback
+            c.Identification.FlashTnT.TerminalLadders = false;       // true
+            c.Identification.FlashTnT.PrecursorLadders = false;      // true
+            c.Identification.FlashTnT.SkipPrecursorInference = false; // true (ADR-0061's default)
 
             // Active stays FALSE deliberately, and it is the one key in this section whose binding
             // the parity tests cannot verify (a binding hardwired to false would pass). Enabling it
