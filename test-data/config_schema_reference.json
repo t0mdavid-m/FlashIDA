@@ -55,6 +55,7 @@
   },
   "identification": {
     "reference": {
+      "fasta": null,
       "sequence": "MSENTINELPEPTIDESEQ"
     },
     "method": "refine",
@@ -63,11 +64,18 @@
       "max_length": 9,
       "allow_gap": true,
       "max_aa_in_gap": 3,
-      "fixed_mod": [
-        "Carbamidomethyl (C)"
+      "fixed_mod": [],
+      "max_blind_mod_count": 2,
+      "max_mod_mass": 733,
+      "var_mod": [
+        "Oxidation (M)"
       ],
-      "max_blind_mod_count": 1,
-      "max_mod_mass": 733
+      "max_var_mod_count": 2,
+      "max_protein_hits": 37,
+      "gapped_tags": "off",
+      "terminal_ladders": false,
+      "precursor_ladders": false,
+      "skip_precursor_inference": false
     },
     "refine": {
       "fdr": 0.25,
