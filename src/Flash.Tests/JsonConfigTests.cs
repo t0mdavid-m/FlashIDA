@@ -51,18 +51,20 @@ namespace Flash.Tests
         }
 
         [Test, Category("Tier1")]
-        public void FlashTnT_Defaults_PreserveCurrentBehavior()
+        public void FlashTnT_CorpusBlock_AuthorsTodaysValues()
         {
-            // A migrated config with a default flashtnt block must reproduce today's behavior. The
-            // block lives in identification (ADR-0061), so the fixture is one that identifies.
+            // The C# model holds no flashtnt defaults any more: an unauthored key is null and C++ takes
+            // FLASHTnT's own (ADR-0061 push 4c; Identification_Flashtnt_UnauthoredStaysNull_AuthoredRoundTrips).
+            // FLASHTnT's max_blind_mod_count is 1 and max_mod_mass 500, so the corpus keeps today's
+            // behaviour by AUTHORING the old values; this pins that an identifying fixture still does.
             var mp = LoadJsonMethod("method_identify_only.json");
             var ft = mp.Config.Identification.FlashTnT;
             Assert.AreEqual(3, ft.MinLength);
             Assert.AreEqual(8, ft.MaxLength);
             Assert.AreEqual(2, ft.MaxAaInGap);
             Assert.IsFalse(ft.AllowGap);
-            Assert.AreEqual(2, ft.MaxBlindModCount);
-            // Load-bearing: 700 (prior hardcoded MS2 value), NOT the extender's own 500 default.
+            Assert.AreEqual(2, ft.MaxBlindModCount, "authored, against FLASHTnT's default of 1");
+            // Load-bearing: 700 authored, NOT FLASHTnT's default of 500 (cytochrome c's heme is +616 Da).
             Assert.AreEqual(700.0, ft.MaxModMass, 0.001);
             var cpp = mp.ToCppJson();
             Assert.IsTrue(cpp.Contains("\"max_mod_mass\":700") || cpp.Contains("\"max_mod_mass\": 700"),
@@ -267,6 +269,156 @@ namespace Flash.Tests
             parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
             ident = (Dictionary<string, object>)parsed["identification"];
             Assert.AreEqual(5, Convert.ToInt32(ident["search_threads"]));
+        }
+
+        // ADR-0061 push 4c. Every identification.flashtnt key, its model value and the value an authored
+        // config carries. Every authored value differs from FLASHTnT's default (and from ADR-0061's
+        // skip_precursor_inference true), except fixed_mod, whose only legal value is [].
+        private static readonly (string Key, Func<FlashTnTConfig, object> Get, object Authored)[] FlashtntKnobs =
+        {
+            ("min_length", f => f.MinLength, 4),
+            ("max_length", f => f.MaxLength, 9),
+            ("allow_gap", f => f.AllowGap, true),
+            ("max_aa_in_gap", f => f.MaxAaInGap, 3),
+            ("fixed_mod", f => f.FixedMod == null ? null : f.FixedMod.ToArray(), new string[0]),
+            ("max_blind_mod_count", f => f.MaxBlindModCount, 2),
+            ("max_mod_mass", f => f.MaxModMass, 616.5),
+            ("var_mod", f => f.VarMod == null ? null : f.VarMod.ToArray(), new[] { "Oxidation (M)", "Acetyl (N-term)" }),
+            ("max_var_mod_count", f => f.MaxVarModCount, 1),
+            ("max_protein_hits", f => f.MaxProteinHits, 7),
+            ("gapped_tags", f => f.GappedTags, "off"),
+            ("terminal_ladders", f => f.TerminalLadders, false),
+            ("precursor_ladders", f => f.PrecursorLadders, false),
+            ("skip_precursor_inference", f => f.SkipPrecursorInference, false),
+        };
+
+        private const string AuthoredFlashtnt = @"{
+                ""min_length"": 4, ""max_length"": 9, ""allow_gap"": true, ""max_aa_in_gap"": 3, ""fixed_mod"": [],
+                ""max_blind_mod_count"": 2, ""max_mod_mass"": 616.5,
+                ""var_mod"": [""Oxidation (M)"", ""Acetyl (N-term)""], ""max_var_mod_count"": 1, ""max_protein_hits"": 7,
+                ""gapped_tags"": ""off"", ""terminal_ladders"": false, ""precursor_ladders"": false,
+                ""skip_precursor_inference"": false }";
+
+        private static MethodParameters WithIdentification(string identificationJson)
+        {
+            return new MethodParameters
+            {
+                Config = MethodConfigSerializer.Deserialize(@"{ ""identification"": " + identificationJson + " }")
+            };
+        }
+
+        private static Dictionary<string, object> CppIdentification(MethodParameters mp)
+        {
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            return (Dictionary<string, object>)parsed["identification"];
+        }
+
+        // A model value or a JavaScriptSerializer-parsed bridge value against the expected one.
+        private static bool SameValue(object expected, object actual)
+        {
+            if (expected == null || actual == null) return expected == null && actual == null;
+            var list = expected as string[];
+            if (list != null)
+            {
+                var got = actual as System.Collections.IList;
+                if (got == null || got.Count != list.Length) return false;
+                for (int i = 0; i < list.Length; i++)
+                    if (got[i] as string != list[i]) return false;
+                return true;
+            }
+            if (expected is bool) return actual is bool && (bool)actual == (bool)expected;
+            if (expected is string) return actual as string == (string)expected;
+            return !(actual is string) && !(actual is bool) && Convert.ToDouble(actual) == Convert.ToDouble(expected);
+        }
+
+        // ADR-0061 push 4c: the flashtnt keys follow search_threads. Unauthored, every key stays null in
+        // the model and crosses the bridge as null (or not at all), so C++ takes FLASHTnT's own default;
+        // authored, each survives the round trip and crosses the bridge as written.
+        [Test, Category("Tier1")]
+        public void Identification_Flashtnt_UnauthoredStaysNull_AuthoredRoundTrips()
+        {
+            Assert.AreEqual(14, FlashtntKnobs.Length, "the 14 identification.flashtnt keys");
+            const string reference = @"""reference"": { ""sequence"": ""PEPTIDEK"" }";
+            foreach (var unset in new[] { "{ " + reference + " }", "{ " + reference + @", ""flashtnt"": {} }" })
+            {
+                var mp = WithIdentification(unset);
+                var ft = mp.Config.Identification.FlashTnT;
+                Assert.IsNotNull(ft);
+                var cpp = (Dictionary<string, object>)CppIdentification(mp)["flashtnt"];
+                foreach (var k in FlashtntKnobs)
+                {
+                    Assert.IsNull(k.Get(ft), k.Key + " unauthored must stay null in the model: " + unset);
+                    Assert.IsTrue(!cpp.ContainsKey(k.Key) || cpp[k.Key] == null,
+                        k.Key + " unauthored must not reach C++ as a value, or C++ cannot take FLASHTnT's default");
+                }
+            }
+
+            var authored = WithIdentification("{ " + reference + @", ""flashtnt"": " + AuthoredFlashtnt + " }");
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(authored.Config));
+            var emitted = (Dictionary<string, object>)CppIdentification(authored)["flashtnt"];
+            foreach (var k in FlashtntKnobs)
+            {
+                Assert.IsTrue(SameValue(k.Authored, k.Get(authored.Config.Identification.FlashTnT)), k.Key + " read");
+                Assert.IsTrue(SameValue(k.Authored, k.Get(back.Identification.FlashTnT)), k.Key + " round trip");
+                Assert.IsTrue(emitted.ContainsKey(k.Key), k.Key + " emitted");
+                Assert.IsTrue(SameValue(k.Authored, emitted[k.Key]), k.Key + " crosses the bridge as authored");
+            }
+        }
+
+        // ADR-0061 d.13: reference is { fasta } XOR { sequence }. The refusal of both, neither or an empty
+        // value lives in C++ (FLASHIda_LegacyConfig_test reference_is_fasta_xor_sequence): C# validates no
+        // reference value, so what it must do is carry each key across exactly as authored (null =
+        // unauthored), or C++ would see a different reference than the method file names.
+        [Test, Category("Tier1")]
+        public void Identification_Reference_FastaXorSequence()
+        {
+            var fasta = WithIdentification(@"{ ""reference"": { ""fasta"": ""C:/db/ecoli.fasta"" } }");
+            Assert.AreEqual("C:/db/ecoli.fasta", fasta.Config.Identification.Reference.Fasta);
+            Assert.IsNull(fasta.Config.Identification.Reference.Sequence, "an unauthored sequence stays null, not \"\"");
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(fasta.Config));
+            Assert.AreEqual("C:/db/ecoli.fasta", back.Identification.Reference.Fasta);
+            Assert.IsNull(back.Identification.Reference.Sequence);
+            var refJson = (Dictionary<string, object>)CppIdentification(fasta)["reference"];
+            Assert.AreEqual("C:/db/ecoli.fasta", refJson["fasta"]);
+            Assert.IsTrue(!refJson.ContainsKey("sequence") || refJson["sequence"] == null,
+                "a FASTA reference must not reach C++ with a sequence, or C++ refuses it as both");
+
+            var seq = WithIdentification(@"{ ""reference"": { ""sequence"": ""PEPTIDEK"" } }");
+            Assert.IsNull(seq.Config.Identification.Reference.Fasta);
+            refJson = (Dictionary<string, object>)CppIdentification(seq)["reference"];
+            Assert.AreEqual("PEPTIDEK", refJson["sequence"]);
+            Assert.IsTrue(!refJson.ContainsKey("fasta") || refJson["fasta"] == null);
+
+            // Both, neither and empty are carried unchanged for C++ to refuse with its message.
+            var both = WithIdentification(@"{ ""reference"": { ""fasta"": ""a.fasta"", ""sequence"": ""PEPTIDEK"" } }");
+            refJson = (Dictionary<string, object>)CppIdentification(both)["reference"];
+            Assert.AreEqual("a.fasta", refJson["fasta"]);
+            Assert.AreEqual("PEPTIDEK", refJson["sequence"]);
+
+            var neither = WithIdentification(@"{ ""reference"": {} }");
+            refJson = (Dictionary<string, object>)CppIdentification(neither)["reference"];
+            Assert.IsTrue(refJson["fasta"] == null && refJson["sequence"] == null);
+
+            var empty = WithIdentification(@"{ ""reference"": { ""sequence"": """" } }");
+            refJson = (Dictionary<string, object>)CppIdentification(empty)["reference"];
+            Assert.AreEqual("", refJson["sequence"], "an authored empty sequence stays \"\", so C++ names it empty");
+        }
+
+        // fixed_mod has no FLASHTnT parameter in real time. The refusal lives in C++ (FLASHIda_LegacyConfig_test
+        // fixed_mod_non_empty_is_refused); C# validates no flashtnt value, so this pins that a non-empty list
+        // reaches C++ unchanged (and is refused there) rather than being dropped here, and [] stays [].
+        [Test, Category("Tier1")]
+        public void Identification_FixedMod_NonEmptyRefused()
+        {
+            const string reference = @"""reference"": { ""sequence"": ""PEPTIDEK"" }";
+            var mod = WithIdentification("{ " + reference + @", ""flashtnt"": { ""fixed_mod"": [""Carbamidomethyl (C)""] } }");
+            var ft = (Dictionary<string, object>)CppIdentification(mod)["flashtnt"];
+            Assert.IsTrue(SameValue(new[] { "Carbamidomethyl (C)" }, ft["fixed_mod"]),
+                "a non-empty fixed_mod must reach C++, which refuses it");
+
+            var none = WithIdentification("{ " + reference + @", ""flashtnt"": { ""fixed_mod"": [] } }");
+            ft = (Dictionary<string, object>)CppIdentification(none)["flashtnt"];
+            Assert.IsTrue(SameValue(new string[0], ft["fixed_mod"]), "[] crosses as []");
         }
 
         [Test, Category("Tier1")]
