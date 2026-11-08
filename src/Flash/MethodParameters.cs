@@ -161,6 +161,8 @@ namespace Flash
                 quantification = new JsonQuantificationConfig
                 {
                     enabled = c.Quantification.Active,
+                    scan = c.Quantification.Scan,                 // ADR-0064
+                    ms3_targets = c.Quantification.Ms3Targets,
                     labelling = c.Quantification.Labelling,
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
                     fold_change_threshold = c.Quantification.FoldChangeThreshold,
@@ -222,6 +224,9 @@ namespace Flash
                     ms2_quant = c.MsSettings.MS2Quant.HasValue
                         ? ToJsonScanConfig(c.MsSettings.MS2Quant.Value, c.MsSettings.MS1) : null,
                     ms3 = ToJsonScanConfig(c.MsSettings.MS3, c.MsSettings.MS1),
+                    // ADR-0064. Null when unset -> key omitted, like ms2_quant.
+                    ms3_quant = c.MsSettings.MS3Quant.HasValue
+                        ? ToJsonScanConfig(c.MsSettings.MS3Quant.Value, c.MsSettings.MS1) : null,
                     // Emit nothing at all when there are no extras, so the 30 configs without any
                     // stay byte-for-byte the length they are today.
                     additional_ms2 = (c.MsSettings.AdditionalMS2 == null || c.MsSettings.AdditionalMS2.Count == 0)
@@ -679,6 +684,10 @@ namespace Flash
             c.Quantification.ScanNormalize = false;            // non-default: true
             c.Quantification.Aggregate = "sum";                // non-default: median
             c.Quantification.MinUsableScans = 2;               // non-default: 1
+            // ADR-0064, NON-DEFAULT, legal only because Active is false (the scan ms3/both rejections sit inside
+            // `if (enabled)` with every other quant rule).
+            c.Quantification.Scan = "both";                    // non-default: ms2
+            c.Quantification.Ms3Targets = 2;                   // non-default: 1
             // Channel names must be valid for the labelling above, or Config throws at load.
             // tmt10plex's N/C channels are used on purpose: they only exist in the 10-plex+ schemes,
             // so a reference that silently fell back to tmt6plex would fail here rather than pass.
@@ -733,6 +742,14 @@ namespace Flash
                 AGCTarget = 400003, MaxIT = 103, FirstMass = 153, LastMass = 2003, Microscans = 3,
                 DataType = "Profile", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
                 ScanRate = "Enhanced", RFLens = 35, SourceCID = 20, SourceCIDScaling = 0.15
+            };
+            // ADR-0064: the quantification MS3's stage 1, a bare slot like ms2_quant; every key distinct.
+            c.MsSettings.MS3Quant = new MS3Parameters
+            {
+                Analyzer = "Orbitrap", Activation = "HCD", CollisionEnergy = 55, OrbitrapResolution = 30004,
+                AGCTarget = 200004, MaxIT = 104, FirstMass = 114, LastMass = 144, Microscans = 4,
+                DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
+                ScanRate = "Normal", RFLens = 36, SourceCID = 21, SourceCIDScaling = 0.16
             };
             // ONE named entry, referenced by nothing. It used to back the tagging follow-up, retired with
             // tag targeting (ADR-0061), and it stays because it is the only scan in the reference that

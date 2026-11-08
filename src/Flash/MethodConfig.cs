@@ -217,6 +217,18 @@ namespace Flash
         [Description("Enable isobaric labeling quantification")]
         public bool Active { get; set; }
 
+        // ADR-0064. Where the reporters are read. Always emitted as a real string (identify's reason, below).
+        [JsonKey("scan")]
+        [Description("Where the reporters are read: ms2 (an HCD MS2 screens every precursor and its verdict buys the "
+            + "identification scan), ms3 (no screen; an identification that closes out a cysteine proteoform buys an "
+            + "MS3 on one iodoTMT-labelled fragment), or both")]
+        public string Scan { get; set; } = "ms2";
+
+        [JsonKey("ms3_targets")]
+        [Description("How many quantification MS3s one identification buys (the most intense eligible labelled "
+            + "fragments). Read under scan ms3 and both")]
+        public int Ms3Targets { get; set; } = 1;
+
         // Defaults equal the engine's (Config.cpp). Without an initializer a config that omits the key
         // would emit 0.0 across the bridge -- every ratio differential -- because ToCppJson emits
         // every key and the C++ .value() fallback never fires.
@@ -381,6 +393,11 @@ namespace Flash
         // Nullable<T> at MethodConfigSerializer.cs:241/293/377, so this costs nothing.
         [JsonKey("ms2_quant")]
         public MS2Parameters? MS2Quant { get; set; }
+
+        // ADR-0064. Stage 1 of the quantification MS3: required when quantification.scan is ms3 or both, inert
+        // otherwise. Nullable for MS2Quant's reason above.
+        [JsonKey("ms3_quant")]
+        public MS3Parameters? MS3Quant { get; set; }
 
         [JsonKey("ms3")]
         public MS3Parameters MS3 { get; set; }
@@ -868,6 +885,9 @@ namespace Flash
     public class JsonQuantificationConfig
     {
         public bool enabled { get; set; }
+        // ADR-0064. Always emitted as a real string, like identify.
+        public string scan { get; set; }
+        public int ms3_targets { get; set; }
         public string labelling { get; set; }
         public double reporter_mz_tol { get; set; }
         public double fold_change_threshold { get; set; }
@@ -958,6 +978,8 @@ namespace Flash
         // quantification scan stay exactly as short as they are today.
         public JsonMs2Config ms2_quant { get; set; }
         public JsonMs2Config ms3 { get; set; }
+        // ADR-0064. Null when unset, like ms2_quant.
+        public JsonMs2Config ms3_quant { get; set; }
         // Omitted from the emitted JSON when there are no extras (SerializeValue skips nulls), so the
         // 30 configs with none stay exactly as short as they are today.
         public Dictionary<string, JsonMs2Config> additional_ms2 { get; set; }
