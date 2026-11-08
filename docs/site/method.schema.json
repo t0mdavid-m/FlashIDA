@@ -690,6 +690,33 @@
             "0038"
           ]
         },
+        "scan": {
+          "type": "string",
+          "description": "Where the reporter ions are read. Read only when `enabled`. `ms3` and `both` need `identification` with `identification.threshold`, `ms_settings.ms3_quant`, `labelling: tmt6plex` and `identification.method: flashtnt`, and search every cysteine as iodoTMT-labelled (+329.2266 Da, fixed). The identification scan `ms_settings.ms2` should keep the label on its fragments: CID or ETD; an HCD identification scan releases reporters before the quantification MS3 can.",
+          "default": "ms2",
+          "enum": [
+            "ms2",
+            "ms3",
+            "both"
+          ],
+          "enumDescriptions": [
+            "The quantification scan `ms_settings.ms2_quant` screens every selected precursor, and its verdict buys the identification scan `ms_settings.ms2`.",
+            "No screen: `ms_settings.ms2` fires on every selected precursor, and an identification that reaches `identification.threshold` on a proteoform with a cysteine buys up to `ms3_targets` quantification MS3s, each on one matched fragment that contains a cysteine and whose own peaks outweigh the rest of its isolation window. Each MS3 is read for its reporter ions with its own verdict, and buys nothing. `identify` and `enriched_in` are refused.",
+            "Both: the `ms2` screen and its bought identification scan as under `ms2`, and that identification also buys the quantification MS3s as under `ms3`. `identify: none` is refused."
+          ],
+          "x-adr": [
+            "0064"
+          ]
+        },
+        "ms3_targets": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many quantification MS3s one identification buys under `scan: ms3` or `both`: the most intense eligible labelled fragments, one MS3 each, sent before any characterization MS3 of the same scan. Inert under `scan: ms2`.",
+          "default": 1,
+          "x-adr": [
+            "0064"
+          ]
+        },
         "labelling": {
           "type": "string",
           "description": "The isobaric labelling scheme of the sample. It fixes the reporter channel names that `conditions` and `channel_normalization` use, and the stock isotope correction matrix.",
@@ -976,6 +1003,14 @@
           "x-default-text": "absent; required when quantification.enabled",
           "x-adr": [
             "0038"
+          ]
+        },
+        "ms3_quant": {
+          "$ref": "#/$defs/scan",
+          "description": "Stage 1 of the quantification MS3 (`quantification.scan: ms3` or `both`): the activation that releases the reporter ions from the labelled fragment, and the scan that reads them, typically HCD over m/z 120 to 140. Stage 0 is the identification scan's own isolation and activation. Authored under `scan: ms2`, it is inert.",
+          "x-default-text": "absent; required when quantification.scan is ms3 or both",
+          "x-adr": [
+            "0064"
           ]
         },
         "ms3": {
@@ -1586,7 +1621,7 @@
     {
       "slug": "scan-settings",
       "title": "Scan settings",
-      "subtitle": "JSON keys of every scan settings object: `ms1`, `ms2`, `ms2_quant`, `ms3`, and each `additional_ms2` entry",
+      "subtitle": "JSON keys of every scan settings object: `ms1`, `ms2`, `ms2_quant`, `ms3`, `ms3_quant`, and each `additional_ms2` entry",
       "sources": "`MethodParameters.cs` (`MS1Parameters`, `MS2Parameters`, `MS3Parameters`, `ToJsonScanConfig`), `ScanFactory.cs`, `Config.cpp`, ADR-0009, ADR-0010, ADR-0011, ADR-0030, ADR-0045",
       "sections": [
         {
