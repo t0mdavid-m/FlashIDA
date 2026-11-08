@@ -315,6 +315,8 @@ namespace Flash
                 refine = ToJsonRefine(id.Refine),
                 // ADR-0062. Null when unauthored, so C++ sizes the pool from the core count.
                 search_threads = id.SearchThreads,
+                // ADR-0061 d.6. Null when unauthored, so C++ never closes a species out.
+                threshold = id.Threshold,
                 // Null = no MS3. The mode is lower-cased as it always was; a missing one stays null
                 // and C++ refuses the block, which must name an objective.
                 characterization = cz == null ? null : new JsonCharacterizationConfig
@@ -627,6 +629,7 @@ namespace Flash
             {
                 Reference = new ReferenceConfig { Sequence = "MSENTINELPEPTIDESEQ" },
                 SearchThreads = 3,   // ADR-0062; unauthored means the core count minus two
+                Threshold = 42.0,    // ADR-0061 d.6; unauthored means never close out
                 Characterization = new CharacterizationConfig()
             };
             // ADR-0061 d.13. Every knob NON-default against FLASHTnT's own default, so the reference

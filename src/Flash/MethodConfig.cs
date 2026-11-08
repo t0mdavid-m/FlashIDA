@@ -588,6 +588,13 @@ namespace Flash
         [Description("Search workers that match MS2s beside the analysis thread (ADR-0062). Unset: the core count minus two, at least 1.")]
         public int? SearchThreads { get; set; }
 
+        // ADR-0061 d.6/d.7. The Identification score (FLASHTnT's scale, whatever the method) at which an MS2 closes
+        // its species out of acquisition. Null = absent = identify and log, never close out. C++ refuses anything but
+        // a finite number > 0.
+        [JsonKey("threshold")]
+        [Description("Identification score at which an identified species is closed out of acquisition (ADR-0061). Unset: identify and log, never close out.")]
+        public double? Threshold { get; set; }
+
         // Null = absent = no MS3.
         [JsonKey("characterization")]
         public CharacterizationConfig Characterization { get; set; }
@@ -1059,6 +1066,7 @@ namespace Flash
         public JsonFlashTnTConfig flashtnt { get; set; }
         public JsonRefineBlockConfig refine { get; set; }
         public int? search_threads { get; set; }
+        public double? threshold { get; set; }
         public JsonCharacterizationConfig characterization { get; set; }
     }
 

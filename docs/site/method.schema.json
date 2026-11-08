@@ -571,6 +571,15 @@
             "0062"
           ]
         },
+        "threshold": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Identification score at which an identified species is closed out of acquisition: its mass and isolation m/z are barred for the retention-time window counted from the identifying MS2, and its plan units not yet sent are withdrawn at every FAIMS CV. The score is FLASHTnT's (the extension score plus 8 x the raw score) whatever the annotation method. Real time computes no FDR: read the threshold off earlier runs of comparable samples, as the score at which FLASHTnT's offline q-value reaches the level you want; it does not carry its error rate to another database size, sample type or activation. A species whose inclusion row names charges is never closed out.",
+          "x-default-text": "absent: identify and log, never close out",
+          "x-adr": [
+            "0061"
+          ]
+        },
         "characterization": {
           "type": "object",
           "additionalProperties": false,
