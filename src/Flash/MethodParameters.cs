@@ -331,6 +331,7 @@ namespace Flash
                     min_fragment_charge = cz.MinFragmentCharge,
                     min_target_mass = cz.MinTargetMass,
                     fragment_charges = cz.FragmentCharges,
+                    per_proteoform = cz.PerProteoform,   // ADR-0064
                     exploration = ToJsonExploration(cz.Exploration)
                 }
             };
@@ -835,6 +836,7 @@ namespace Flash
             // vacuous for exactly the key it is being regenerated for.
             c.Identification.Characterization.MinTargetMass = 617.5;
             c.Identification.Characterization.FragmentCharges = "separate";
+            c.Identification.Characterization.PerProteoform = true;   // ADR-0064; the default is false
             c.Identification.Characterization.Exploration = new ExplorationBlockConfig
             {
                 // ADR-0047. kinetic_model at level 3 (level 2 stays mass_count: a kinetic_model block

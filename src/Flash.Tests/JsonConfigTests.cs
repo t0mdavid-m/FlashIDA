@@ -329,6 +329,26 @@ namespace Flash.Tests
             Assert.AreEqual(80, Convert.ToInt32(q3["collision_energy"]));
         }
 
+        // ADR-0064: identification.characterization.per_proteoform. No corpus config authors it; the default false
+        // crosses the bridge as false (C++ treats it as absent), and an authored true round-trips and crosses as true.
+        [Test, Category("Tier1")]
+        public void Characterization_PerProteoform_DefaultFalse_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_ms3_cytc_fragments.json");
+            Assert.IsNotNull(mp.Config.Identification?.Characterization);
+            Assert.IsFalse(mp.Config.Identification.Characterization.PerProteoform, "no corpus config authors per_proteoform");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var cz = (Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"];
+            Assert.AreEqual(false, cz["per_proteoform"]);
+
+            mp.Config.Identification.Characterization.PerProteoform = true;
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.IsTrue(back.Identification.Characterization.PerProteoform);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            cz = (Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"];
+            Assert.AreEqual(true, cz["per_proteoform"]);
+        }
+
         // ADR-0061 push 4c. Every identification.flashtnt key, its model value and the value an authored
         // config carries. Every authored value differs from FLASHTnT's default (and from ADR-0061's
         // skip_precursor_inference true), except fixed_mod, whose only legal value is [].

@@ -614,7 +614,7 @@
             },
             "max_targets": {
               "type": "integer",
-              "description": "The MS3 budget: fragments one planning round of a precursor may target. It counts fragments in every `fragment_charges` mode, so the extra charge states of one fragment cost no extra slot. With `exploration` set, every target becomes a whole sweep.",
+              "description": "The MS3 budget: fragments one planning round of a precursor may target. It counts fragments in every `fragment_charges` mode, so the extra charge states of one fragment cost no extra slot. With `exploration` set, every target becomes a whole sweep. With `per_proteoform` it also caps the distinct cleavages one proteoform gets in a run.",
               "default": 3,
               "x-adr": [
                 "0013",
@@ -652,6 +652,14 @@
               ],
               "x-adr": [
                 "0016"
+              ]
+            },
+            "per_proteoform": {
+              "type": "boolean",
+              "description": "One live MS3 plan per proteoform: a newer identification of the same proteoform (protein, start and end, mass within the MS1 tolerance or 1-3 isotope steps) replaces its MS3s not yet sent, and a sent fragment is acquired again only at twice the intensity it was sent at. A proteoform gets at most `max_targets` distinct cleavages in a run, and only fragments whose isolation-window SNR exceeds 1 are targeted. Off: every identification plans its own MS3s.",
+              "default": false,
+              "x-adr": [
+                "0064"
               ]
             },
             "exploration": {
