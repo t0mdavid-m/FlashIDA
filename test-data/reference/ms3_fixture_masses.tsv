@@ -1,0 +1,14 @@
+fixture	ion_label	fragment_mass	source
+ms3_cytc_b11_scan317.txt	b11	1242.6968	ms3_cytc T44
+ms3_cytc_b26_scan253.txt	b26	3355.5841	refine_discriminating_cytc T178
+ms3_cytc_b33_scan269.txt	b33	4102.9869	refine_discriminating_cytc T179
+ms3_cytc_b34_scan301.txt	b34	4240.0455	refine_discriminating_cytc T43
+ms3_cytc_b44_scan341.txt	b44	5183.5488	ms3_cytc T82
+ms3_cytc_b47_scan365.txt	b47	5556.7449	refine_discriminating_cytc T5
+ms3_cytc_b49_scan381.txt	b49	5791.8501	ms3_cytc T54
+ms3_cytc_b51_scan389.txt	b51	6036.9321	ms3_cytc T100
+ms3_cytc_b61_scan405.txt	b61	7177.5632	ms3_cytc T99
+ms3_cytc_b65_scan437.txt	b65	7620.7851	multiplexed_ms2 T53
+ms3_cytc2_b21_scan502.txt	b21	2985.3461	inclusion_ms3_cytc T3
+ms3_cytc2_b25_scan486.txt	b25	3355.5756	inclusion_ms3_cytc T4
+ms3_cytc2_b32_scan455.txt	b32	4102.9800	inclusion_ms3_cytc T2

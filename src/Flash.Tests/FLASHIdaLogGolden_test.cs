@@ -89,7 +89,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Exploration_Multiplexed()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exploration co-isolation golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -252,8 +252,8 @@ namespace Flash.Tests
                     "ms2_hcd_fragment.txt", forceFaims: true);
 
         // MS3 cytC golden. Feeds the REAL MS3 fragment spectrum for each MS3 command the engine
-        // issues, selecting the fixture PER COMMAND by the precursor ion decoded from the command's
-        // scan_description (see DecodeIonFromScanDescription / BuildMs3IonMap) — the C# golden-locked
+        // issues, selecting the fixture PER COMMAND by the fragment mass the command isolates at stage 1
+        // (see BuildMs3MassMap / Ms3FixtureByMass) — the C# golden-locked
         // equivalent of the C++ results_ms3_real_fragment_data section. When no ms3_cytc_*_scan*.txt
         // fixture exists on disk the case skips cleanly (never fabricates MS3 data by reusing MS2
         // peaks); the match-dependent path is then covered only when fixtures are committed.
@@ -338,35 +338,57 @@ namespace Flash.Tests
         }
 
         /// <summary>
-        /// Build an ion-key -&gt; first matching fixture path map by globbing
-        /// ms3_cytc_*_scan*.txt under <paramref name="spectraDir"/> and parsing the ion key as the
-        /// substring between "ms3_cytc_" and "_scan" (the FIXTURE NAMING CONTRACT). The first file
-        /// seen for a given ion wins. Returns an empty map (caller skips cleanly) when the directory
-        /// is absent or holds no matching fixtures.
+        /// The acquired MS3 fixtures under <paramref name="spectraDir"/> whose file name starts with
+        /// <paramref name="prefix"/>, keyed by the mono mass of the fragment each was acquired for
+        /// (test-data/reference/ms3_fixture_masses.tsv). Keyed by MASS, not by the ion label in the file
+        /// name: a label counts residues from the proteoform's own N-terminus, so the same physical
+        /// fragment is b49 under a Met-retaining match and b48 once the search removes the Met (ADR-0061
+        /// push 4c), and one run mixes both frames. The manifest's masses are the ones the committed
+        /// goldens fed each fixture at; a fixture the goldens never targeted has no row and is never fed.
+        /// Returns an empty map (caller skips cleanly) when the directory, the manifest or every listed
+        /// fixture is absent. The two prefixes share masses (ms3_cytc2_b25 = ms3_cytc_b26), so the
+        /// prefix keeps the sets apart.
         /// </summary>
-        private static Dictionary<string, string> BuildMs3IonMap(string spectraDir, string prefix = "ms3_cytc_")
+        private static Dictionary<double, string> BuildMs3MassMap(string spectraDir, string prefix = "ms3_cytc_")
         {
-            var map = new Dictionary<string, string>();
+            var map = new Dictionary<double, string>();
             if (string.IsNullOrEmpty(spectraDir) || !Directory.Exists(spectraDir)) return map;
+            string manifest = Path.Combine(TestDataDir, "reference", "ms3_fixture_masses.tsv");
+            if (!File.Exists(manifest)) return map;
 
-            const string marker = "_scan";
-            foreach (var path in Directory.GetFiles(spectraDir, prefix + "*_scan*.txt"))
+            var rows = ParseTsv(manifest, out var header);
+            int cFixture = Array.IndexOf(header, "fixture"), cMass = Array.IndexOf(header, "fragment_mass");
+            Assert.That(cFixture >= 0 && cMass >= 0, Is.True, "ms3_fixture_masses.tsv needs fixture and fragment_mass columns");
+            foreach (var r in rows)
             {
-                string name = Path.GetFileName(path);
+                string name = r[cFixture];
                 if (!name.StartsWith(prefix, StringComparison.Ordinal)) continue;
-                int scanAt = name.IndexOf(marker, prefix.Length, StringComparison.Ordinal);
-                if (scanAt <= prefix.Length) continue;     // need a non-empty ion between prefix and "_scan"
-                string ion = name.Substring(prefix.Length, scanAt - prefix.Length);
-                if (ion.Length == 0) continue;
-                if (!map.ContainsKey(ion)) map[ion] = path;   // first file for this ion wins
+                string path = Path.Combine(spectraDir, name);
+                if (!File.Exists(path)) continue;
+                map[double.Parse(r[cMass], CultureInfo.InvariantCulture)] = path;
             }
             return map;
+        }
+
+        /// <summary>Two fixtures' fragments differ by at least one residue (57 Da); 0.05 Da absorbs build jitter.</summary>
+        private const double Ms3FixtureMassTolDa = 0.05;
+
+        /// <summary>
+        /// The fixture acquired for the fragment this MS3 command isolates: the manifest entry within
+        /// <see cref="Ms3FixtureMassTolDa"/> of the command's stage-1 mono mass, else null (skip, never fabricate).
+        /// </summary>
+        private static string Ms3FixtureByMass(Dictionary<double, string> map, ScanCommand c)
+        {
+            if (map == null || c.NumStages < 2) return null;
+            foreach (var kv in map)
+                if (Math.Abs(kv.Key - c.MonoMassS1) <= Ms3FixtureMassTolDa) return kv.Value;
+            return null;
         }
 
         [Test, Category("Tier2")]
         public void Golden_MS3_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -390,7 +412,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Multiplexed_MS2()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — multiplexed MS2 golden skipped cleanly.");
@@ -405,7 +427,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Multiplexed_MS3()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — multiplexed MS3 golden skipped cleanly.");
@@ -438,7 +460,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Separate_Charges()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — separate-charges golden skipped cleanly.");
@@ -458,7 +480,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_MS3_CoverageObjective_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — coverage MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -475,7 +497,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_MS3_FragmentsObjective_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — fragments MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -498,8 +520,8 @@ namespace Flash.Tests
         // minMs2Commands:1 fail-closes if the inclusion pin does not select the cytC precursor.
         //
         // WHAT THIS GOLDEN PINS, AND WHAT IT DOES NOT. It is a TARGETING reference, not a return-path
-        // one. 49 of its 51 MS3 commands are never fed back: BuildMs3IonMap keys fixtures by ION, and
-        // an unassigned target has no ion to key on (every committed ms3_cytc_* fixture is a b-ion).
+        // one. Most of its MS3 commands are never fed back: BuildMs3MassMap keys fixtures by fragment
+        // mass, and an unassigned target is fed only when its mass is one an ms3_cytc_* fixture was acquired at.
         // So it pins the pool, the intensity ranking, the budget, the identification gate, and the
         // unassigned wire contract (empty ion_type, ion_index 0, no-ion descriptor) -- 34 such rows
         // against ms3_cytc's zero, which is what would catch `exhaustive` decaying into an alias of
@@ -526,7 +548,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_MS3_Exhaustive_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exhaustive MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -544,7 +566,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Ms3Objective_AmbiguityVsCoverage_SelectDifferentTargets()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — objective contrast skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -570,7 +592,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Inclusion_MS3_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir, "ms3_cytc2_");
+            var ms3Map = BuildMs3MassMap(SpectraDir, "ms3_cytc2_");
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc2_*_scan*.txt fixtures present — inclusion MS3 cytC golden skipped cleanly.");
@@ -598,23 +620,22 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Refine_Discriminating_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             Assert.That(ms3Map.Count, Is.GreaterThan(0),
                 "refine golden needs the ms3_cytc_*_scan*.txt fixtures (no clean skip: a fixture-less run would be vacuous)");
             Assert.That(File.Exists(EmptyMs3Path), Is.True,
                 "refine golden needs " + EmptyMs3Path + " to answer a dispatched MS3 that has no fixture");
             Func<ScanCommand, string> ms3For = c =>
             {
-                string ion = DecodeIonFromScanDescription(c.ScanDescription);
-                return ion != null && ms3Map.TryGetValue(ion, out var p) ? p : EmptyMs3Path;
+                return Ms3FixtureByMass(ms3Map, c) ?? EmptyMs3Path;
             };
             RunCase("refine_discriminating_cytc", "method_refine_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1, postDriveAssert: AssertRefineDecided, ms3FixtureFor: ms3For);
         }
 
         /// <summary>
-        /// The zero-peak MS3 answer Golden_Refine_Discriminating_CytC feeds for a dispatched command whose ion has no
-        /// ms3_cytc_* fixture. Deliberately outside that glob, so BuildMs3IonMap never maps an ion to it.
+        /// The zero-peak MS3 answer Golden_Refine_Discriminating_CytC feeds for a dispatched command whose fragment has no
+        /// ms3_cytc_* fixture. Not in ms3_fixture_masses.tsv, so BuildMs3MassMap never maps a mass to it.
         /// </summary>
         private static string EmptyMs3Path => Path.Combine(SpectraDir, "ms3_empty_scan0.txt");
 
@@ -626,7 +647,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Exploration_FollowUp_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — exploration follow-up golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -817,8 +838,8 @@ namespace Flash.Tests
 
         // An MS3 fixture selector keyed on the command's ION (decoded from its scan_description) AND its STAGE-1
         // collision energy: `<prefix><ion>_ce<CE>_scan*.txt`. Null when no such file exists, which the harness turns
-        // into [MS3-SKIP] -- it never fabricates an MS3 from MS2 peaks. BuildMs3IonMap's `ms3_cytc_*` glob does not
-        // see these `ms3_cytc3_*` files, so the older MS3 goldens are unaffected by the new set.
+        // into [MS3-SKIP] -- it never fabricates an MS3 from MS2 peaks. BuildMs3MassMap's manifest lists no
+        // `ms3_cytc3_*` files, so the older MS3 goldens are unaffected by the new set.
         private static Func<ScanCommand, string> BuildMs3IonCeSelector(string spectraDir, string prefix)
         {
             return c =>
@@ -903,7 +924,7 @@ namespace Flash.Tests
         [Test, Category("Tier2")]
         public void Golden_Exploration_MS3_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — MS3 exploration golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -937,12 +958,12 @@ namespace Flash.Tests
         /// transient and do NOT fold — only the production re-acquisition of the winner produces a fold row.
         ///
         /// The MS2-exploration CE sweep still runs, so the 5-fixture CE map (and its Is.EqualTo(5) guard) is
-        /// still required; the BuildMs3IonMap/Assert.Pass clean-skip guard keeps the no-fabrication contract.
+        /// still required; the BuildMs3MassMap/Assert.Pass clean-skip guard keeps the no-fabrication contract.
         /// </summary>
         [Test, Category("Tier2")]
         public void Golden_Exploration_MS3_FollowUp_CytC()
         {
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             if (ms3Map.Count == 0)
             {
                 Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — MS3 exploration-followup golden skipped cleanly (no MS2-as-MS3 fabrication).");
@@ -1483,10 +1504,16 @@ namespace Flash.Tests
             // (8315.06 / 9441.71, both already -8..-10 ppm against a +-2 ppm calibration) outside the
             // 10 ppm match. 12351 is then characterized on b10/b12/b14, for which no MS3 fixture exists.
             // The b49 leaf keeps the -89.0302 on (MGDVEKGK), so it guards the same flip as before.
+            //
+            // Since the proteome search (ADR-0061 push 4c) the anchor's fragment is the FRAGMENT MASS
+            // (ms2_precursor_mass on an MS3 row), not its label: once the search removes the Met the same
+            // 5791.85 Da fragment is labelled b48, not b49. The fixture keeps precursor_ion as provenance.
             int ionCol = Array.IndexOf(idHeader, "ms2_precursor_ion");
+            int fragCol = Array.IndexOf(idHeader, "ms2_precursor_mass");
             int massCol = Array.IndexOf(idHeader, "ms1_precursor_mass");
             Assert.That(ionCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms2_precursor_ion column present in identification.tsv");
             Assert.That(massCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms1_precursor_mass column present in identification.tsv");
+            Assert.That(fragCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms2_precursor_mass column present in identification.tsv");
             Assert.That(pfCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: proteoform column present in identification.tsv");
             Assert.That(lvlCol, Is.GreaterThanOrEqualTo(0), "ms3_cytc: ms_level column present in identification.tsv");
 
@@ -1495,31 +1522,37 @@ namespace Flash.Tests
                 $"ms3_cytc: ground-truth fixture missing: {fixturePath}");
             var expected = ParseTsv(fixturePath, out var fxHeader);
             // The fixture keeps its tracking_id column as provenance -- it records which scan the
-            // oracle was originally read from -- but matching is by precursor_ion.
+            // oracle was originally read from -- but matching is by (precursor_mass, fragment_mass);
+            // precursor_ion is provenance too, the label the fragment carried when the oracle was read.
             int fxIon = Array.IndexOf(fxHeader, "precursor_ion");
             int fxMass = Array.IndexOf(fxHeader, "precursor_mass");
+            int fxFrag = Array.IndexOf(fxHeader, "fragment_mass");
             int fxPf = Array.IndexOf(fxHeader, "expected_proforma");
             Assert.That(fxIon, Is.GreaterThanOrEqualTo(0), "ms3_cytc: precursor_ion column present in the fixture");
             Assert.That(fxMass, Is.GreaterThanOrEqualTo(0), "ms3_cytc: precursor_mass column present in the fixture");
+            Assert.That(fxFrag, Is.GreaterThanOrEqualTo(0), "ms3_cytc: fragment_mass column present in the fixture");
             Assert.That(fxPf, Is.GreaterThanOrEqualTo(0), "ms3_cytc: expected_proforma column present in the fixture");
 
             foreach (var exp in expected)
             {
-                if (fxIon >= exp.Length || fxMass >= exp.Length || fxPf >= exp.Length) continue;
+                if (fxIon >= exp.Length || fxMass >= exp.Length || fxFrag >= exp.Length || fxPf >= exp.Length) continue;
                 string ion = exp[fxIon];
                 string wantPf = exp[fxPf];
                 double wantMass = double.Parse(exp[fxMass], CultureInfo.InvariantCulture);
+                double wantFrag = double.Parse(exp[fxFrag], CultureInfo.InvariantCulture);
                 // 0.5 Da window: the neighbouring precursor is ~1.0 Da away, so this separates them
                 // unambiguously while staying immune to the last-digit float drift that a freshly
                 // built OpenMS.dll produces on every CI run.
                 var matches = idRows.Where(r =>
                     lvlCol < r.Length && ParseIntSafe(r[lvlCol]) == 3 &&
-                    ionCol < r.Length && r[ionCol] == ion &&
+                    fragCol < r.Length &&
+                    double.TryParse(r[fragCol], NumberStyles.Float, CultureInfo.InvariantCulture, out double f) &&
+                    Math.Abs(f - wantFrag) <= Ms3FixtureMassTolDa &&
                     massCol < r.Length &&
                     double.TryParse(r[massCol], NumberStyles.Float, CultureInfo.InvariantCulture, out double m) &&
                     Math.Abs(m - wantMass) < 0.5).ToList();
                 Assert.That(matches.Count, Is.EqualTo(1),
-                    $"ms3_cytc: expected exactly one MS3 identification row for precursor {wantMass:F4} ion '{ion}', " +
+                    $"ms3_cytc: expected exactly one MS3 identification row for precursor {wantMass:F4} fragment {wantFrag:F4} (read as '{ion}'), " +
                     $"found {matches.Count}. The ground-truth leaf anchor must be unambiguous -- if the engine now " +
                     "acquires this fragment more than once, the fixture needs a sharper key, not a looser one.");
                 Assert.That(matches[0][pfCol], Is.EqualTo(wantPf),
@@ -1553,13 +1586,12 @@ namespace Flash.Tests
             string commandsPath = Path.Combine(caseDir, LogGoldenComparer.CommandsName);
             if (File.Exists(commandsPath)) File.Delete(commandsPath);
 
-            // Presence of a real MS3 fixture is determined from the ion manifest; when present, each MS3
-            // command is fed its REAL per-ion fragment spectrum (decode ion -> manifest), never fabricated.
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            // Presence of a real MS3 fixture is determined from the mass manifest; when present, each MS3
+            // command is fed the REAL spectrum acquired for its fragment mass, never fabricated.
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             string ms3FixtureName = ms3Map.Count > 0 ? ms3Map.Values.First() : null;   // indicator: fixtures present
             Func<ScanCommand, string> ms3Sel = ms3Map.Count > 0
-                ? c => { string ion = DecodeIonFromScanDescription(c.ScanDescription);
-                         return ion != null && ms3Map.TryGetValue(ion, out var p) ? p : null; }
+                ? c => Ms3FixtureByMass(ms3Map, c)
                 : (Func<ScanCommand, string>)null;
 
             using (var harness = MakeHarness("method_ms3_cytc_real.json", caseDir))
@@ -1736,7 +1768,7 @@ namespace Flash.Tests
                 "ms1_standard.txt", "ms2_hcd_fragment.txt", null, null, requireTwoStage: false);
 
             // Two-stage path with the per-ion stage-0 override.
-            var ms3Map = BuildMs3IonMap(SpectraDir);
+            var ms3Map = BuildMs3MassMap(SpectraDir);
             Assert.That(ms3Map.Count, Is.GreaterThan(0),
                 "the ms3_cytc_*_scan*.txt fixtures are required — without a real MS3 fixture this test " +
                 "cannot exercise the two-stage path and would silently stop guarding the stage-0 mirror");
@@ -1754,7 +1786,7 @@ namespace Flash.Tests
         /// tracking id (the first 3 chars of the descriptor, exactly as the E6 test joins them).
         /// </summary>
         private void AssertLogMatchesSentRequest(string caseName, string configFile, string ms1File,
-            string ms2File, Dictionary<string, string> ms3Map, Dictionary<int, string> ms2CeMap,
+            string ms2File, Dictionary<double, string> ms3Map, Dictionary<int, string> ms2CeMap,
             bool requireTwoStage)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
@@ -1771,11 +1803,7 @@ namespace Flash.Tests
                 Func<ScanCommand, string> ms3Sel = null;
                 if (ms3Map != null)
                 {
-                    ms3Sel = c =>
-                    {
-                        string ion = DecodeIonFromScanDescription(c.ScanDescription);
-                        return ion != null && ms3Map.TryGetValue(ion, out var p) ? p : null;
-                    };
+                    ms3Sel = c => Ms3FixtureByMass(ms3Map, c);
                 }
                 harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, ms1File),
@@ -2013,14 +2041,14 @@ namespace Flash.Tests
         // ---- engine driver + golden compare -------------------------------------------------
 
         private void RunCase(string caseName, string configFile, string ms1File, string ms2File,
-            bool feedMs3 = false, bool forceFaims = false, Dictionary<string, string> ms3Map = null,
+            bool feedMs3 = false, bool forceFaims = false, Dictionary<double, string> ms3Map = null,
             int minMs2Commands = 0, int minBoughtIdScans = 0,
             Dictionary<int, string> ms2CeMap = null, Action<string> postDriveAssert = null,
             // ADR-0040: charge-keyed MS2 feed, so one quantification group's members can be given
             // different reporter ratios and the majority vote has something to out-vote.
             Dictionary<int, string> ms2ChargeMap = null,
             // ADR-0047: a per-command MS3 fixture selector (ion AND stage-1 CE) that replaces the
-            // ion-only map lambda when given. Null = skip, never fabricate -- same contract as ms3Map.
+            // mass-keyed ms3Map lookup when given. Null = skip, never fabricate -- same contract as ms3Map.
             Func<ScanCommand, string> ms3FixtureFor = null)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
@@ -2043,7 +2071,7 @@ namespace Flash.Tests
                 }))
             {
                 // Interleaved engine-id-echo drive (one drain, mirrors C++ runFullAcquisition). MS1 rows
-                // carry the engine's real survey ids; MS3 is fed per-command by the decoded ion (skip if
+                // carry the engine's real survey ids; MS3 is fed per-command by its fragment mass (skip if
                 // no real fixture — never fabricate). Replaces the old staged DriveCycle.
                 Func<ScanCommand, string> ms3Sel = null;
                 if (ms3FixtureFor != null)
@@ -2052,12 +2080,7 @@ namespace Flash.Tests
                 }
                 else if (feedMs3)
                 {
-                    var map = ms3Map ?? new Dictionary<string, string>();
-                    ms3Sel = c =>
-                    {
-                        string ion = DecodeIonFromScanDescription(c.ScanDescription);
-                        return ion != null && map.TryGetValue(ion, out var p) ? p : null;
-                    };
+                    ms3Sel = c => Ms3FixtureByMass(ms3Map, c);
                 }
                 harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, ms1File),
@@ -2185,7 +2208,7 @@ namespace Flash.Tests
         // the RunCase drive block; the MS3 target commands are emitted during MS2 processing regardless of
         // whether each target's fixture is present, so an unfed target still appears in scan_commands.
         private HashSet<string> DriveMs3TargetKeys(string caseName, string configFile, string ms1File, string ms2File,
-            Dictionary<string, string> ms3Map)
+            Dictionary<double, string> ms3Map)
         {
             string caseDir = Path.Combine(OutputDir, caseName);
             Directory.CreateDirectory(caseDir);
@@ -2206,12 +2229,7 @@ namespace Flash.Tests
                     mp.Config.Runtime.LogDir = caseDir;
                 }))
             {
-                var map = ms3Map ?? new Dictionary<string, string>();
-                Func<ScanCommand, string> ms3Sel = c =>
-                {
-                    string ion = DecodeIonFromScanDescription(c.ScanDescription);
-                    return ion != null && map.TryGetValue(ion, out var p) ? p : null;
-                };
+                Func<ScanCommand, string> ms3Sel = c => Ms3FixtureByMass(ms3Map, c);
                 harness.PushScanAndDrainFull(
                     Path.Combine(SpectraDir, ms1File),
                     Path.Combine(SpectraDir, ms2File),
