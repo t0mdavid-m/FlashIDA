@@ -224,6 +224,46 @@ namespace Flash.Tests
             RunCase("identify_only", "method_identify_only.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1);
 
+        // ADR-0061 push 5: real-time close-out on the LC cytC set. method_closeout_cytc.json is method_identify_only.json
+        // with acquisition unable to arm a bar (tqscore_threshold 1.0) and identification.threshold 500, so an
+        // identification is what bars a species: each species whose identification reaches 500 is acquired once in
+        // the 64 s run (rt_window 180) and later surveys move on to the next species. AssertCloseOutBars is in-test,
+        // not a golden, so a recapture cannot bless a regression.
+        [Test, Category("Tier2")]
+        public void Golden_CloseOut_CytC() =>
+            RunCase("closeout_cytc", "method_closeout_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1, postDriveAssert: AssertCloseOutBars);
+
+        /// <summary>
+        /// The close-out acceptance check, on the raw streams: at least one MS2 identification row closed its species
+        /// out, and every closed-out species (by nominal mass, the engine's round(mass x 0.999497)) was commanded at
+        /// MS2 exactly once -- nothing re-acquired it inside the retention-time window the run never leaves.
+        /// </summary>
+        private static void AssertCloseOutBars(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            Func<double, int> nominal = m => (int)Math.Round(m * 0.999497, MidpointRounding.AwayFromZero);
+
+            var idRows = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.IdentificationName), out var ih);
+            int iLvl = Array.IndexOf(ih, "ms_level"), iClosed = Array.IndexOf(ih, "closed_out"),
+                iMass = Array.IndexOf(ih, "ms1_precursor_mass");
+            Assert.That(iLvl >= 0 && iClosed >= 0 && iMass >= 0, Is.True, "closeout_cytc: identification columns present");
+            var closed = new HashSet<int>(idRows
+                .Where(r => r[iLvl] == "2" && r[iClosed] == "1")
+                .Select(r => nominal(double.Parse(r[iMass], CultureInfo.InvariantCulture))));
+            Assert.That(closed.Count, Is.GreaterThanOrEqualTo(1),
+                "closeout_cytc: no MS2 identification closed its species out -- the threshold path is not reached");
+
+            var cmds = ParseTsv(commandsPath, out var ch);
+            int cLvl = Array.IndexOf(ch, "ms_level"), cMass = Array.IndexOf(ch, "mono_mass");
+            var acquired = cmds.Where(r => r[cLvl] == "2")
+                .GroupBy(r => nominal(double.Parse(r[cMass].Split(';')[0], CultureInfo.InvariantCulture)))
+                .ToDictionary(g => g.Key, g => g.Count());
+            foreach (int n in closed)
+                Assert.That(acquired.TryGetValue(n, out int count) ? count : 0, Is.EqualTo(1),
+                    $"closeout_cytc: closed-out species {n} was acquired more than once inside the retention-time window");
+        }
+
         [Test, Category("Tier2")]
         public void Golden_Exclusion() =>
             RunCase("exclusion", "method_exclusion.json", "ms1_standard.txt", "ms2_hcd_fragment.txt");

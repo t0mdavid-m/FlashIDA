@@ -271,6 +271,27 @@ namespace Flash.Tests
             Assert.AreEqual(5, Convert.ToInt32(ident["search_threads"]));
         }
 
+        // ADR-0061 push 5: identification.threshold. Unauthored it never reaches C++ as a number (identify and log,
+        // never close out); authored, it survives the round trip and crosses the bridge as the number.
+        [Test, Category("Tier1")]
+        public void Identification_Threshold_UnauthoredStaysNull_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_ms3_cytc_real.json");
+            Assert.IsNotNull(mp.Config.Identification);
+            Assert.IsNull(mp.Config.Identification.Threshold, "method_ms3_cytc_real.json authors no threshold");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var ident = (Dictionary<string, object>)parsed["identification"];
+            Assert.IsTrue(!ident.ContainsKey("threshold") || ident["threshold"] == null,
+                "an unauthored threshold must not reach C++ as a number");
+
+            mp.Config.Identification.Threshold = 612.5;
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual(612.5, back.Identification.Threshold);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            ident = (Dictionary<string, object>)parsed["identification"];
+            Assert.AreEqual(612.5, Convert.ToDouble(ident["threshold"], System.Globalization.CultureInfo.InvariantCulture));
+        }
+
         // ADR-0061 push 4c. Every identification.flashtnt key, its model value and the value an authored
         // config carries. Every authored value differs from FLASHTnT's default (and from ADR-0061's
         // skip_precursor_inference true), except fixed_mod, whose only legal value is [].
