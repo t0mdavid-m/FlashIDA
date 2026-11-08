@@ -660,6 +660,23 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
         }
 
+        // ADR-0064: method_ms3_cytc_fragments_per_proteoform.json is method_ms3_cytc_fragments.json with only
+        // characterization.per_proteoform turned on. Fragments is the objective whose pool never shrinks, so every
+        // difference from ms3_fragments_cytc is the per-proteoform MS3 plan's: no window SNR <= 1, no fragment re-sent
+        // below 2x, at most max_targets distinct cleavages per proteoform.
+        [Test, Category("Tier2")]
+        public void Golden_MS3_FragmentsObjective_PerProteoform_CytC()
+        {
+            var ms3Map = BuildMs3MassMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — per-proteoform MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("ms3_fragments_cytc_per_proteoform", "method_ms3_cytc_fragments_per_proteoform.json", "ms1_cytc.txt",
+                    "ms2_cytc_fresh_scan57.txt", feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
         // The THIRD objective on the same cytC data (ADR-0023). ambiguity and coverage both select out of
         // the mapped-fragment table; exhaustive selects out of the winner MS2 scan's RAW deconvolved
         // masses, so masses that matched no theoretical fragment become MS3 targets too — in this
