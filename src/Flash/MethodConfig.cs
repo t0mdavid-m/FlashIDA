@@ -540,9 +540,9 @@ namespace Flash
         [Description("How many charge states of a target FRAGMENT one MS3 acquires: \"single\" (the fragment's best-MS2 charge), \"separate\" (one MS3 per observed charge state -- the budget then counts (fragment, charge) pairs), or \"multiplexed\" (one MS3 co-isolating them, so the budget counts fragments and the same slots buy more cleavage sites). Replaces the bool ms3_all_charges, whose two states are the first two values.")]
         public string FragmentCharges { get; set; } = "single";
 
-        // ADR-0064. Off (the default) keeps every committed method's behaviour.
+        // ADR-0066. Off (the default) keeps every committed method's behaviour.
         [JsonKey("per_proteoform")]
-        [Description("One live MS3 plan per proteoform (ADR-0064): a newer identification of the same proteoform (protein, start/end, mass) replaces its MS3s not yet sent; a sent fragment is acquired again only at 2x its sent intensity; at most max_targets distinct cleavages per proteoform per run; only fragments whose isolation window SNR exceeds 1.")]
+        [Description("One live MS3 plan per proteoform (ADR-0066): a newer identification of the same proteoform (protein, start/end, mass) replaces its MS3s not yet sent; a sent fragment is acquired again only at 2x its sent intensity; at most max_targets distinct cleavages per proteoform per run; only fragments whose isolation window SNR exceeds 1.")]
         public bool PerProteoform { get; set; } = false;
 
         // The MS3 CE/RT sweep. Must stay separate from precursor_selection.exploration: a single

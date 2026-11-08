@@ -660,7 +660,7 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
         }
 
-        // ADR-0064: method_ms3_cytc_fragments_per_proteoform.json is method_ms3_cytc_fragments.json with only
+        // ADR-0066: method_ms3_cytc_fragments_per_proteoform.json is method_ms3_cytc_fragments.json with only
         // characterization.per_proteoform turned on. Fragments is the objective whose pool never shrinks, so every
         // difference from ms3_fragments_cytc is the per-proteoform MS3 plan's: no window SNR <= 1, no fragment re-sent
         // below 2x, at most max_targets distinct cleavages per proteoform.

@@ -659,7 +659,7 @@
               "description": "One live MS3 plan per proteoform: a newer identification of the same proteoform (protein, start and end, mass within the MS1 tolerance or 1-3 isotope steps) replaces its MS3s not yet sent, and a sent fragment is acquired again only at twice the intensity it was sent at. A proteoform gets at most `max_targets` distinct cleavages in a run, and only fragments whose isolation-window SNR exceeds 1 are targeted. Off: every identification plans its own MS3s.",
               "default": false,
               "x-adr": [
-                "0064"
+                "0066"
               ]
             },
             "exploration": {

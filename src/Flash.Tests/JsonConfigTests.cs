@@ -329,7 +329,7 @@ namespace Flash.Tests
             Assert.AreEqual(80, Convert.ToInt32(q3["collision_energy"]));
         }
 
-        // ADR-0064: identification.characterization.per_proteoform. No corpus config authors it; the default false
+        // ADR-0066: identification.characterization.per_proteoform. No corpus config authors it; the default false
         // crosses the bridge as false (C++ treats it as absent), and an authored true round-trips and crosses as true.
         [Test, Category("Tier1")]
         public void Characterization_PerProteoform_DefaultFalse_AuthoredRoundTrips()
