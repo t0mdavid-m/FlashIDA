@@ -131,6 +131,11 @@ $configs = @(
 
 $failures = 0
 
+# ADR-0064: the engine's events (every [TRACK-CREATE] the CI gate counts) are in each run folder's events.log, no
+# longer on stdout. Each successful case appends its events.log here, under a "## <case>" header.
+$eventsOut = Join-Path $OutputDir "regression-events.txt"
+if (Test-Path $eventsOut) { Remove-Item -Force $eventsOut }
+
 foreach ($cfg in $configs) {
     $outputFile = Join-Path $OutputDir "$($cfg.name).tsv"
     $ms1File    = Join-Path $TestDataDir "spectra\$($cfg.ms1)"
@@ -148,6 +153,7 @@ foreach ($cfg in $configs) {
     Write-Host "  Args: $($flashArgs -join ' ')"
     Write-Host "  CWD: $(Get-Location)"
     $global:LASTEXITCODE = $null
+    $runStart = Get-Date
     try {
         & $FlashExe @flashArgs 2>&1 | ForEach-Object { Write-Host "  [Flash] $_" }
     } catch {
@@ -160,6 +166,18 @@ foreach ($cfg in $configs) {
         Write-Host "FAIL: Flash.exe exited with code $LASTEXITCODE for $($cfg.name)"
         $failures++
         continue
+    }
+
+    # The run folder is timestamp-named under the CWD (no config here sets runtime.log_dir): the newest one created
+    # by this case holds its events.log.
+    $runFolder = Get-ChildItem -Path (Get-Location) -Directory |
+        Where-Object { $_.CreationTime -ge $runStart -and (Test-Path (Join-Path $_.FullName "events.log")) } |
+        Sort-Object CreationTime -Descending | Select-Object -First 1
+    if ($runFolder) {
+        Add-Content -Path $eventsOut -Value "## $($cfg.name)"
+        Get-Content (Join-Path $runFolder.FullName "events.log") | Add-Content -Path $eventsOut
+    } else {
+        Write-Host "  (no events.log found for $($cfg.name))"
     }
 
     if ($captureMode) {
