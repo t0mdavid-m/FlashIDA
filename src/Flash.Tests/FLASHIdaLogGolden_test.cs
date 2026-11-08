@@ -1182,16 +1182,25 @@ namespace Flash.Tests
             // (= -89.0302 + 586.15) while pooled keeps both -- correct, and a full-set equality would fail on it.
             // b49's ions separate (1-8) and (15-26), so no merge is legitimate there, and a fused mod on a b49 leaf
             // can only be the render-seed leak this check exists for.
+            //
+            // Since the proteome search (ADR-0061 push 4c) this precursor is characterized on its 4240.05 and
+            // 5556.75 Da fragments (b33/b46 once the Met is removed), so the anchor is the FRAGMENT MASS 5556.75
+            // (ms2_precursor_mass on an MS3 row), not a label: a label counts from the proteoform's own start. The
+            // leaf is compared with the pooled mods INSIDE its span (pooled positions count from the proteoform
+            // start, as a b-label does, so a bN leaf spans 1..N): the pooled model also carries a -29.02 at 49,
+            // outside b46, that no b46 scan can see.
             // 0.5 Da: the neighbouring isotopologue is ~1.0 Da away (same rule as the ms3_cytc oracle).
             const double anchorMass = 12321.2828;
-            const string anchorIon = "b49";
+            const double anchorFrag = 5556.75;
             var idRows = ParseTsv(idPath, out var idHeader);
             int iLvlCol = Array.IndexOf(idHeader, "ms_level");
             int iPfCol = Array.IndexOf(idHeader, "proteoform");
             int iPidCol = Array.IndexOf(idHeader, "precursor_id");
             int iMassCol = Array.IndexOf(idHeader, "ms1_precursor_mass");
             int iIonCol = Array.IndexOf(idHeader, "ms2_precursor_ion");
+            int iFragCol = Array.IndexOf(idHeader, "ms2_precursor_mass");
             Assert.That(iLvlCol, Is.GreaterThanOrEqualTo(0), "identification: ms_level column present");
+            Assert.That(iFragCol, Is.GreaterThanOrEqualTo(0), "identification: ms2_precursor_mass column present");
             Assert.That(iPfCol, Is.GreaterThanOrEqualTo(0), "identification: proteoform column present");
             Assert.That(iPidCol, Is.GreaterThanOrEqualTo(0), "identification: precursor_id column present");
             Assert.That(iMassCol, Is.GreaterThanOrEqualTo(0), "identification: ms1_precursor_mass column present");
@@ -1230,22 +1239,29 @@ namespace Flash.Tests
             Assert.That(finalPooled, Is.Not.Null,
                 $"{mode}: no pooled_identification row for precursor {anchorPid} ({anchorMass:F4} Da) — the leaf==pooled invariant cannot be checked.");
 
-            var pooledMasses = ExtractModMasses(
+            var pooledSites = ExtractModSites(
                 (pLocCol < finalPooled.Length ? finalPooled[pLocCol] : "") + ";" +
                 (pAmbCol < finalPooled.Length ? finalPooled[pAmbCol] : ""));
-            Assert.That(pooledMasses.Count, Is.GreaterThan(0),
+            Assert.That(pooledSites.Count, Is.GreaterThan(0),
                 $"{mode}: pooled model for precursor {anchorPid} carries no PTM masses — unexpected for the cytC recipe " +
                 "(fixture drift or a broken pooled writer).");
 
-            // --- every anchor (precursor, b49) MS3 leaf row must carry the SAME PTM-mass set ---
+            // --- every anchor (precursor, fragment) MS3 leaf row must carry the pooled PTM-mass set of its span ---
 
             int leafRows = 0;
             foreach (var r in idRows)
             {
                 if (iLvlCol >= r.Length || ParseIntSafe(r[iLvlCol]) != 3) continue;
                 if (iPidCol >= r.Length || ParseIntSafe(r[iPidCol]) != anchorPid) continue;
-                if (iIonCol >= r.Length || r[iIonCol] != anchorIon) continue;
-                if (iPfCol >= r.Length) continue;
+                if (iFragCol >= r.Length ||
+                    !double.TryParse(r[iFragCol], NumberStyles.Float, CultureInfo.InvariantCulture, out double fm) ||
+                    Math.Abs(fm - anchorFrag) > Ms3FixtureMassTolDa) continue;
+                if (iPfCol >= r.Length || iIonCol >= r.Length) continue;
+                string ion = r[iIonCol];
+                int span = 0;
+                Assert.That(ion.Length >= 2 && "abc".IndexOf(ion[0]) >= 0 && int.TryParse(ion.Substring(1), out span), Is.True,
+                    $"{mode}: the anchor leaf must be a prefix ion (its span is 1..N); got '{ion}'");
+                var pooledMasses = pooledSites.Where(ps => ps.hi <= span).Select(ps => ps.mass).ToList();
                 leafRows++;
                 var leafMasses = ExtractModMasses(r[iPfCol]);
                 Assert.That(leafMasses.Count, Is.EqualTo(pooledMasses.Count),
@@ -1258,8 +1274,26 @@ namespace Flash.Tests
                         $"model's mass set [{string.Join(", ", pooledMasses.Select(m => m.ToString("F4")))}] — leaf != pooled.");
             }
             Assert.That(leafRows, Is.GreaterThanOrEqualTo(1),
-                $"{mode}: no MS3 (ms_level==3) leaf row for precursor {anchorPid} ({anchorMass:F4} Da) ion {anchorIon} — the leaf==pooled invariant is " +
+                $"{mode}: no MS3 (ms_level==3) leaf row for precursor {anchorPid} ({anchorMass:F4} Da) fragment {anchorFrag:F2} Da — the leaf==pooled invariant is " +
                 "vacuous (fixture/engine drift removed the MS3 leaves).");
+        }
+
+        /// <summary>
+        /// The pooled localized/ambiguous mods cells as (lo, hi, mass): "49[-29.0156]" is (49, 49, -29.0156) and
+        /// "(14-20)[+615.1691]" is (14, 20, 615.1691). Positions are 1-based from the proteoform start.
+        /// </summary>
+        private static List<(int lo, int hi, double mass)> ExtractModSites(string s)
+        {
+            var sites = new List<(int lo, int hi, double mass)>();
+            if (string.IsNullOrEmpty(s)) return sites;
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(s,
+                         @"(?:\((\d+)-(\d+)\)|(\d+))\[([+-]?\d+(?:\.\d+)?)\]"))
+            {
+                int lo = m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : int.Parse(m.Groups[1].Value);
+                int hi = m.Groups[3].Success ? lo : int.Parse(m.Groups[2].Value);
+                sites.Add((lo, hi, double.Parse(m.Groups[4].Value, CultureInfo.InvariantCulture)));
+            }
+            return sites;
         }
 
         /// <summary>
