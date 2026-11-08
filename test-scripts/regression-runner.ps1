@@ -131,7 +131,7 @@ $configs = @(
 
 $failures = 0
 
-# ADR-0064: the engine's events (every [TRACK-CREATE] the CI gate counts) are in each run folder's events.log, no
+# ADR-0065: the engine's events (every [TRACK-CREATE] the CI gate counts) are in each run folder's events.log, no
 # longer on stdout. Each successful case appends its events.log here, under a "## <case>" header.
 $eventsOut = Join-Path $OutputDir "regression-events.txt"
 if (Test-Path $eventsOut) { Remove-Item -Force $eventsOut }
