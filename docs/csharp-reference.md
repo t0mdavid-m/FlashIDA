@@ -445,12 +445,18 @@ and trypsinogen 12+ (ADR-0047). Which energies a mode needs is the test's own pr
 at the call site. `Golden_Exploration_Kinetic_CytC` maps all 51 because its follow-up lands wherever
 the Kinetic Model's fit puts it, and asserts that energy within ±1 of
 `test-data/kinetic/cut_sweep_expected.tsv` (the vendored study pipeline's answer on the same files).
+**MS3 fixtures are fed by fragment mass** (ADR-0061 push 4c): `BuildMs3MassMap(dir, prefix)` reads
+`test-data/reference/ms3_fixture_masses.tsv` (each acquired fixture's fragment mono mass, as the goldens fed it) and
+`Ms3FixtureByMass` feeds the fixture within 0.05 Da of the command's `MonoMassS1`, else nothing. Not by the label in the
+file name: a label counts from the proteoform's start, which moves when the search removes the Met. A fixture with no
+manifest row is never fed; a new fixture needs its row.
+
 **MS3 fixtures can be selected by ion AND stage-1 CE**: `RunCase(..., ms3FixtureFor: selector)` takes a
-`Func<ScanCommand, string>` in place of the ion-only `ms3Map` lambda; `BuildMs3IonCeSelector(dir,
+`Func<ScanCommand, string>` in place of the mass-keyed `ms3Map` lookup; `BuildMs3IonCeSelector(dir,
 "ms3_cytc3_")` resolves `ms3_cytc3_<ion>_ce<CE>_scan*.txt` and returns `null` when no such file exists,
 which the harness logs as `[MS3-SKIP]` — never fabricated. That is how `Golden_Exploration_Kinetic_MS3_CytC`
 feeds the real b32 CID sweep of 2026-07-08 (odd energies only, so a follow-up at an even CE has a
-pinned command and no result row). `BuildMs3IonMap`'s `ms3_cytc_*` glob does not see `ms3_cytc3_*`.
+pinned command and no result row). That selector is still label-keyed; the manifest lists no `ms3_cytc3_*` file.
 
 **`Golden_Refine_Discriminating_CytC` is the one case that answers a missing MS3 fixture instead of
 skipping it** (ADR-0049, mode `refine_discriminating_cytc`). A refine round decides only when every
