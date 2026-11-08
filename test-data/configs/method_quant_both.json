@@ -35,13 +35,13 @@
   },
   "files": {
     "target_logs": [],
-    "inclusion_list": ""
+    "inclusion_list": "inclusion_itmt_ydfz.txt"
   },
   "precursor_selection": {
     "rt_window": 180,
-    "targeting": "none",
+    "targeting": "inclusion",
     "consider_all_charges": false,
-    "strict_inclusion": false,
+    "strict_inclusion": true,
     "tie_threshold": 0.1,
     "rank_by": "qscore",
     "max_precursors": 1
