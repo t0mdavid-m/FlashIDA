@@ -664,6 +664,22 @@ namespace Flash
                 return outDict;
             }
 
+            // Generic List<T> of a nested config class -> array of its [JsonKey] objects. The mirror of
+            // ConvertValue's general List<T> branch. Without it a List<QuantConditionConfig> fell through to
+            // `return value` and JavaScriptSerializer reflected the CLR objects, writing PascalCase "Name" /
+            // "Channels" -- a config that the strict reader then refused to load back (ADR-0064 found it).
+            if (valueType.IsGenericType && valueType.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                Type elemType = valueType.GetGenericArguments()[0];
+                if (elemType.GetCustomAttribute<JsonKeyAttribute>() != null)
+                {
+                    var outList = new List<object>();
+                    foreach (object item in (IList)value)
+                        outList.Add(SerializeValue(item, elemType));
+                    return outList;
+                }
+            }
+
             // Value-type structs (MS1Parameters, etc.)
             if (valueType.IsValueType && !valueType.IsPrimitive && !valueType.IsEnum
                 && valueType != typeof(decimal) && valueType != typeof(double)
