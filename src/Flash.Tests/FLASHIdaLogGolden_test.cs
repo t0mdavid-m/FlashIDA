@@ -224,15 +224,42 @@ namespace Flash.Tests
             RunCase("identify_only", "method_identify_only.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1);
 
-        // ADR-0061 push 5: real-time close-out on the LC cytC set. method_closeout_cytc.json is method_identify_only.json
-        // with acquisition unable to arm a bar (tqscore_threshold 1.0) and identification.threshold 500, so an
-        // identification is what bars a species: each species whose identification reaches 500 is acquired once in
-        // the 64 s run (rt_window 180) and later surveys move on to the next species. AssertCloseOutBars is in-test,
-        // not a golden, so a recapture cannot bless a regression.
+        // ADR-0061 push 5: real-time close-out on the LC cytC set, the LOGGING half. method_closeout_cytc.json is
+        // method_identify_only.json with acquisition unable to arm a bar (tqscore_threshold 1.0) and
+        // identification.threshold 500: 22 of its 25 species close out at their MS2 (closed_out 1), the three scoring
+        // below 500 do not. On this data every species is acquired once with or without the threshold (the qscore
+        // ratchet), so this golden pins which MS2 closes out, not that acquisition stops; Golden_CloseOut_CytC_Strict
+        // pins that. AssertCloseOutBars is in-test, not a golden.
         [Test, Category("Tier2")]
         public void Golden_CloseOut_CytC() =>
             RunCase("closeout_cytc", "method_closeout_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1, postDriveAssert: AssertCloseOutBars);
+
+        // ADR-0061 push 5: the ACQUISITION half. method_closeout_cytc_strict.json is method_closeout_cytc.json under
+        // strict inclusion of cytC alone (inclusion_cytc.txt): nothing but a close-out can bar it, so without the
+        // threshold cytC is re-acquired survey after survey (FLASHIda_ProcessScan_test
+        // close_out_bars_the_identified_species_for_rt_window), and with it the run acquires one MS2, closes cytC out,
+        // and every later survey selects nothing. AssertCloseOutStopsAcquisition requires exactly that.
+        [Test, Category("Tier2")]
+        public void Golden_CloseOut_CytC_Strict() =>
+            RunCase("closeout_cytc_strict", "method_closeout_cytc_strict.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    minMs2Commands: 1, postDriveAssert: AssertCloseOutStopsAcquisition);
+
+        /// <summary>
+        /// The strict close-out acceptance check: exactly one MS2 in the run, and its identification row closed cytC out.
+        /// </summary>
+        private static void AssertCloseOutStopsAcquisition(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            var cmds = ParseTsv(commandsPath, out var ch);
+            int cLvl = Array.IndexOf(ch, "ms_level");
+            Assert.That(cmds.Count(r => r[cLvl] == "2"), Is.EqualTo(1),
+                "closeout_cytc_strict: cytC must be acquired once and then barred by its close-out");
+            var idRows = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.IdentificationName), out var ih);
+            int iLvl = Array.IndexOf(ih, "ms_level"), iClosed = Array.IndexOf(ih, "closed_out");
+            Assert.That(idRows.Count(r => r[iLvl] == "2" && r[iClosed] == "1"), Is.EqualTo(1),
+                "closeout_cytc_strict: the one MS2 must close cytC out");
+        }
 
         /// <summary>
         /// The close-out acceptance check, on the raw streams: at least one MS2 identification row closed its species
