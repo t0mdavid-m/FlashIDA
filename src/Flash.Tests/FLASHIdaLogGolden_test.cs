@@ -132,6 +132,92 @@ namespace Flash.Tests
         public void Golden_Quant() =>
             RunCase("quant", "method_quant.json", "ms1_standard.txt", "ms2_quant_tmt.txt", minBoughtIdScans: 1);
 
+        // ADR-0064: the quantification MS3 on real iodoTMT data. Three surveys of a real E. coli iodoTMT
+        // run in which YdfZ (z=10, m/z 761.51, iodoTMT on C52) is the base peak, its CID 28 identification scan 1325, and
+        // YdfZ as the reference; the quantification MS3 ('Q', level 3) returns the synthetic six-peak reporter spectrum
+        // (owner's choice). quant_ms3: no screen, the identification buys the MS3. quant_both: the 'Q' MS2 screen
+        // (identify all) buys the R, and the R buys the MS3. AssertQuantMs3Bought is in-test, not a golden.
+        [Test, Category("Tier2")]
+        public void Golden_QuantMs3() =>
+            RunCase("quant_ms3", "method_quant_ms3.json", "ms1_itmt_ydfz.txt", "ms2_itmt_ydfz_cid28_scan1325.txt",
+                    minMs2Commands: 1, ms3FixtureFor: QuantMs3Reporters, postDriveAssert: AssertQuantMs3Bought);
+
+        [Test, Category("Tier2")]
+        public void Golden_QuantBoth() =>
+            RunCase("quant_both", "method_quant_both.json", "ms1_itmt_ydfz.txt", "ms2_itmt_ydfz_cid28_scan1325.txt",
+                    minMs2Commands: 1, minBoughtIdScans: 1, ms3FixtureFor: QuantMs3Reporters,
+                    postDriveAssert: AssertQuantMs3Bought);
+
+        // With characterization on as well: the quantification MS3s of an identification go before its characterization
+        // MS3s (ADR-0064 d.6). In-test only -- no golden of its own.
+        [Test, Category("Tier2")]
+        public void QuantMs3_GoesBeforeCharacterization()
+        {
+            string dir = Path.Combine(OutputDir, "quant_ms3_charact_order");
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            Directory.CreateDirectory(dir);
+            using (var harness = new ContinuityTestHarness(Path.Combine(ConfigDir, "method_quant_ms3_charact.json"), false, false,
+                       configure: mp => { mp.Config.Runtime.LogDir = dir; }))
+            {
+                harness.PushScanAndDrainFull(Path.Combine(SpectraDir, "ms1_itmt_ydfz.txt"),
+                                             Path.Combine(SpectraDir, "ms2_itmt_ydfz_cid28_scan1325.txt"), QuantMs3Reporters);
+            }
+            var cmds = ParseTsv(Path.Combine(dir, LogGoldenComparer.CommandsName), out var ch);
+            int cLvl = Array.IndexOf(ch, "ms_level"), cType = Array.IndexOf(ch, "scan_type"),
+                cParent = Array.IndexOf(ch, "parent_tracking_id");
+            var ms3 = cmds.Where(r => r[cLvl] == "3").ToList();
+            Assert.That(ms3.Any(r => r[cType] == "quantification"), Is.True, "no quantification MS3 was commanded");
+            foreach (var parent in ms3.Select(r => r[cParent]).Distinct())
+            {
+                var children = ms3.Where(r => r[cParent] == parent).Select(r => r[cType]).ToList();
+                int lastQ = children.LastIndexOf("quantification"), firstOther = children.FindIndex(t => t != "quantification");
+                Assert.That(firstOther < 0 || lastQ < firstOther, Is.True,
+                    $"parent {parent}: a characterization MS3 was dispatched before a quantification MS3");
+            }
+        }
+
+        private static string QuantMs3Reporters(ScanCommand c) =>
+            c.ScanDescription != null && c.ScanDescription.Length > 3 && c.ScanDescription[3] == 'Q'
+                ? Path.Combine(SpectraDir, "ms2_quant_tmt.txt") : null;
+
+        /// <summary>
+        /// The quantification-MS3 acceptance check, on the raw streams: at least one MS3 command of scan_type
+        /// quantification; its parent MS2's identification row closed the species out and says quant_ms3 bought; its
+        /// scan_results row carries a quant_verdict; and no identification row was written for it.
+        /// </summary>
+        private static void AssertQuantMs3Bought(string commandsPath)
+        {
+            string caseDir = Path.GetDirectoryName(commandsPath);
+            var cmds = ParseTsv(commandsPath, out var ch);
+            int cLvl = Array.IndexOf(ch, "ms_level"), cType = Array.IndexOf(ch, "scan_type"),
+                cId = Array.IndexOf(ch, "tracking_id"), cParent = Array.IndexOf(ch, "parent_tracking_id");
+            var quant = cmds.Where(r => r[cLvl] == "3" && r[cType] == "quantification").ToList();
+            Assert.That(quant.Count, Is.GreaterThanOrEqualTo(1), "no quantification MS3 was commanded");
+
+            var idRows = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.IdentificationName), out var ih);
+            int iLvl = Array.IndexOf(ih, "ms_level"), iId = Array.IndexOf(ih, "tracking_id"),
+                iClosed = Array.IndexOf(ih, "closed_out"), iQuant = Array.IndexOf(ih, "quant_ms3");
+            var quantIds = new HashSet<string>(quant.Select(r => r[cId]));
+            foreach (var parent in quant.Select(r => r[cParent]).Distinct())
+            {
+                var row = idRows.FirstOrDefault(r => r[iLvl] == "2" && r[iId] == parent);
+                Assert.That(row, Is.Not.Null, $"no identification row for the quantification MS3's parent {parent}");
+                Assert.That(row[iClosed], Is.EqualTo("1"), $"parent {parent} bought a quantification MS3 without closing out");
+                Assert.That(row[iQuant], Is.EqualTo("bought"), $"parent {parent}: quant_ms3 is not bought");
+            }
+            Assert.That(idRows.Any(r => quantIds.Contains(r[iId])), Is.False,
+                "a quantification MS3 was annotated (it is read for reporters only)");
+
+            var res = ParseTsv(Path.Combine(caseDir, LogGoldenComparer.ResultsName), out var rh);
+            int rId = Array.IndexOf(rh, "tracking_id"), rVerdict = Array.IndexOf(rh, "quant_verdict");
+            foreach (var id in quantIds)
+            {
+                var r = res.FirstOrDefault(x => x[rId] == id);
+                Assert.That(r, Is.Not.Null, $"quantification MS3 {id} never returned");
+                Assert.That(string.IsNullOrEmpty(r[rVerdict]), Is.False, $"quantification MS3 {id} carries no verdict");
+            }
+        }
+
         // ADR-0040/ADR-0056. The quantification-GROUP modes. All use ms1_cytc.txt rather than
         // ms1_standard.txt because the group needs a species that RESOLVES several charges -- the
         // cytC survey gives ten, capped to three by max_charge_states so the golden stays reviewable.

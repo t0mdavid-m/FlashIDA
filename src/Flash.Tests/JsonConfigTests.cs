@@ -292,6 +292,43 @@ namespace Flash.Tests
             Assert.AreEqual(612.5, Convert.ToDouble(ident["threshold"], System.Globalization.CultureInfo.InvariantCulture));
         }
 
+        // ADR-0064: quantification.scan / ms3_targets / ms_settings.ms3_quant. Unauthored they are ms2, 1 and absent (the
+        // key not emitted); authored, each survives the round trip and crosses the bridge.
+        [Test, Category("Tier1")]
+        public void Quantification_Ms3Keys_DefaultsAndAuthoredRoundTrip()
+        {
+            var mp = LoadJsonMethod("method_quant.json");
+            Assert.AreEqual("ms2", mp.Config.Quantification.Scan);
+            Assert.AreEqual(1, mp.Config.Quantification.Ms3Targets);
+            Assert.IsFalse(mp.Config.MsSettings.MS3Quant.HasValue, "method_quant.json authors no ms3_quant");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var quant = (Dictionary<string, object>)parsed["quantification"];
+            Assert.AreEqual("ms2", quant["scan"]);
+            Assert.AreEqual(1, Convert.ToInt32(quant["ms3_targets"]));
+            var ms = (Dictionary<string, object>)parsed["ms_settings"];
+            Assert.IsTrue(!ms.ContainsKey("ms3_quant") || ms["ms3_quant"] == null, "an unauthored ms3_quant must not be emitted");
+
+            var authored = LoadJsonMethod("method_quant_ms3.json");
+            Assert.AreEqual("ms3", authored.Config.Quantification.Scan);
+            Assert.IsTrue(authored.Config.MsSettings.MS3Quant.HasValue);
+            Assert.AreEqual("HCD", authored.Config.MsSettings.MS3Quant.Value.Activation);
+            Assert.AreEqual(80, authored.Config.MsSettings.MS3Quant.Value.CollisionEnergy);
+
+            authored.Config.Quantification.Scan = "both";
+            authored.Config.Quantification.Ms3Targets = 3;
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(authored.Config));
+            Assert.AreEqual("both", back.Quantification.Scan);
+            Assert.AreEqual(3, back.Quantification.Ms3Targets);
+            Assert.AreEqual(80, back.MsSettings.MS3Quant.Value.CollisionEnergy);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(authored.ToCppJson());
+            quant = (Dictionary<string, object>)parsed["quantification"];
+            Assert.AreEqual("both", quant["scan"]);
+            Assert.AreEqual(3, Convert.ToInt32(quant["ms3_targets"]));
+            var q3 = (Dictionary<string, object>)((Dictionary<string, object>)parsed["ms_settings"])["ms3_quant"];
+            Assert.AreEqual("HCD", q3["activation"]);
+            Assert.AreEqual(80, Convert.ToInt32(q3["collision_energy"]));
+        }
+
         // ADR-0061 push 4c. Every identification.flashtnt key, its model value and the value an authored
         // config carries. Every authored value differs from FLASHTnT's default (and from ADR-0061's
         // skip_precursor_inference true), except fixed_mod, whose only legal value is [].
