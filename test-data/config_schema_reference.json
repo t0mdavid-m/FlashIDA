@@ -94,6 +94,7 @@
       "min_fragment_charge": 1,
       "min_target_mass": 617.5,
       "fragment_charges": "separate",
+      "per_proteoform": true,
       "exploration": {
         "metric": "kinetic_model",
         "ce_min": 16,
