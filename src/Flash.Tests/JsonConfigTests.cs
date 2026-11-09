@@ -329,6 +329,44 @@ namespace Flash.Tests
             Assert.AreEqual(80, Convert.ToInt32(q3["collision_energy"]));
         }
 
+        // ms_settings.ms2 and ms3 were plain structs, so an unauthored one crossed the bridge zero-filled and the
+        // engine's "ms_settings.msN is not defined" refusals could never fire from a method.json. Unauthored, each
+        // must now stay unset and cross as absent or null. The control (the fixture as committed) proves the block
+        // does cross when authored, so the stripped assertion is not passing on a block that never crossed at all.
+        [Test, Category("Tier1")]
+        public void MsSettings_UnauthoredMs3_IsNotEmitted()
+        {
+            AssertUnauthoredScanSlotIsNotEmitted("ms3", c => c.MsSettings.MS3.HasValue);
+        }
+
+        [Test, Category("Tier1")]
+        public void MsSettings_UnauthoredMs2_IsNotEmitted()
+        {
+            AssertUnauthoredScanSlotIsNotEmitted("ms2", c => c.MsSettings.MS2.HasValue);
+        }
+
+        private void AssertUnauthoredScanSlotIsNotEmitted(string slot, Func<MethodConfig, bool> hasValue)
+        {
+            // Characterization plus both ms2 and ms3, as committed.
+            string path = Path.Combine(ConfigsDir, "method_ms3_cytc_fragments.json");
+            Assert.IsTrue(File.Exists(path), "Test config not found: " + path);
+            var js = new JavaScriptSerializer();
+
+            var authored = new MethodParameters { Config = MethodConfigSerializer.Deserialize(File.ReadAllText(path)) };
+            Assert.IsTrue(hasValue(authored.Config), "control: the fixture authors ms_settings." + slot);
+            var authoredMs = (Dictionary<string, object>)js.Deserialize<Dictionary<string, object>>(authored.ToCppJson())["ms_settings"];
+            Assert.IsTrue(authoredMs.ContainsKey(slot) && authoredMs[slot] is Dictionary<string, object>,
+                "control: an authored ms_settings." + slot + " must cross the bridge as an object");
+
+            var raw = js.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+            Assert.IsTrue(((Dictionary<string, object>)raw["ms_settings"]).Remove(slot));
+            var stripped = new MethodParameters { Config = MethodConfigSerializer.Deserialize(js.Serialize(raw)) };
+            Assert.IsFalse(hasValue(stripped.Config), "an unauthored ms_settings." + slot + " must stay unset, not default-construct");
+            var strippedMs = (Dictionary<string, object>)js.Deserialize<Dictionary<string, object>>(stripped.ToCppJson())["ms_settings"];
+            Assert.IsTrue(!strippedMs.ContainsKey(slot) || strippedMs[slot] == null,
+                "an unauthored ms_settings." + slot + " must not cross the bridge zero-filled; the engine refuses it only when absent");
+        }
+
         // ADR-0066: identification.characterization.per_proteoform. No corpus config authors it; the default false
         // crosses the bridge as false (C++ treats it as absent), and an authored true round-trips and crosses as true.
         [Test, Category("Tier1")]

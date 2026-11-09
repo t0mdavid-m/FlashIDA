@@ -150,6 +150,52 @@ namespace Flash.Tests
             }
         }
 
+        // A method that turns MS3 on (identification.characterization) without ms_settings.ms3 is refused at
+        // construction. ms3 used to be a plain struct that crossed the bridge zero-filled, so the engine's
+        // "ms_settings.ms3 is not defined" throw never fired and MS3 ran on activation "", CE 0. The control is the
+        // same method with ms3 authored: removing that one block is the only difference between a config that
+        // loads and one that does not, which is what ties the null handle to this refusal.
+        [Test]
+        [Category("Tier2")]
+        public void CreateFLASHIda_CharacterizationWithoutMs3_IsRefused()
+        {
+            var mp = BuildMethodParameters();
+            mp.Config.Identification = new IdentificationConfig
+            {
+                Reference = new ReferenceConfig { Sequence = "PEPTIDEK" },
+                Characterization = new CharacterizationConfig { Mode = "fragments" }
+            };
+            mp.Config.MsSettings.MS3 = new MS3Parameters
+            {
+                Analyzer = "Orbitrap", Activation = "CID", CollisionEnergy = 25, OrbitrapResolution = 240000,
+                AGCTarget = 50000000, MaxIT = 500, FirstMass = 200, LastMass = 2000, Microscans = 8, DataType = "Centroid"
+            };
+            AssertLoadsThenIsRefusedWithout(mp, () => mp.Config.MsSettings.MS3 = null, "ms_settings.ms3");
+        }
+
+        // The same for MS2: precursor_selection.rank_by selects (qscore), so a method with no ms_settings.ms2 has
+        // nowhere to dispatch its MS2s and is refused, instead of acquiring them on a zero-filled default.
+        [Test]
+        [Category("Tier2")]
+        public void CreateFLASHIda_SelectionWithoutMs2_IsRefused()
+        {
+            var mp = BuildMethodParameters();
+            Assert.AreEqual("qscore", mp.Config.PrecursorSelection.RankBy, "the premise: precursor selection is on");
+            AssertLoadsThenIsRefusedWithout(mp, () => mp.Config.MsSettings.MS2 = null, "ms_settings.ms2");
+        }
+
+        private static void AssertLoadsThenIsRefusedWithout(MethodParameters mp, Action removeBlock, string block)
+        {
+            IntPtr ptr = CreateFLASHIda(mp.ToCppJson());
+            Assert.AreNotEqual(IntPtr.Zero, ptr, "control: the method with " + block + " authored must load");
+            DisposeFLASHIda(ptr);
+
+            removeBlock();
+            ptr = CreateFLASHIda(mp.ToCppJson());
+            if (ptr != IntPtr.Zero) DisposeFLASHIda(ptr);
+            Assert.AreEqual(IntPtr.Zero, ptr, "a method without " + block + " must be refused at construction");
+        }
+
         /// <summary>
         /// Build a JSON config string matching method_default.json values.
         /// </summary>
