@@ -176,12 +176,12 @@ namespace Flash.Tests
             mp.Config.MsSettings.MS1 = ms1;
 
             // ms2: states nothing -> inherits all three.
-            var ms2 = mp.Config.MsSettings.MS2;
+            var ms2 = mp.Config.MsSettings.MS2.Value;
             ms2.RFLens = 0; ms2.SourceCID = 0; ms2.SourceCIDScaling = 0; ms2.ScanRate = "";
             mp.Config.MsSettings.MS2 = ms2;
 
             // ms3: states its own source_cid -> keeps it, inherits the rest.
-            var ms3 = mp.Config.MsSettings.MS3;
+            var ms3 = mp.Config.MsSettings.MS3.Value;
             ms3.RFLens = 0; ms3.SourceCID = 25; ms3.SourceCIDScaling = 0; ms3.ScanRate = "";
             mp.Config.MsSettings.MS3 = ms3;
 

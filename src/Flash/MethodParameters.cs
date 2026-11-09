@@ -217,13 +217,19 @@ namespace Flash
                         data_type = c.MsSettings.MS1.DataType ?? "",
                         scan_rate = c.MsSettings.MS1.ScanRate ?? ""
                     },
-                    ms2 = ToJsonScanConfig(c.MsSettings.MS2, c.MsSettings.MS1),
+                    // Null when unauthored, so the engine's "ms_settings.ms2 is not defined" refusal can
+                    // fire: a zero-filled default here would load clean and acquire on CE 0.
+                    ms2 = c.MsSettings.MS2.HasValue
+                        ? ToJsonScanConfig(c.MsSettings.MS2.Value, c.MsSettings.MS1) : null,
                     // Null when unset -> key omitted, so nothing changes for the 40 configs that
                     // have no quantification scan. Source-region parameters inherit from the survey
                     // through the same ToJsonScanConfig path as every other scan (ADR-0011).
                     ms2_quant = c.MsSettings.MS2Quant.HasValue
                         ? ToJsonScanConfig(c.MsSettings.MS2Quant.Value, c.MsSettings.MS1) : null,
-                    ms3 = ToJsonScanConfig(c.MsSettings.MS3, c.MsSettings.MS1),
+                    // Null when unauthored, like ms2: a characterization block without ms3 is refused by
+                    // the engine ("ms_settings.ms3 is not defined") instead of running MS3 on zeros.
+                    ms3 = c.MsSettings.MS3.HasValue
+                        ? ToJsonScanConfig(c.MsSettings.MS3.Value, c.MsSettings.MS1) : null,
                     // ADR-0064. Null when unset -> key omitted, like ms2_quant.
                     ms3_quant = c.MsSettings.MS3Quant.HasValue
                         ? ToJsonScanConfig(c.MsSettings.MS3Quant.Value, c.MsSettings.MS1) : null,
@@ -479,7 +485,10 @@ namespace Flash
             sb.AppendFormat("MS1: {0} {1}k, mz=[{2},{3}], AGC={4}, MaxIT={5}ms\n",
                 ms1.Analyzer, ms1.OrbitrapResolution / 1000, ms1.FirstMass, ms1.LastMass,
                 ms1.AGCTarget, ms1.MaxIT);
-            AppendMs2Line(sb, "MS2", c.MsSettings.MS2);
+            if (c.MsSettings.MS2.HasValue)
+                AppendMs2Line(sb, "MS2", c.MsSettings.MS2.Value);
+            else
+                sb.AppendLine("MS2: (not set)");
             if (c.MsSettings.AdditionalMS2 != null)
                 foreach (var kv in c.MsSettings.AdditionalMS2)
                     AppendMs2Line(sb, "MS2[" + kv.Key + "]", kv.Value);

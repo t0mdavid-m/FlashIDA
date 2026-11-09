@@ -191,7 +191,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var ms2 = harness.CapturedRecords.Where(r => r.MsnLevel == 2).ToList();
                 Assert.That(ms2, Is.Not.Empty, "ETD standard DDA must produce at least one MS2 command");
 
-                double expectedReactionTime = harness.MethodParams.Config.MsSettings.MS2.ReactionTime;
+                double expectedReactionTime = harness.MethodParams.Config.MsSettings.MS2.Value.ReactionTime;
                 Assert.That(expectedReactionTime, Is.GreaterThan(0), "ETD fixture must configure a reaction time");
 
                 foreach (var r in ms2)
@@ -216,7 +216,7 @@ namespace Flash.Tests.AcquisitionLoop
                 var ms2 = harness.CapturedRecords.Where(r => r.MsnLevel == 2).ToList();
                 Assert.That(ms2, Is.Not.Empty, "HCD standard DDA must produce at least one MS2 command");
 
-                int expectedCe = harness.MethodParams.Config.MsSettings.MS2.CollisionEnergy;
+                int expectedCe = harness.MethodParams.Config.MsSettings.MS2.Value.CollisionEnergy;
                 Assert.That(expectedCe, Is.GreaterThan(0), "HCD fixture must configure a non-zero collision energy");
 
                 foreach (var r in ms2)

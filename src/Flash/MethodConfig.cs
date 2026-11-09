@@ -380,27 +380,36 @@ namespace Flash
         [JsonKey("ms1")]
         public MS1Parameters MS1 { get; set; }
 
+        // Every MSn slot below is NULLABLE, deliberately: MS2Parameters and MS3Parameters are structs, so
+        // a plain field could not express "unauthored" -- it would always emit, zero-filled, and the
+        // engine's "required but not defined" throws could never fire from a method.json. ms2 and ms3
+        // were plain fields until 2026-11-09, so a method that selected precursors with no ms2, or set
+        // identification.characterization with no ms3, loaded clean and acquired on activation "",
+        // CE 0, resolution 0. The reflective serializer unwraps Nullable<T> at
+        // MethodConfigSerializer.cs:241/293/377, so this costs nothing.
+
+        // Required unless precursor_selection.rank_by is none (Config.cpp, "rank_by is not none but
+        // ms_settings.ms2 is not defined"), and as the identification scan when quantification is
+        // enabled (ADR-0039). Permitted and inert otherwise.
         [JsonKey("ms2")]
-        public MS2Parameters MS2 { get; set; }
+        public MS2Parameters? MS2 { get; set; }
 
         // ADR-0038. A bare slot beside ms1/ms2/ms3 rather than a name reference, the same shape
         // characterization already uses with ms3: the decision section holds no scan config, and
         // this supplies the parameters with no key pointing at it. Required when
         // quantification.enabled, permitted and inert otherwise.
-        // NULLABLE deliberately: MS2Parameters is a struct, so a plain field could not express
-        // "unauthored" -- it would always emit, has_quant_scan would always be true C++-side, and the
-        // "enabled without ms2_quant" throw could never fire. The reflective serializer unwraps
-        // Nullable<T> at MethodConfigSerializer.cs:241/293/377, so this costs nothing.
         [JsonKey("ms2_quant")]
         public MS2Parameters? MS2Quant { get; set; }
 
         // ADR-0064. Stage 1 of the quantification MS3: required when quantification.scan is ms3 or both, inert
-        // otherwise. Nullable for MS2Quant's reason above.
+        // otherwise.
         [JsonKey("ms3_quant")]
         public MS3Parameters? MS3Quant { get; set; }
 
+        // Required when identification.characterization is set (Config.cpp, "ms_settings.ms3 is not
+        // defined"); permitted and inert without it, so deleting the block switches MS3 off (ADR-0061).
         [JsonKey("ms3")]
-        public MS3Parameters MS3 { get; set; }
+        public MS3Parameters? MS3 { get; set; }
 
         // Absent in 38 of 41 committed configs. Keys are user-authored, so they cannot be
         // allowlisted the way a fixed schema is; they are validated as identifiers instead
