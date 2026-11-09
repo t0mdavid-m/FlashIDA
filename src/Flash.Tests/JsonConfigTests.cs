@@ -367,6 +367,33 @@ namespace Flash.Tests
                 "an unauthored ms_settings." + slot + " must not cross the bridge zero-filled; the engine refuses it only when absent");
         }
 
+        // ADR-0068: ms_settings.ms2_rescue. Unauthored it is absent (the key not emitted, so no rescue); authored, it
+        // survives the round trip and crosses the bridge. method_quant_ms3.json carries identification.threshold, which
+        // the C++ side requires beside it.
+        [Test, Category("Tier1")]
+        public void MsSettings_Ms2Rescue_DefaultsAndAuthoredRoundTrip()
+        {
+            var mp = LoadJsonMethod("method_quant_ms3.json");
+            Assert.IsFalse(mp.Config.MsSettings.MS2Rescue.HasValue, "method_quant_ms3.json authors no ms2_rescue");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var ms = (Dictionary<string, object>)parsed["ms_settings"];
+            Assert.IsTrue(!ms.ContainsKey("ms2_rescue") || ms["ms2_rescue"] == null, "an unauthored ms2_rescue must not be emitted");
+
+            mp.Config.MsSettings.MS2Rescue = new MS2Parameters
+            {
+                Analyzer = "Orbitrap", Activation = "ETD", ReactionTime = 12, OrbitrapResolution = 120000, DataType = "Centroid"
+            };
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.IsTrue(back.MsSettings.MS2Rescue.HasValue);
+            Assert.AreEqual("ETD", back.MsSettings.MS2Rescue.Value.Activation);
+            Assert.AreEqual(12.0, back.MsSettings.MS2Rescue.Value.ReactionTime);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var rs = (Dictionary<string, object>)((Dictionary<string, object>)parsed["ms_settings"])["ms2_rescue"];
+            Assert.AreEqual("ETD", rs["activation"]);
+            Assert.AreEqual(12.0, Convert.ToDouble(rs["reaction_time"], System.Globalization.CultureInfo.InvariantCulture));
+            Assert.AreEqual(120000, Convert.ToInt32(rs["resolution"]));
+        }
+
         // ADR-0066: identification.characterization.per_proteoform. No corpus config authors it; the default false
         // crosses the bridge as false (C++ treats it as absent), and an authored true round-trips and crosses as true.
         [Test, Category("Tier1")]
