@@ -512,7 +512,7 @@ locations and recapture paths: see `../CLAUDE.md`.
 decided on, relative to the other ids. `NormalizeIdaLog` **masks** the `\tID=<id>` on every `Mass=` line and
 every id on a `Superseded=` line to `<ID>`, as it masks `Access ID`, so no golden sees those values; the
 C++ `FLASHIda_LoggingFields_test` is their gate. `isolation_purity` is an ordinary float column at the
-comparer's tolerance. The `scan_commands` goldens carry 36 columns since FlashIDA `a6181ca`, but
+comparer's tolerance. The `scan_commands` goldens carry 37 columns since ADR-0069's `predicted_bond_yield`, but
 `LogColumnReorderTests.NewCommandsHeader` deliberately still lists 34 names: it is that test's own fixture,
 not the engine header, and the comparer resolves columns by name.
 
