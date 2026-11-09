@@ -310,6 +310,15 @@ namespace Flash.Tests
             RunCase("identify_only", "method_identify_only.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1);
 
+        // ADR-0067 push 2: an authored identification.flashtnt.fixed_mod. The iodoTMT YdfZ scan (scan 1325, CID 28)
+        // identified with iodoTMT6plex fixed on its cysteine as a residue mass, with no quantification: so the label is the
+        // table's, not ADR-0064's per-entry one. Expect a YdfZ identification.tsv row whose proteoform carries the ProForma
+        // global prefix <[...|UNIMOD:1342]@C> and no [+329.2266] on the cysteine; identification only, so no MS3 to answer.
+        [Test, Category("Tier2")]
+        public void Golden_Identify_Fixed_Mod() =>
+            RunCase("identify_fixed_mod", "method_identify_fixed_mod.json", "ms1_itmt_ydfz.txt", "ms2_itmt_ydfz_cid28_scan1325.txt",
+                    minMs2Commands: 1);
+
         // ADR-0061 push 5: real-time close-out on the LC cytC set, the LOGGING half. method_closeout_cytc.json is
         // method_identify_only.json with acquisition unable to arm a bar (tqscore_threshold 1.0) and
         // identification.threshold 500: 22 of its 25 species close out at their MS2 (closed_out 1), the three scoring
