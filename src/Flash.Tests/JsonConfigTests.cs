@@ -389,14 +389,14 @@ namespace Flash.Tests
 
         // ADR-0061 push 4c. Every identification.flashtnt key, its model value and the value an authored
         // config carries. Every authored value differs from FLASHTnT's default (and from ADR-0061's
-        // skip_precursor_inference true), except fixed_mod, whose only legal value is [].
+        // skip_precursor_inference true); fixed_mod's default is [] (ADR-0067).
         private static readonly (string Key, Func<FlashTnTConfig, object> Get, object Authored)[] FlashtntKnobs =
         {
             ("min_length", f => f.MinLength, 4),
             ("max_length", f => f.MaxLength, 9),
             ("allow_gap", f => f.AllowGap, true),
             ("max_aa_in_gap", f => f.MaxAaInGap, 3),
-            ("fixed_mod", f => f.FixedMod == null ? null : f.FixedMod.ToArray(), new string[0]),
+            ("fixed_mod", f => f.FixedMod == null ? null : f.FixedMod.ToArray(), new[] { "iodoTMT6plex (C)" }),
             ("max_blind_mod_count", f => f.MaxBlindModCount, 2),
             ("max_mod_mass", f => f.MaxModMass, 616.5),
             ("var_mod", f => f.VarMod == null ? null : f.VarMod.ToArray(), new[] { "Oxidation (M)", "Acetyl (N-term)" }),
@@ -409,7 +409,7 @@ namespace Flash.Tests
         };
 
         private const string AuthoredFlashtnt = @"{
-                ""min_length"": 4, ""max_length"": 9, ""allow_gap"": true, ""max_aa_in_gap"": 3, ""fixed_mod"": [],
+                ""min_length"": 4, ""max_length"": 9, ""allow_gap"": true, ""max_aa_in_gap"": 3, ""fixed_mod"": [""iodoTMT6plex (C)""],
                 ""max_blind_mod_count"": 2, ""max_mod_mass"": 616.5,
                 ""var_mod"": [""Oxidation (M)"", ""Acetyl (N-term)""], ""max_var_mod_count"": 1, ""max_protein_hits"": 7,
                 ""gapped_tags"": ""off"", ""terminal_ladders"": false, ""precursor_ladders"": false,
@@ -520,17 +520,17 @@ namespace Flash.Tests
             Assert.AreEqual("", refJson["sequence"], "an authored empty sequence stays \"\", so C++ names it empty");
         }
 
-        // fixed_mod has no FLASHTnT parameter in real time. The refusal lives in C++ (FLASHIda_LegacyConfig_test
-        // fixed_mod_non_empty_is_refused); C# validates no flashtnt value, so this pins that a non-empty list
-        // reaches C++ unchanged (and is refused there) rather than being dropped here, and [] stays [].
+        // ADR-0067: C++ builds fixed_mod into its table and owns every check (FLASHIda_LegacyConfig_test
+        // fixed_mod_builds_the_table); C# validates no flashtnt value, so this pins that a non-empty list
+        // reaches C++ unchanged rather than being dropped here, and [] stays [].
         [Test, Category("Tier1")]
-        public void Identification_FixedMod_NonEmptyRefused()
+        public void Identification_FixedMod_NonEmptyReachesCpp()
         {
             const string reference = @"""reference"": { ""sequence"": ""PEPTIDEK"" }";
             var mod = WithIdentification("{ " + reference + @", ""flashtnt"": { ""fixed_mod"": [""Carbamidomethyl (C)""] } }");
             var ft = (Dictionary<string, object>)CppIdentification(mod)["flashtnt"];
             Assert.IsTrue(SameValue(new[] { "Carbamidomethyl (C)" }, ft["fixed_mod"]),
-                "a non-empty fixed_mod must reach C++, which refuses it");
+                "a non-empty fixed_mod must reach C++, which builds its table");
 
             var none = WithIdentification("{ " + reference + @", ""flashtnt"": { ""fixed_mod"": [] } }");
             ft = (Dictionary<string, object>)CppIdentification(none)["flashtnt"];
