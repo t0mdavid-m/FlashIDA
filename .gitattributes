@@ -65,6 +65,7 @@
 # Binary
 ###############################################################################
 *.dll binary
+*.exe binary
 *.pdf binary
 *.enc binary
 *.gpg binary
