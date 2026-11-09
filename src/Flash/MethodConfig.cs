@@ -406,6 +406,11 @@ namespace Flash
         [JsonKey("ms3_quant")]
         public MS3Parameters? MS3Quant { get; set; }
 
+        // ADR-0068. The rescue scan: an identification scan that falls short of identification.threshold buys it,
+        // once per detection. Its presence is the switch; the C++ side refuses it without the threshold.
+        [JsonKey("ms2_rescue")]
+        public MS2Parameters? MS2Rescue { get; set; }
+
         // Required when identification.characterization is set (Config.cpp, "ms_settings.ms3 is not
         // defined"); permitted and inert without it, so deleting the block switches MS3 off (ADR-0061).
         [JsonKey("ms3")]
@@ -961,8 +966,8 @@ namespace Flash
     // their reaction_time, and how ms2/ms3 lost rf_lens/source_cid/source_cid_scaling/scan_rate
     // (commit 45c2cf9, reversed by ADR-0011). ConfigSchemaParity_test pins the set mechanically.
     //
-    // This one class serves every MSn emit site: ms_settings.ms2, ms2_quant, ms3 and each
-    // additional_ms2 entry.
+    // This one class serves every MSn emit site: ms_settings.ms2, ms2_quant, ms2_rescue, ms3, ms3_quant
+    // and each additional_ms2 entry.
     public class JsonMs2Config
     {
         public string analyzer { get; set; }
@@ -994,6 +999,8 @@ namespace Flash
         public JsonMs2Config ms3 { get; set; }
         // ADR-0064. Null when unset, like ms2_quant.
         public JsonMs2Config ms3_quant { get; set; }
+        // ADR-0068. Null when unset, like ms2_quant.
+        public JsonMs2Config ms2_rescue { get; set; }
         // Omitted from the emitted JSON when there are no extras (SerializeValue skips nulls), so the
         // 30 configs with none stay exactly as short as they are today.
         public Dictionary<string, JsonMs2Config> additional_ms2 { get; set; }

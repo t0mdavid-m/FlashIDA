@@ -233,6 +233,9 @@ namespace Flash
                     // ADR-0064. Null when unset -> key omitted, like ms2_quant.
                     ms3_quant = c.MsSettings.MS3Quant.HasValue
                         ? ToJsonScanConfig(c.MsSettings.MS3Quant.Value, c.MsSettings.MS1) : null,
+                    // ADR-0068. Null when unset -> key omitted, like ms2_quant.
+                    ms2_rescue = c.MsSettings.MS2Rescue.HasValue
+                        ? ToJsonScanConfig(c.MsSettings.MS2Rescue.Value, c.MsSettings.MS1) : null,
                     // Emit nothing at all when there are no extras, so the 30 configs without any
                     // stay byte-for-byte the length they are today.
                     additional_ms2 = (c.MsSettings.AdditionalMS2 == null || c.MsSettings.AdditionalMS2.Count == 0)
@@ -760,6 +763,15 @@ namespace Flash
                 AGCTarget = 200004, MaxIT = 104, FirstMass = 114, LastMass = 144, Microscans = 4,
                 DataType = "Centroid", ReactionTime = 0, ReagentMaxIT = 0, ReagentAGCTarget = 0,
                 ScanRate = "Normal", RFLens = 36, SourceCID = 21, SourceCIDScaling = 0.16
+            };
+            // ADR-0068: the rescue scan, a bare slot whose presence is the switch (the reference's threshold, 42, is what
+            // it needs). ETD, so the reaction keys carry non-default values; every key distinct.
+            c.MsSettings.MS2Rescue = new MS2Parameters
+            {
+                Analyzer = "Orbitrap", Activation = "ETD", CollisionEnergy = 0, OrbitrapResolution = 60005,
+                AGCTarget = 500005, MaxIT = 105, FirstMass = 155, LastMass = 2005, Microscans = 5,
+                DataType = "Profile", ReactionTime = 12.5, ReagentMaxIT = 25.5, ReagentAGCTarget = 300005,
+                ScanRate = "Normal", RFLens = 37, SourceCID = 22, SourceCIDScaling = 0.17
             };
             // ONE named entry, referenced by nothing. It used to back the tagging follow-up, retired with
             // tag targeting (ADR-0061), and it stays because it is the only scan in the reference that
