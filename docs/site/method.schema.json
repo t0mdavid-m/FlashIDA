@@ -393,11 +393,11 @@
               "items": {
                 "type": "string"
               },
-              "maxItems": 0,
-              "description": "Must be empty. Fixed modifications are not supported in real time, and a non-empty list is refused at load.",
+              "description": "Fixed modifications, each a name or Unimod accession with its residue, e.g. \"Carbamidomethyl (C)\" or \"iodoTMT6plex (C)\". Every occurrence of the residue carries the mass for the whole search: in the sequence tags (a tag reads the modified residue as its letter), the extension, the raw-spectrum score, every fragment and MS3 mass, and the logged ProForma strings, which name them as ProForma global modifications. A residue anywhere only (not a terminus), at most one per residue. An unknown name stops the method at load, and so does a fixed modification of C under quantification.scan ms3 or both, which already fix iodoTMT6plex on every C.",
               "default": [],
               "x-adr": [
-                "0061"
+                "0061",
+                "0067"
               ]
             },
             "max_blind_mod_count": {

@@ -148,8 +148,8 @@ namespace Flash
 
     // ADR-0061 d.13. Every key is null when unauthored and crosses the bridge as null, so C++ takes
     // FLASHTnT's own default (FlashTnTSettings; skip_precursor_inference defaults to true). The C#
-    // side holds no default and validates nothing here: C++ refuses a non-empty fixed_mod and a
-    // gapped_tags other than off/fallback.
+    // side holds no default and validates nothing here: C++ builds and validates fixed_mod (ADR-0067) and
+    // refuses a gapped_tags other than off/fallback.
     [JsonKey("flashtnt")]
     public class FlashTnTConfig
     {
@@ -170,7 +170,7 @@ namespace Flash
         public int? MaxAaInGap { get; set; }
 
         [JsonKey("fixed_mod")]
-        [Description("Must be empty: fixed modifications are not supported in real time, and C++ refuses a non-empty list.")]
+        [Description("Fixed modifications (ADR-0067), by name or Unimod accession with the residue, e.g. 'Carbamidomethyl (C)', 'iodoTMT6plex (C)': every occurrence of the residue carries the mass, for the whole search. Residue-anywhere only, one per residue. C++ refuses an unknown name and, under quantification.scan ms3/both, any on C.")]
         public List<string> FixedMod { get; set; }
 
         [JsonKey("max_blind_mod_count")]

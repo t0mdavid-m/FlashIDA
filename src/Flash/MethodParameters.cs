@@ -301,7 +301,7 @@ namespace Flash
                 // spellings, which is what keeps a typo from silently running FLASHTnT.
                 method = id.Method ?? "flashtnt",
                 // ADR-0061 d.13. A passthrough: an unauthored key is null and C++ takes FLASHTnT's
-                // default for it; C++ also owns every refusal (fixed_mod non-empty, gapped_tags).
+                // default for it; C++ also owns every check (fixed_mod's names, gapped_tags).
                 flashtnt = new JsonFlashTnTConfig
                 {
                     min_length = ft.MinLength,
@@ -648,14 +648,14 @@ namespace Flash
                 Characterization = new CharacterizationConfig()
             };
             // ADR-0061 d.13. Every knob NON-default against FLASHTnT's own default, so the reference
-            // proves each authored value crosses the bridge. fixed_mod is the exception: [] is the only
-            // value C++ accepts. The reference keeps an inline sequence (fasta crosses as null): the
+            // proves each authored value crosses the bridge (fixed_mod: iodoTMT6plex on C, ADR-0067; quantification
+            // is off here, so C is free). The reference keeps an inline sequence (fasta crosses as null): the
             // two are exclusive, and the C++ parity test reads the sequence.
             c.Identification.FlashTnT.MinLength = 4;                 // 3
             c.Identification.FlashTnT.MaxLength = 9;                 // 8
             c.Identification.FlashTnT.AllowGap = true;               // false
             c.Identification.FlashTnT.MaxAaInGap = 3;                // 2
-            c.Identification.FlashTnT.FixedMod = new List<string>(); // must be empty
+            c.Identification.FlashTnT.FixedMod = new List<string> { "iodoTMT6plex (C)" }; // []
             c.Identification.FlashTnT.MaxBlindModCount = 2;          // 1
             c.Identification.FlashTnT.MaxModMass = 733;              // 500
             c.Identification.FlashTnT.VarMod = new List<string> { "Oxidation (M)" };  // Acetyl (Protein N-term)

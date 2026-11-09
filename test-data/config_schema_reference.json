@@ -64,7 +64,9 @@
       "max_length": 9,
       "allow_gap": true,
       "max_aa_in_gap": 3,
-      "fixed_mod": [],
+      "fixed_mod": [
+        "iodoTMT6plex (C)"
+      ],
       "max_blind_mod_count": 2,
       "max_mod_mass": 733,
       "var_mod": [
