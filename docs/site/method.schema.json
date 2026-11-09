@@ -1021,6 +1021,14 @@
             "0064"
           ]
         },
+        "ms2_rescue": {
+          "$ref": "#/$defs/scan",
+          "description": "The rescue scan: a second MS2 with another fragmentation method, typically ETD or EThcD, for a species the identification scan could not sequence. It fires when an identification scan was searched and found no proteoform, or one scoring below `identification.threshold`, at most once per detection (one species of one survey's selection, all its charges together), right after that scan returns, with its isolation. It is searched like any MS2 and can close the species out. A close-out withdraws it while it still waits. Exploration variants, quantification scans, scans the search never reached and the rescue scan itself buy none. Setting the block switches the rescue on; it needs `identification` with `identification.threshold`.",
+          "x-default-text": "absent: no rescue scan; needs identification.threshold",
+          "x-adr": [
+            "0068"
+          ]
+        },
         "ms3": {
           "$ref": "#/$defs/scan",
           "description": "The MS3 scan config, built for every characterization target when `identification.characterization` is set, and the base every MS3 exploration variant is built from. Its activation, collision energy and reaction keys drive the fragment stage, while the first stage carries the isolation and activation of the MS2 that produced the fragment. It is inert without that block, so deleting the block switches MS3 off and nothing else needs to change.",
@@ -1629,7 +1637,7 @@
     {
       "slug": "scan-settings",
       "title": "Scan settings",
-      "subtitle": "JSON keys of every scan settings object: `ms1`, `ms2`, `ms2_quant`, `ms3`, `ms3_quant`, and each `additional_ms2` entry",
+      "subtitle": "JSON keys of every scan settings object: `ms1`, `ms2`, `ms2_quant`, `ms2_rescue`, `ms3`, `ms3_quant`, and each `additional_ms2` entry",
       "sources": "`MethodParameters.cs` (`MS1Parameters`, `MS2Parameters`, `MS3Parameters`, `ToJsonScanConfig`), `ScanFactory.cs`, `Config.cpp`, ADR-0009, ADR-0010, ADR-0011, ADR-0030, ADR-0045",
       "sections": [
         {
