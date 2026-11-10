@@ -580,6 +580,14 @@
             "0061"
           ]
         },
+        "window_scan": {
+          "type": "boolean",
+          "description": "Read out what each window of an identified MS2 held. Every identification scan whose search found a proteoform, at any score, buys one Window scan per window it isolated (one per notch). A Window scan is an ordinary full MS1 with the `ms_settings.ms1` parameters whose scan range is that window's bounds: the quadrupole transmits only that range, so the trap fills from the window alone and species hidden under the dominant one show up. It goes out next, at the MS2's FAIMS CV, and it observes and decides nothing: nothing is selected or excluded from it. Its `scan_commands.tsv` row names the MS2 as its parent, and the spectrum is read offline. It is uncapped: the same species identified again buys them again.",
+          "default": false,
+          "x-adr": [
+            "0071"
+          ]
+        },
         "characterization": {
           "type": "object",
           "additionalProperties": false,
