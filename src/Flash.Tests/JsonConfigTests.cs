@@ -467,6 +467,31 @@ namespace Flash.Tests
             Assert.AreEqual(-2.0, Convert.ToDouble(yg["mass_ratio"]));
         }
 
+        // exploration.order: absent is "ascending" and crosses the bridge as "ascending" (C++'s default too); an authored
+        // "random" round-trips and crosses, at MS2 and at MS3 independently.
+        [Test, Category("Tier1")]
+        public void Exploration_Order_DefaultAscending_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_exploration_ms3_followup.json");
+            Assert.AreEqual("ascending", mp.Config.PrecursorSelection.Exploration.Order, "no committed config authors order");
+            Assert.AreEqual("ascending", mp.Config.Identification.Characterization.Exploration.Order);
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var ms2 = (Dictionary<string, object>)((Dictionary<string, object>)parsed["precursor_selection"])["exploration"];
+            var ms3 = (Dictionary<string, object>)((Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"])["exploration"];
+            Assert.AreEqual("ascending", ms2["order"]);
+            Assert.AreEqual("ascending", ms3["order"]);
+
+            mp.Config.PrecursorSelection.Exploration.Order = "random";   // MS2 only
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual("random", back.PrecursorSelection.Exploration.Order);
+            Assert.AreEqual("ascending", back.Identification.Characterization.Exploration.Order, "one level does not set the other");
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            ms2 = (Dictionary<string, object>)((Dictionary<string, object>)parsed["precursor_selection"])["exploration"];
+            ms3 = (Dictionary<string, object>)((Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"])["exploration"];
+            Assert.AreEqual("random", ms2["order"]);
+            Assert.AreEqual("ascending", ms3["order"]);
+        }
+
         // The core-5 fit (MS3_gate_spec.md, YieldGateSettings.h): the C# defaults pinned to the same literals the C++
         // Config_SchemaProjection_test pins, so the two sides cannot default differently.
         private static void AssertCore5(YieldGateConfig g)
