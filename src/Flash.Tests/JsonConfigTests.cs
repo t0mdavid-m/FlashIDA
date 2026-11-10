@@ -292,6 +292,26 @@ namespace Flash.Tests
             Assert.AreEqual(612.5, Convert.ToDouble(ident["threshold"], System.Globalization.CultureInfo.InvariantCulture));
         }
 
+        // ADR-0071: identification.window_scan. No corpus config authors it; the default false crosses the bridge as
+        // false (C++ treats it as absent), and an authored true round-trips and crosses as true.
+        [Test, Category("Tier1")]
+        public void Identification_WindowScan_DefaultFalse_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_ms3_cytc_real.json");
+            Assert.IsNotNull(mp.Config.Identification);
+            Assert.IsFalse(mp.Config.Identification.WindowScan, "method_ms3_cytc_real.json authors no window_scan");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var ident = (Dictionary<string, object>)parsed["identification"];
+            Assert.AreEqual(false, ident["window_scan"]);
+
+            mp.Config.Identification.WindowScan = true;
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.IsTrue(back.Identification.WindowScan);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            ident = (Dictionary<string, object>)parsed["identification"];
+            Assert.AreEqual(true, ident["window_scan"]);
+        }
+
         // ADR-0064: quantification.scan / ms3_targets / ms_settings.ms3_quant. Unauthored they are ms2, 1 and absent (the
         // key not emitted); authored, each survives the round trip and crosses the bridge.
         [Test, Category("Tier1")]
