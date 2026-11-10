@@ -414,6 +414,73 @@ namespace Flash.Tests
             Assert.AreEqual(true, cz["per_proteoform"]);
         }
 
+        // ADR-0069: identification.characterization.yield_gate. Absent: null, and it crosses the bridge as null (no gate).
+        // An empty block takes the core-5 defaults on both sides of the bridge; an authored one round-trips and crosses.
+        [Test, Category("Tier1")]
+        public void Characterization_YieldGate_AbsentIsNull_EmptyTakesDefaults_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_ms3_cytc_fragments.json");
+            Assert.IsNull(mp.Config.Identification.Characterization.YieldGate, "no committed config authors yield_gate");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var cz = (Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"];
+            Assert.IsTrue(!cz.ContainsKey("yield_gate") || cz["yield_gate"] == null, "an unauthored yield_gate must cross as absent");
+
+            var empty = MethodConfigSerializer.Deserialize(
+                "{ \"identification\": { \"characterization\": { \"mode\": \"fragments\", \"yield_gate\": {} } } }");
+            AssertCore5(empty.Identification.Characterization.YieldGate);
+
+            mp.Config.Identification.Characterization.YieldGate = new YieldGateConfig { Threshold = 6, Intercept = -30.0 };
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual(6.0, back.Identification.Characterization.YieldGate.Threshold);
+            Assert.AreEqual(-30.0, back.Identification.Characterization.YieldGate.Intercept);
+            Assert.AreEqual(21.747494, back.Identification.Characterization.YieldGate.FragmentIsoCos);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            cz = (Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"];
+            var yg = (Dictionary<string, object>)cz["yield_gate"];
+            Assert.AreEqual(6.0, Convert.ToDouble(yg["threshold"]));
+            Assert.AreEqual(-30.0, Convert.ToDouble(yg["intercept"]));
+            Assert.AreEqual(1.529105, Convert.ToDouble(yg["fragment_intensity"]), 1e-12);
+            Assert.AreEqual(7, yg.Count, "all seven keys cross whenever the block does");
+        }
+
+        // ADR-0069: quantification.ms3_yield_gate, the quantification MS3's own gate: the same block under its own key.
+        [Test, Category("Tier1")]
+        public void Quantification_Ms3YieldGate_AbsentIsNull_EmptyTakesDefaults_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_quant_ms3.json");
+            Assert.IsNull(mp.Config.Quantification.Ms3YieldGate, "no committed config authors ms3_yield_gate");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var quant = (Dictionary<string, object>)parsed["quantification"];
+            Assert.IsTrue(!quant.ContainsKey("ms3_yield_gate") || quant["ms3_yield_gate"] == null);
+
+            var empty = MethodConfigSerializer.Deserialize("{ \"quantification\": { \"ms3_yield_gate\": {} } }");
+            AssertCore5(empty.Quantification.Ms3YieldGate);
+
+            mp.Config.Quantification.Ms3YieldGate = new YieldGateConfig { Threshold = 0.5, MassRatio = -2.0 };
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual(0.5, back.Quantification.Ms3YieldGate.Threshold);
+            Assert.AreEqual(-2.0, back.Quantification.Ms3YieldGate.MassRatio);
+            Assert.IsNull(back.Identification?.Characterization?.YieldGate, "one gate does not set the other");
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var yg = (Dictionary<string, object>)((Dictionary<string, object>)parsed["quantification"])["ms3_yield_gate"];
+            Assert.AreEqual(0.5, Convert.ToDouble(yg["threshold"]));
+            Assert.AreEqual(-2.0, Convert.ToDouble(yg["mass_ratio"]));
+        }
+
+        // The core-5 fit (MS3_gate_spec.md, YieldGateSettings.h): the C# defaults pinned to the same literals the C++
+        // Config_SchemaProjection_test pins, so the two sides cannot default differently.
+        private static void AssertCore5(YieldGateConfig g)
+        {
+            Assert.IsNotNull(g, "an empty block is present: the gate is on");
+            Assert.AreEqual(1.0, g.Threshold);
+            Assert.AreEqual(-31.632174, g.Intercept);
+            Assert.AreEqual(1.529105, g.FragmentIntensity);
+            Assert.AreEqual(0.474888, g.PrecursorIntensity);
+            Assert.AreEqual(-0.105683, g.PrecursorCharge);
+            Assert.AreEqual(-2.766660, g.MassRatio);
+            Assert.AreEqual(21.747494, g.FragmentIsoCos);
+        }
+
         // ADR-0061 push 4c. Every identification.flashtnt key, its model value and the value an authored
         // config carries. Every authored value differs from FLASHTnT's default (and from ADR-0061's
         // skip_precursor_inference true); fixed_mod's default is [] (ADR-0067).

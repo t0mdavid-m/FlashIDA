@@ -218,6 +218,8 @@ namespace Flash.Tests
             AssertRejects("{ \"ms_settings\": { \"ms3\": { \"IsolationMode\": \"Quadrupole\" } } }",
                 "ms_settings.ms3.IsolationMode");
             AssertRejects("{ \"identification\": { \"flashtnt\": { \"typo\": 1 } } }", "identification.flashtnt.typo");
+            AssertRejects("{ \"identification\": { \"characterization\": { \"yield_gate\": { \"typo\": 1 } } } }",
+                "identification.characterization.yield_gate.typo");   // ADR-0069
             AssertRejects("{ \"ms3\": { \"active\": true } }", "ms3");   // legacy top-level section
         }
 
