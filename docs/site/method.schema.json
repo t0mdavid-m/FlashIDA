@@ -700,7 +700,7 @@
         },
         "scan": {
           "type": "string",
-          "description": "Where the reporter ions are read. Read only when `enabled`. `ms3` and `both` need `identification` with `identification.threshold`, `ms_settings.ms3_quant`, `labelling: tmt6plex` and `identification.method: flashtnt`, and search every cysteine as iodoTMT-labelled (+329.2266 Da, fixed). The identification scan `ms_settings.ms2` should keep the label on its fragments: CID or ETD; an HCD identification scan releases reporters before the quantification MS3 can.",
+          "description": "Where the reporter ions are read. Read only when `enabled`. `ms3` and `both` need `identification` with `identification.threshold`, `ms_settings.ms3_quant` and `labelling: tmt6plex`, and search every cysteine as iodoTMT-labelled (+329.2266 Da): a fixed modification, added to `identification.flashtnt.fixed_mod`, so a fixed modification of C there is refused. The identification scan `ms_settings.ms2` should keep the label on its fragments: CID or ETD; an HCD identification scan releases reporters before the quantification MS3 can.",
           "default": "ms2",
           "enum": [
             "ms2",
