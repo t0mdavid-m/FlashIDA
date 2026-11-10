@@ -340,6 +340,14 @@ namespace Flash.Tests
             RunCase("closeout_cytc_strict", "method_closeout_cytc_strict.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
                     minMs2Commands: 1, postDriveAssert: AssertCloseOutStopsAcquisition);
 
+        // ADR-0068: the rescue scan. method_rescue_cytc.json is method_closeout_cytc_strict.json with the threshold above
+        // any cytC score (100000) and an ETD ms_settings.ms2_rescue: nothing closes cytC out, so every survey re-acquires
+        // it, and each detection's HCD identification scan, short of the threshold, buys one ETD rescue (an 'R' whose
+        // parent is that scan, priority 0). The rescue's own return buys nothing.
+        [Test, Category("Tier2")]
+        public void Golden_Rescue_CytC() =>
+            RunCase("rescue_cytc", "method_rescue_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", minMs2Commands: 2);
+
         /// <summary>
         /// The strict close-out acceptance check: exactly one MS2 in the run, and its identification row closed cytC out.
         /// </summary>
