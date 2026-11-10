@@ -662,6 +662,74 @@
                 "0066"
               ]
             },
+            "yield_gate": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "threshold": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "Admit an MS3 only if its predicted bond yield, E = p × (L − 1), is at least this many bonds: p is the model's chance that one backbone bond inside the target fragment is witnessed by the MS3, and L the fragment's length in residues (its ion index). 1 aims at the bonds MS3 witnesses in a run that does MS3; about 6 at a run's total coverage, where an MS3 must beat the MS2 its time displaces. Above 0.",
+                  "default": 1,
+                  "x-adr": [
+                    "0069"
+                  ]
+                },
+                "intercept": {
+                  "type": "number",
+                  "description": "The model's intercept: p = 1 / (1 + e^−η), η = intercept + fragment_intensity × log10(I_frag) + precursor_intensity × log10(I_prec) + precursor_charge × z_prec + mass_ratio × M_frag / M_prec + fragment_iso_cos × iso_cos, each input clipped to its training range first. The defaults are the core-5 fit on two Caco-2 histone runs (CID 35, 240k, 4 microscans, AGC 5e5, max_it 502 ms); another sample or MS3 setting changes the overall yield, so refit at least the intercept on one new run.",
+                  "default": -31.632174,
+                  "x-adr": [
+                    "0069"
+                  ]
+                },
+                "fragment_intensity": {
+                  "type": "number",
+                  "description": "Coefficient of log10 of the fragment's intensity at its charge in the source MS2, clipped to 372–5×10⁶.",
+                  "default": 1.529105,
+                  "x-adr": [
+                    "0069"
+                  ]
+                },
+                "precursor_intensity": {
+                  "type": "number",
+                  "description": "Coefficient of log10 of the source MS2 precursor's intensity, clipped to 6.8×10³–8.4×10⁷.",
+                  "default": 0.474888,
+                  "x-adr": [
+                    "0069"
+                  ]
+                },
+                "precursor_charge": {
+                  "type": "number",
+                  "description": "Coefficient of the source MS2 precursor's charge, clipped to 4–49.",
+                  "default": -0.105683,
+                  "x-adr": [
+                    "0069"
+                  ]
+                },
+                "mass_ratio": {
+                  "type": "number",
+                  "description": "Coefficient of the fragment's monoisotopic mass over the precursor's, clipped to 0.011–1.",
+                  "default": -2.76666,
+                  "x-adr": [
+                    "0069"
+                  ]
+                },
+                "fragment_iso_cos": {
+                  "type": "number",
+                  "description": "Coefficient of the fragment's isotope cosine, clipped to 0.85–1.0005.",
+                  "default": 21.747494,
+                  "x-adr": [
+                    "0069"
+                  ]
+                }
+              },
+              "description": "The MS3 yield gate. Every characterization MS3 target, in every mode and with or without `per_proteoform`, is admitted only at a charge whose predicted bond yield reaches `threshold`; its charges are tried strongest first, and a refused target hands its place, and under `per_proteoform` its cleavage slot, to the next candidate. A target with no ion index (a raw mass that matches no ion) is admitted untested. Each MS3's yield is logged in `scan_commands.tsv` (`predicted_bond_yield`), each refusal in `events.log`.",
+              "x-default-text": "absent: no yield gate, every MS3 the plan chooses is acquired",
+              "x-adr": [
+                "0069"
+              ]
+            },
             "exploration": {
               "$ref": "#/$defs/exploration",
               "description": "Sweeps the collision energy or reaction time of every MS3 target in place of its single MS3, scored by the chosen metric. A measuring metric or non-empty `overrides` adds a follow-up MS3 per target, so a target then costs its grid points plus one. The keys are those of the shared exploration block; see the exploration page.",
@@ -723,6 +791,74 @@
           "default": 1,
           "x-adr": [
             "0064"
+          ]
+        },
+        "ms3_yield_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "threshold": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Admit an MS3 only if its predicted bond yield, E = p × (L − 1), is at least this many bonds: p is the model's chance that one backbone bond inside the target fragment is witnessed by the MS3, and L the fragment's length in residues (its ion index). 1 aims at the bonds MS3 witnesses in a run that does MS3; about 6 at a run's total coverage, where an MS3 must beat the MS2 its time displaces. Above 0.",
+              "default": 1,
+              "x-adr": [
+                "0069"
+              ]
+            },
+            "intercept": {
+              "type": "number",
+              "description": "The model's intercept: p = 1 / (1 + e^−η), η = intercept + fragment_intensity × log10(I_frag) + precursor_intensity × log10(I_prec) + precursor_charge × z_prec + mass_ratio × M_frag / M_prec + fragment_iso_cos × iso_cos, each input clipped to its training range first. The defaults are the core-5 fit on two Caco-2 histone runs (CID 35, 240k, 4 microscans, AGC 5e5, max_it 502 ms); another sample or MS3 setting changes the overall yield, so refit at least the intercept on one new run.",
+              "default": -31.632174,
+              "x-adr": [
+                "0069"
+              ]
+            },
+            "fragment_intensity": {
+              "type": "number",
+              "description": "Coefficient of log10 of the fragment's intensity at its charge in the source MS2, clipped to 372–5×10⁶.",
+              "default": 1.529105,
+              "x-adr": [
+                "0069"
+              ]
+            },
+            "precursor_intensity": {
+              "type": "number",
+              "description": "Coefficient of log10 of the source MS2 precursor's intensity, clipped to 6.8×10³–8.4×10⁷.",
+              "default": 0.474888,
+              "x-adr": [
+                "0069"
+              ]
+            },
+            "precursor_charge": {
+              "type": "number",
+              "description": "Coefficient of the source MS2 precursor's charge, clipped to 4–49.",
+              "default": -0.105683,
+              "x-adr": [
+                "0069"
+              ]
+            },
+            "mass_ratio": {
+              "type": "number",
+              "description": "Coefficient of the fragment's monoisotopic mass over the precursor's, clipped to 0.011–1.",
+              "default": -2.76666,
+              "x-adr": [
+                "0069"
+              ]
+            },
+            "fragment_iso_cos": {
+              "type": "number",
+              "description": "Coefficient of the fragment's isotope cosine, clipped to 0.85–1.0005.",
+              "default": 21.747494,
+              "x-adr": [
+                "0069"
+              ]
+            }
+          },
+          "description": "The quantification MS3's own yield gate, with the keys of `identification.characterization.yield_gate`: a labelled fragment is bought only at a charge whose window SNR exceeds 1 and whose predicted bond yield reaches `threshold`, and a refused fragment hands its place to the next. Its own coefficients, because these MS3 use `ms_settings.ms3_quant`; the model forecasts bond coverage, so for a reporter read it stands in only for \"this MS3 will have signal\". Inert under `scan: ms2`.",
+          "x-default-text": "absent: no yield gate",
+          "x-adr": [
+            "0069"
           ]
         },
         "labelling": {
