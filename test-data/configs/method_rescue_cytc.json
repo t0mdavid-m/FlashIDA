@@ -87,20 +87,22 @@
       "activation": "HCD",
       "collision_energy": 30
     },
-    "ms2_rescue": {
-      "analyzer": "Orbitrap",
-      "first_mass": 100,
-      "last_mass": 2000,
-      "resolution": 120000,
-      "agc_target": 500000,
-      "max_it": 100,
-      "microscans": 4,
-      "data_type": "Centroid",
-      "activation": "ETD",
-      "reaction_time": 12,
-      "reagent_max_it": 50,
-      "reagent_agc_target": 700000
-    },
+    "ms2_rescue": [
+      {
+        "analyzer": "Orbitrap",
+        "first_mass": 100,
+        "last_mass": 2000,
+        "resolution": 120000,
+        "agc_target": 500000,
+        "max_it": 100,
+        "microscans": 4,
+        "data_type": "Centroid",
+        "activation": "ETD",
+        "reaction_time": 12,
+        "reagent_max_it": 50,
+        "reagent_agc_target": 700000
+      }
+    ],
     "ms3": {
       "analyzer": "Orbitrap",
       "first_mass": 200,

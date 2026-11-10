@@ -367,31 +367,58 @@ namespace Flash.Tests
                 "an unauthored ms_settings." + slot + " must not cross the bridge zero-filled; the engine refuses it only when absent");
         }
 
-        // ADR-0068: ms_settings.ms2_rescue. Unauthored it is absent (the key not emitted, so no rescue); authored, it
-        // survives the round trip and crosses the bridge. method_quant_ms3.json carries identification.threshold, which
-        // the C++ side requires beside it.
+        // ADR-0068/0070: ms_settings.ms2_rescue, a list of scan configs. Unauthored it is absent (the key not emitted, so
+        // no rescue); authored, a two-entry set survives the round trip in order -- Serialize writing each entry's
+        // [JsonKey] names, not PascalCase fields -- and crosses the bridge as an array. method_quant_ms3.json carries
+        // identification.threshold, which the C++ side requires beside it.
         [Test, Category("Tier1")]
         public void MsSettings_Ms2Rescue_DefaultsAndAuthoredRoundTrip()
         {
             var mp = LoadJsonMethod("method_quant_ms3.json");
-            Assert.IsFalse(mp.Config.MsSettings.MS2Rescue.HasValue, "method_quant_ms3.json authors no ms2_rescue");
+            Assert.IsNull(mp.Config.MsSettings.MS2Rescue, "method_quant_ms3.json authors no ms2_rescue");
             var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
             var ms = (Dictionary<string, object>)parsed["ms_settings"];
             Assert.IsTrue(!ms.ContainsKey("ms2_rescue") || ms["ms2_rescue"] == null, "an unauthored ms2_rescue must not be emitted");
 
-            mp.Config.MsSettings.MS2Rescue = new MS2Parameters
+            mp.Config.MsSettings.MS2Rescue = new List<MS2Parameters>
             {
-                Analyzer = "Orbitrap", Activation = "ETD", ReactionTime = 12, OrbitrapResolution = 120000, DataType = "Centroid"
+                new MS2Parameters { Analyzer = "Orbitrap", Activation = "ETD", ReactionTime = 12, OrbitrapResolution = 120000, DataType = "Centroid" },
+                new MS2Parameters { Analyzer = "Orbitrap", Activation = "EThcD", ReactionTime = 10, CollisionEnergy = 25, OrbitrapResolution = 60000, DataType = "Centroid" },
             };
             var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
-            Assert.IsTrue(back.MsSettings.MS2Rescue.HasValue);
-            Assert.AreEqual("ETD", back.MsSettings.MS2Rescue.Value.Activation);
-            Assert.AreEqual(12.0, back.MsSettings.MS2Rescue.Value.ReactionTime);
+            Assert.IsNotNull(back.MsSettings.MS2Rescue);
+            Assert.AreEqual(2, back.MsSettings.MS2Rescue.Count);
+            Assert.AreEqual("ETD", back.MsSettings.MS2Rescue[0].Activation);
+            Assert.AreEqual(12.0, back.MsSettings.MS2Rescue[0].ReactionTime);
+            Assert.AreEqual("EThcD", back.MsSettings.MS2Rescue[1].Activation);
+            Assert.AreEqual(25.0, back.MsSettings.MS2Rescue[1].CollisionEnergy);
             parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
-            var rs = (Dictionary<string, object>)((Dictionary<string, object>)parsed["ms_settings"])["ms2_rescue"];
-            Assert.AreEqual("ETD", rs["activation"]);
-            Assert.AreEqual(12.0, Convert.ToDouble(rs["reaction_time"], System.Globalization.CultureInfo.InvariantCulture));
-            Assert.AreEqual(120000, Convert.ToInt32(rs["resolution"]));
+            var rs = (System.Collections.ArrayList)((Dictionary<string, object>)parsed["ms_settings"])["ms2_rescue"];
+            Assert.AreEqual(2, rs.Count);
+            var r0 = (Dictionary<string, object>)rs[0];
+            var r1 = (Dictionary<string, object>)rs[1];
+            Assert.AreEqual("ETD", r0["activation"]);
+            Assert.AreEqual(12.0, Convert.ToDouble(r0["reaction_time"], System.Globalization.CultureInfo.InvariantCulture));
+            Assert.AreEqual(120000, Convert.ToInt32(r0["resolution"]));
+            Assert.AreEqual("EThcD", r1["activation"]);
+            Assert.AreEqual(60000, Convert.ToInt32(r1["resolution"]));
+        }
+
+        // ADR-0070 d.2: ADR-0068's single ms2_rescue object is refused with the migration hint, not read as an empty
+        // list (which would silently switch the rescue off). FAILS UNDER: ConvertValue's empty-list fallback.
+        [Test, Category("Tier1")]
+        public void MsSettings_Ms2Rescue_ObjectIsRefusedWithHint()
+        {
+            string path = Path.Combine(ConfigsDir, "method_rescue_cytc.json");
+            var js = new JavaScriptSerializer();
+            var raw = js.Deserialize<Dictionary<string, object>>(File.ReadAllText(path));
+            var msSettings = (Dictionary<string, object>)raw["ms_settings"];
+            var list = (System.Collections.ArrayList)msSettings["ms2_rescue"];
+            Assert.AreEqual(1, list.Count, "method_rescue_cytc.json authors a one-entry rescue set");
+            msSettings["ms2_rescue"] = list[0];   // ADR-0068's shape
+            var ex = Assert.Throws<ArgumentException>(() => MethodConfigSerializer.Deserialize(js.Serialize(raw)));
+            StringAssert.Contains("ms2_rescue", ex.Message);
+            StringAssert.Contains("wrap the object in [ ]", ex.Message);
         }
 
         // ADR-0066: identification.characterization.per_proteoform. No corpus config authors it; the default false

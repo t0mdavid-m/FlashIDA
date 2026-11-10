@@ -364,6 +364,13 @@ namespace Flash.Tests
         public void Golden_Rescue_CytC() =>
             RunCase("rescue_cytc", "method_rescue_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", minMs2Commands: 2);
 
+        // ADR-0070: the rescue set. method_rescue_set_cytc.json is method_rescue_cytc.json with a second entry, EThcD:
+        // each detection's HCD identification scan, short of the threshold, buys an ETD and an EThcD rescue at once (two
+        // 'R's whose parent is that scan, priority 0, ETD first). The rescues' own returns buy nothing.
+        [Test, Category("Tier2")]
+        public void Golden_RescueSet_CytC() =>
+            RunCase("rescue_set_cytc", "method_rescue_set_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", minMs2Commands: 3);
+
         /// <summary>
         /// The strict close-out acceptance check: exactly one MS2 in the run, and its identification row closed cytC out.
         /// </summary>
