@@ -142,6 +142,14 @@ namespace Flash.Tests
             RunCase("quant_ms3", "method_quant_ms3.json", "ms1_itmt_ydfz.txt", "ms2_itmt_ydfz_cid28_scan1325.txt",
                     minMs2Commands: 1, ms3FixtureFor: QuantMs3Reporters, postDriveAssert: AssertQuantMs3Bought);
 
+        // ADR-0069: method_quant_ms3_yield_gate.json is method_quant_ms3.json with quantification.ms3_yield_gate at its
+        // default threshold of 1 expected bond. The one 'Q' MS3 quant_ms3 buys is at a predicted bond yield below 1, so
+        // every difference from quant_ms3 is the quantification yield gate's.
+        [Test, Category("Tier2")]
+        public void Golden_QuantMs3_YieldGate() =>
+            RunCase("quant_ms3_yield_gate", "method_quant_ms3_yield_gate.json", "ms1_itmt_ydfz.txt",
+                    "ms2_itmt_ydfz_cid28_scan1325.txt", minMs2Commands: 1, ms3FixtureFor: QuantMs3Reporters);
+
         [Test, Category("Tier2")]
         public void Golden_QuantBoth() =>
             RunCase("quant_both", "method_quant_both.json", "ms1_itmt_ydfz.txt", "ms2_itmt_ydfz_cid28_scan1325.txt",
@@ -692,6 +700,39 @@ namespace Flash.Tests
             }
             RunCase("ms3_fragments_cytc_per_proteoform", "method_ms3_cytc_fragments_per_proteoform.json", "ms1_cytc.txt",
                     "ms2_cytc_fresh_scan57.txt", feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
+        // ADR-0069: the yield gate. method_ms3_cytc_fragments_yield_gate.json is method_ms3_cytc_fragments.json with
+        // identification.characterization.yield_gate at 25 expected bonds: ms3_fragments_cytc's MS3 sit at predicted bond
+        // yields 7-44 (median 28), so the gate both refuses and promotes the next candidates, and every difference from
+        // ms3_fragments_cytc is the gate's. The row's predicted_bond_yield is the decision value.
+        [Test, Category("Tier2")]
+        public void Golden_MS3_FragmentsObjective_YieldGate_CytC()
+        {
+            var ms3Map = BuildMs3MassMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — yield-gated fragments MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("ms3_fragments_cytc_yield_gate", "method_ms3_cytc_fragments_yield_gate.json", "ms1_cytc.txt",
+                    "ms2_cytc_fresh_scan57.txt", feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
+        // ADR-0069 x ADR-0066: the same gate under per_proteoform -- method_ms3_cytc_fragments_per_proteoform.json with the
+        // yield gate at 25. A refused fragment takes no cleavage slot, so the difference from
+        // ms3_fragments_cytc_per_proteoform is which fragments the slots go to.
+        [Test, Category("Tier2")]
+        public void Golden_MS3_FragmentsObjective_PerProteoform_YieldGate_CytC()
+        {
+            var ms3Map = BuildMs3MassMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — yield-gated per-proteoform MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("ms3_fragments_cytc_per_proteoform_yield_gate", "method_ms3_cytc_fragments_per_proteoform_yield_gate.json",
+                    "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
         }
 
         // The THIRD objective on the same cytC data (ADR-0023). ambiguity and coverage both select out of
