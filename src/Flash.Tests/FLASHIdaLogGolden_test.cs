@@ -64,6 +64,14 @@ namespace Flash.Tests
         public void Golden_Exploration_HCD() =>
             RunCase("exploration_hcd", "method_exploration.json", "ms1_ca.txt", "ms2_ca_hcd25_scan181.txt");
 
+        // exploration.order: method_exploration_random.json is method_exploration.json with precursor_selection.exploration
+        // "order": "random". The same MS2 mass_count sweep (HCD 20..40/5) acquires its grid in each sweep's own order, so
+        // every difference from exploration_hcd is when each pre-scan was acquired; the winner is decided by grid position
+        // on a tie, so it is not.
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_HCD_Random() =>
+            RunCase("exploration_hcd_random", "method_exploration_random.json", "ms1_ca.txt", "ms2_ca_hcd25_scan181.txt");
+
         // Exploration x co-isolation — the combination that had NO coverage anywhere. Every charge-mode
         // golden (multiplexed_ms2/_ms3, separate_charges) runs WITHOUT exploration, and all six
         // exploration goldens leave precursor_charges/fragment_charges at "single", so the CE-sweep path
