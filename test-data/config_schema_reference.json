@@ -91,6 +91,7 @@
     },
     "search_threads": 3,
     "threshold": 42,
+    "window_scan": true,
     "characterization": {
       "mode": "coverage",
       "max_targets": 4,

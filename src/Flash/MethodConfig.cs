@@ -678,6 +678,11 @@ namespace Flash
         [Description("Identification score at which an identified species is closed out of acquisition (ADR-0061). Unset: identify and log, never close out.")]
         public double? Threshold { get; set; }
 
+        // ADR-0071. Off (the default) keeps every committed method's behaviour.
+        [JsonKey("window_scan")]
+        [Description("Read every window of an identified MS2 out in its own full MS1 whose scan range is that window (a Window scan, ADR-0071); observed, never acted upon.")]
+        public bool WindowScan { get; set; } = false;
+
         // Null = absent = no MS3.
         [JsonKey("characterization")]
         public CharacterizationConfig Characterization { get; set; }
@@ -1178,6 +1183,7 @@ namespace Flash
         public JsonRefineBlockConfig refine { get; set; }
         public int? search_threads { get; set; }
         public double? threshold { get; set; }
+        public bool window_scan { get; set; }
         public JsonCharacterizationConfig characterization { get; set; }
     }
 
