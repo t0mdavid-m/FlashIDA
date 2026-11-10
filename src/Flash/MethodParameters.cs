@@ -410,7 +410,7 @@ namespace Flash
             {
                 return new JsonExplorationBlockConfig
                 {
-                    metric = "none", ce_min = 20, ce_max = 40, ce_step = 5,
+                    metric = "none", order = "ascending", ce_min = 20, ce_max = 40, ce_step = 5,
                     overrides = null, remaining_precursor_target = 0.1,
                     reaction_time_min = 0, reaction_time_max = 0, reaction_time_step = 1,
                     activations = null, tolerance_ppm = 0,
@@ -429,6 +429,7 @@ namespace Flash
             return new JsonExplorationBlockConfig
             {
                 metric = e.Metric.ToLower(),
+                order = e.Order,
                 ce_min = e.CEMin,
                 ce_max = e.CEMax,
                 ce_step = e.CEStep,
@@ -849,6 +850,7 @@ namespace Flash
             c.PrecursorSelection.Exploration = new ExplorationBlockConfig
             {
                 Metric = "mass_count", CEMin = 21, CEMax = 39, CEStep = 5,
+                Order = "random",   // non-default: ascending
                 RemainingPrecursorTarget = 0.12,
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
                 TolerancePpm = 14,
@@ -900,6 +902,7 @@ namespace Flash
                 // ms_settings.ms3.activation in this reference: the C++ loader requires an entry for
                 // the swept activation, so any other key would fail Config::validate.
                 Metric = "kinetic_model", CEMin = 16, CEMax = 34, CEStep = 2,
+                Order = "random",   // non-default: ascending
                 RemainingPrecursorTarget = 0.13,
                 ReactionTimeMin = 0, ReactionTimeMax = 0, ReactionTimeStep = 1,
                 TolerancePpm = 15,

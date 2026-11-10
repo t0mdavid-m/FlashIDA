@@ -744,6 +744,11 @@ namespace Flash
         [Description("Exploration metric: none, mass_count, remaining_precursor, fragment_count, kinetic_model")]
         public string Metric { get; set; } = "none";
 
+        // Always emitted as a real string; the C++ side refuses anything but the two values.
+        [JsonKey("order")]
+        [Description("When the sweep acquires its grid points: ascending (grid order, the default) or random (each triggered sweep acquires its whole grid in its own reproducible random order, so no energy is always acquired first). A tie in the sweep's decision goes to the earlier grid point either way.")]
+        public string Order { get; set; } = "ascending";
+
         [JsonKey("ce_min")]
         [Description("Minimum collision energy for exploration sweep")]
         public double CEMin { get; set; } = 20;
@@ -1105,6 +1110,7 @@ namespace Flash
     public class JsonExplorationBlockConfig
     {
         public string metric { get; set; }
+        public string order { get; set; }
         public double ce_min { get; set; }
         public double ce_max { get; set; }
         public double ce_step { get; set; }
