@@ -283,6 +283,14 @@ namespace Flash
             if (dict == null)
                 return;   // primitive leaf
 
+            // ADR-0070: an object where the model holds a list (ms_settings.ms2_rescue was one scan object before) is one
+            // problem with its fix, not every inner key reported as unknown (a List has no [JsonKey] members).
+            if (GetElementType(modelType) != null)
+            {
+                problems.Add(path + " is a list, not an object: wrap the object in [ ] (ADR-0070)");
+                return;
+            }
+
             // Dictionaries have user-authored KEYS, so the keys cannot be allowlisted -- but their
             // VALUES still can be, and must be. Returning outright here (the old behaviour) is right
             // for exploration.overrides, whose values are plain strings, and wrong for
@@ -387,13 +395,6 @@ namespace Flash
                     continue;
                 }
 
-                // A list of scan configs given one scan object is refused, not read as an empty list (ConvertValue's
-                // fallback): ms_settings.ms2_rescue was one object before ADR-0070, and an empty list would switch it off.
-                if (rawValue is Dictionary<string, object>
-                    && (prop.PropertyType == typeof(List<MS2Parameters>) || prop.PropertyType == typeof(List<MS3Parameters>)))
-                    throw new ArgumentException(
-                        "'" + jsonKey + "' is a list of scan configs: wrap the object in [ ] (ADR-0070).");
-
                 object converted = ConvertValue(rawValue, prop.PropertyType);
                 prop.SetValue(target, converted);
             }
@@ -441,7 +442,7 @@ namespace Flash
                 return new List<string>();
             }
 
-            // List<MS2Parameters> — from ArrayList of Dictionaries (a single object is refused in PopulateObject)
+            // List<MS2Parameters> — from ArrayList of Dictionaries (a single object is refused by CollectUnknownKeys)
             if (targetType == typeof(List<MS2Parameters>))
             {
                 var list = rawValue as ArrayList;
@@ -459,7 +460,7 @@ namespace Flash
                 return new List<MS2Parameters>();
             }
 
-            // List<MS3Parameters> — from ArrayList of Dictionaries (a single object is refused in PopulateObject)
+            // List<MS3Parameters> — from ArrayList of Dictionaries (a single object is refused by CollectUnknownKeys)
             if (targetType == typeof(List<MS3Parameters>))
             {
                 var list = rawValue as ArrayList;
