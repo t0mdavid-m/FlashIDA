@@ -1489,6 +1489,15 @@
             "0048"
           ]
         },
+        "order": {
+          "type": "string",
+          "enum": [
+            "ascending",
+            "random"
+          ],
+          "description": "When the sweep acquires its grid points. `ascending`: in grid order (activations as listed, then collision energy, then reaction time, ascending), so the lowest energy is always acquired first, while the precursor is freshest. `random`: each triggered sweep acquires its whole grid, every activation and both axes together, in its own random order, reproducible from the run, so energy is no longer confounded with position in the sweep. Either way a tie in the sweep's decision goes to the earlier grid point, so the order changes when each pre-scan is acquired, never which wins. `scan_results.tsv`'s `variant_index` is the acquisition position.",
+          "default": "ascending"
+        },
         "ce_min": {
           "type": "number",
           "description": "Lowest collision energy of the sweep grid. Read only when a swept activation varies collision energy, which HCD, CID, EThcD and ETciD do. Under `kinetic_model` the modeled energy may lie below it.",
