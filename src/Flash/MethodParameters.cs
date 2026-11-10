@@ -163,6 +163,7 @@ namespace Flash
                     enabled = c.Quantification.Active,
                     scan = c.Quantification.Scan,                 // ADR-0064
                     ms3_targets = c.Quantification.Ms3Targets,
+                    ms3_yield_gate = ToJsonYieldGate(c.Quantification.Ms3YieldGate),   // ADR-0069
                     labelling = c.Quantification.Labelling,
                     reporter_mz_tol = c.Quantification.ReporterMZTol,
                     fold_change_threshold = c.Quantification.FoldChangeThreshold,
@@ -341,6 +342,7 @@ namespace Flash
                     min_target_mass = cz.MinTargetMass,
                     fragment_charges = cz.FragmentCharges,
                     per_proteoform = cz.PerProteoform,   // ADR-0066
+                    yield_gate = ToJsonYieldGate(cz.YieldGate),   // ADR-0069
                     exploration = ToJsonExploration(cz.Exploration)
                 }
             };
@@ -350,6 +352,25 @@ namespace Flash
         // Null in, null out -- the same "verbatim or null, never synthesized" shape as
         // exploration.kinetic_model, so an unauthored block crosses the bridge as absent and C++
         // falls back to RefineSettings' defaults.
+        /// <summary>Convert one MS3 yield gate block for the wire (ADR-0069).</summary>
+        // Null in, null out, as ToJsonRefine below: an unauthored block crosses the bridge as absent and the C++ side
+        // runs no yield gate.
+        private static JsonYieldGateConfig ToJsonYieldGate(YieldGateConfig g)
+        {
+            if (g == null)
+                return null;
+            return new JsonYieldGateConfig
+            {
+                threshold = g.Threshold,
+                intercept = g.Intercept,
+                fragment_intensity = g.FragmentIntensity,
+                precursor_intensity = g.PrecursorIntensity,
+                precursor_charge = g.PrecursorCharge,
+                mass_ratio = g.MassRatio,
+                fragment_iso_cos = g.FragmentIsoCos
+            };
+        }
+
         private static JsonRefineBlockConfig ToJsonRefine(RefineBlockConfig r)
         {
             if (r == null)
@@ -701,6 +722,13 @@ namespace Flash
             // `if (enabled)` with every other quant rule).
             c.Quantification.Scan = "both";                    // non-default: ms2
             c.Quantification.Ms3Targets = 2;                   // non-default: 1
+            // ADR-0069, every key non-default (and different from the characterization gate's below), so a dropped or
+            // crossed key is detectable. Legal with Active false: the inert-key warning needs quantification enabled.
+            c.Quantification.Ms3YieldGate = new YieldGateConfig
+            {
+                Threshold = 0.5, Intercept = -30.5, FragmentIntensity = 1.25, PrecursorIntensity = 0.375,
+                PrecursorCharge = -0.0625, MassRatio = -2.5, FragmentIsoCos = 20.5
+            };
             // Channel names must be valid for the labelling above, or Config throws at load.
             // tmt10plex's N/C channels are used on purpose: they only exist in the 10-plex+ schemes,
             // so a reference that silently fell back to tmt6plex would fail here rather than pass.
@@ -858,6 +886,12 @@ namespace Flash
             c.Identification.Characterization.MinTargetMass = 617.5;
             c.Identification.Characterization.FragmentCharges = "separate";
             c.Identification.Characterization.PerProteoform = true;   // ADR-0066; the default is false
+            // ADR-0069: every key non-default.
+            c.Identification.Characterization.YieldGate = new YieldGateConfig
+            {
+                Threshold = 0.75, Intercept = -31.0, FragmentIntensity = 1.5, PrecursorIntensity = 0.5,
+                PrecursorCharge = -0.125, MassRatio = -2.75, FragmentIsoCos = 21.5
+            };
             c.Identification.Characterization.Exploration = new ExplorationBlockConfig
             {
                 // ADR-0047. kinetic_model at level 3 (level 2 stays mass_count: a kinetic_model block

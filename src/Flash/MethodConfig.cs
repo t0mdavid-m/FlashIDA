@@ -210,6 +210,42 @@ namespace Flash
         public bool? SkipPrecursorInference { get; set; }
     }
 
+    // ADR-0069. One MS3 yield gate: identification.characterization.yield_gate and quantification.ms3_yield_gate share
+    // this class (the class-level [JsonKey] only marks it as a nested config class for MethodConfigSerializer; each
+    // property's own [JsonKey] names the key). Defaults mirror YieldGateSettings.h exactly: threshold 1 expected bond and
+    // the core-5 coefficients. Declared ABOVE both of its parents for the CS0579 reason MonitorMs1Config gives.
+    [JsonKey("yield_gate")]
+    public class YieldGateConfig
+    {
+        [JsonKey("threshold")]
+        [Description("Admit an MS3 only if its predicted bond yield E = p x (L - 1), the bonds inside its target fragment it is expected to witness, is at least this many (> 0). 1 aims at the bonds MS3 witnesses; about 6 at a run's total coverage (an MS3 must beat the MS2 its time displaces).")]
+        public double Threshold { get; set; } = 1.0;
+
+        [JsonKey("intercept")]
+        [Description("Model intercept. With the five coefficients below: p = 1 / (1 + exp(-(intercept + fragment_intensity x log10(I_frag) + precursor_intensity x log10(I_prec) + precursor_charge x z_prec + mass_ratio x M_frag/M_prec + fragment_iso_cos x iso_cos))), each input clipped to its training range first. Default: the core-5 fit (two Caco-2 histone runs, CID 35, 240k, 4 microscans, AGC 5e5, max_it 502 ms); refit at least this for another sample or MS3 setting.")]
+        public double Intercept { get; set; } = -31.632174;
+
+        [JsonKey("fragment_intensity")]
+        [Description("Coefficient of log10 of the fragment's intensity at its charge in the source MS2 (clipped to [372, 5e6]).")]
+        public double FragmentIntensity { get; set; } = 1.529105;
+
+        [JsonKey("precursor_intensity")]
+        [Description("Coefficient of log10 of the source MS2 precursor's intensity (clipped to [6.8e3, 8.4e7]).")]
+        public double PrecursorIntensity { get; set; } = 0.474888;
+
+        [JsonKey("precursor_charge")]
+        [Description("Coefficient of the source MS2 precursor's charge (clipped to [4, 49]).")]
+        public double PrecursorCharge { get; set; } = -0.105683;
+
+        [JsonKey("mass_ratio")]
+        [Description("Coefficient of the fragment's monoisotopic mass over the precursor's (clipped to [0.011, 1]).")]
+        public double MassRatio { get; set; } = -2.766660;
+
+        [JsonKey("fragment_iso_cos")]
+        [Description("Coefficient of the fragment's isotope cosine (clipped to [0.85, 1.0005]).")]
+        public double FragmentIsoCos { get; set; } = 21.747494;
+    }
+
     [JsonKey("quantification")]
     public class QuantificationConfig
     {
@@ -228,6 +264,11 @@ namespace Flash
         [Description("How many quantification MS3s one identification buys (the most intense eligible labelled "
             + "fragments). Read under scan ms3 and both")]
         public int Ms3Targets { get; set; } = 1;
+
+        // ADR-0069. Null = absent = no yield gate on the quantification MS3.
+        [JsonKey("ms3_yield_gate")]
+        [Description("The quantification MS3's own yield gate (ADR-0069): present, a labelled fragment is bought only at a charge whose predicted bond yield reaches its threshold, and a refused fragment hands its place on. Its own coefficients, because these MS3 use ms_settings.ms3_quant. Absent: no gate. Read under scan ms3 and both")]
+        public YieldGateConfig Ms3YieldGate { get; set; }
 
         // Defaults equal the engine's (Config.cpp). Without an initializer a config that omits the key
         // would emit 0.0 across the bridge -- every ratio differential -- because ToCppJson emits
@@ -558,6 +599,11 @@ namespace Flash
         [JsonKey("per_proteoform")]
         [Description("One live MS3 plan per proteoform (ADR-0066): a newer identification of the same proteoform (protein, start/end, mass) replaces its MS3s not yet sent; a sent fragment is acquired again only at 2x its sent intensity; at most max_targets distinct cleavages per proteoform per run; only fragments whose isolation window SNR exceeds 1.")]
         public bool PerProteoform { get; set; } = false;
+
+        // ADR-0069. Null = absent = no yield gate: every MS3 plan exactly as before.
+        [JsonKey("yield_gate")]
+        [Description("The MS3 yield gate (ADR-0069): present, every characterization MS3 target, in every mode and with or without per_proteoform, is admitted only at a charge whose predicted bond yield reaches the threshold; a refused target hands its place on. A target with no ion index (a raw mass that matches no ion) is admitted untested. Absent: no gate.")]
+        public YieldGateConfig YieldGate { get; set; }
 
         // The MS3 CE/RT sweep. Must stay separate from precursor_selection.exploration: a single
         // config legitimately sweeps different ranges at MS2 and MS3 (method_exploration_ms3_followup
@@ -907,6 +953,7 @@ namespace Flash
         // ADR-0064. Always emitted as a real string, like identify.
         public string scan { get; set; }
         public int ms3_targets { get; set; }
+        public JsonYieldGateConfig ms3_yield_gate { get; set; }   // ADR-0069; null when unauthored
         public string labelling { get; set; }
         public double reporter_mz_tol { get; set; }
         public double fold_change_threshold { get; set; }
@@ -1092,7 +1139,20 @@ namespace Flash
         public double min_target_mass { get; set; }
         public string fragment_charges { get; set; }
         public bool per_proteoform { get; set; }
+        public JsonYieldGateConfig yield_gate { get; set; }   // ADR-0069; null when unauthored
         public JsonExplorationBlockConfig exploration { get; set; }
+    }
+
+    // ADR-0069. Emit DTO for YieldGateConfig; all seven keys written whenever the block is.
+    public class JsonYieldGateConfig
+    {
+        public double threshold { get; set; }
+        public double intercept { get; set; }
+        public double fragment_intensity { get; set; }
+        public double precursor_intensity { get; set; }
+        public double precursor_charge { get; set; }
+        public double mass_ratio { get; set; }
+        public double fragment_iso_cos { get; set; }
     }
 
     public class JsonReferenceConfig
