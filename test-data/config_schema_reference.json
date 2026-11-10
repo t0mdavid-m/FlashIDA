@@ -36,6 +36,7 @@
     "additional_scans": [],
     "exploration": {
       "metric": "mass_count",
+      "order": "random",
       "ce_min": 21,
       "ce_max": 39,
       "ce_step": 5,
@@ -108,6 +109,7 @@
       },
       "exploration": {
         "metric": "kinetic_model",
+        "order": "random",
         "ce_min": 16,
         "ce_max": 34,
         "ce_step": 2,
