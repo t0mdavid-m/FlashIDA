@@ -182,6 +182,16 @@ namespace Flash.Tests.Mocks
         }
 
         /// <summary>
+        /// ADR-0071: keep only the centroids inside [lo, hi], which is what a tribrid's quadrupole transmits for a full
+        /// MS1 of that scan range. The harness answers a Window scan with the last survey cut this way. It only removes
+        /// peaks; nothing is fabricated. Twin of C++ windowSpectrum (FLASHIda_TestHelpers.h).
+        /// </summary>
+        public void RestrictToRange(double lo, double hi)
+        {
+            _centroids.RemoveAll(c => c.Mz < lo || c.Mz > hi);
+        }
+
+        /// <summary>
         /// F7: stamp the FAIMS CV trailer on a re-fed scan so FLASHIdaWrapper.ProcessScan reads it and
         /// passes it to the native processScan faims_cv argument (the C# channel for the CV; the C++ twin
         /// passes cmd.faims_cv directly in runInterleaved). Mirrors WithFaimsPeaks' trailer keys.

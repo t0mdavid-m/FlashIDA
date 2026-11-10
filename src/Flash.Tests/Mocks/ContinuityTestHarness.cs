@@ -234,6 +234,28 @@ namespace Flash.Tests.Mocks
                     cmd = new ScanCommand();
                     continue;
                 }
+                // WINDOW scan (ADR-0071) — lockstep twin of C++ runInterleaved's branch. Classified before the idle
+                // predicate for the monitor's two reasons. Its answer is the last survey cut to the command's range,
+                // which is what the quadrupole transmits; ms1Fed does not advance and idle is untouched.
+                if (!string.IsNullOrEmpty(cmd.ScanDescription) && cmd.ScanDescription.Length >= 4
+                    && cmd.ScanDescription[3] == 'W')
+                {
+                    var win = MockMsScan.FromTsvAllScans(ms1Path);
+                    int winPick = ms1Fed > 0 ? ms1Fed - 1 : 0;
+                    if (winPick < win.Count)
+                    {
+                        var winResponse = win[winPick];
+                        winResponse.RestrictToRange(cmd.FirstMass, cmd.LastMass);
+                        winResponse.SetScanDescription(cmd.ScanDescription);
+                        if (cmd.FaimsCv != 0.0) winResponse.SetFaimsCv(cmd.FaimsCv);
+                        for (int i = 0; i < win.Count; i++) if (i != winPick) win[i].Dispose();
+                        Processor.ProcessMS(ScanData.From(winResponse));
+                        Wrapper.WaitForSearchIdle();
+                    }
+                    else { foreach (var s in win) s.Dispose(); }
+                    cmd = new ScanCommand();
+                    continue;
+                }
                 // Idle tick (mirror of C++ runFullAcquisition): an AGC, an empty-descriptor command, or an MS1
                 // re-survey after we've fed all nMs1 scans. 3 consecutive idle ticks => the real queue is drained.
                 if (cmd.IsAgc != 0 || string.IsNullOrEmpty(cmd.ScanDescription) || (level <= 1 && ms1Fed >= nMs1))
