@@ -468,6 +468,20 @@ namespace Flash.IDA
                         survey = new ScanCommand();
                         continue;
                     }
+                    //A WINDOW scan (ADR-0071) is an observe-only MS1 too, excluded for the same two reasons.
+                    //It is answered with this spectrum cut to its scan range -- what the quadrupole transmits.
+                    if (!String.IsNullOrEmpty(survey.ScanDescription) && survey.ScanDescription.Length >= 4
+                        && survey.ScanDescription[3] == 'W')
+                    {
+                        var wmz = new List<double>();
+                        var wint = new List<double>();
+                        for (int k = 0; k < mzs.Count; k++)
+                            if (mzs[k] >= survey.FirstMass && mzs[k] <= survey.LastMass) { wmz.Add(mzs[k]); wint.Add(ints[k]); }
+                        w.ProcessScan(wmz.ToArray(), wint.ToArray(), rt, 1, survey.ScanDescription, 0.0, 0);
+                        w.WaitForSearchIdle();
+                        survey = new ScanCommand();
+                        continue;
+                    }
                     if (survey.IsAgc == 0 && survey.MsnLevel == 1 && !String.IsNullOrEmpty(survey.ScanDescription))
                     {
                         desc = survey.ScanDescription;
