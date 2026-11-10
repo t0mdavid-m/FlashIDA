@@ -1158,11 +1158,16 @@
           ]
         },
         "ms2_rescue": {
-          "$ref": "#/$defs/scan",
-          "description": "The rescue scan: a second MS2 with another fragmentation method, typically ETD or EThcD, for a species the identification scan could not sequence. It fires when an identification scan was searched and found no proteoform, or one scoring below `identification.threshold`, at most once per detection (one species of one survey's selection, all its charges together), right after that scan returns, with its isolation. It is searched like any MS2 and can close the species out. A close-out withdraws it while it still waits. Exploration variants, quantification scans, scans the search never reached and the rescue scan itself buy none. Setting the block switches the rescue on; it needs `identification` with `identification.threshold`.",
-          "x-default-text": "absent: no rescue scan; needs identification.threshold",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/scan"
+          },
+          "description": "The rescue set: one or more extra MS2 scans with other fragmentation methods, typically ETD or EThcD, for a species the identification scan could not sequence. When an identification scan was searched and found no proteoform, or one scoring below `identification.threshold`, it buys one rescue scan per entry, all at once, in the listed order, right after it returns and with its isolation. Each precursor buys at most one set; under `precursor_charges: separate` each charge is its own precursor and buys its own. Each rescue is searched like any MS2 and can close the species out, and a close-out withdraws the rescues still waiting. Exploration variants, quantification scans, scans the search never reached and the rescue scans themselves buy none. Setting the list switches the rescue on; it needs `identification` with `identification.threshold`. An empty list and two identical entries are refused, and a single object must be wrapped in `[ ]`. With more than one entry, `identification.characterization` set and `per_proteoform` off, the load warns that each rescue's identification plans its own MS3.",
+          "x-default-text": "absent: no rescue scans; needs identification.threshold",
           "x-adr": [
-            "0068"
+            "0068",
+            "0070"
           ]
         },
         "ms3": {
