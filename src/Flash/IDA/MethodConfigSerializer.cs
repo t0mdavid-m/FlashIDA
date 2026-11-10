@@ -387,6 +387,13 @@ namespace Flash
                     continue;
                 }
 
+                // A list of scan configs given one scan object is refused, not read as an empty list (ConvertValue's
+                // fallback): ms_settings.ms2_rescue was one object before ADR-0070, and an empty list would switch it off.
+                if (rawValue is Dictionary<string, object>
+                    && (prop.PropertyType == typeof(List<MS2Parameters>) || prop.PropertyType == typeof(List<MS3Parameters>)))
+                    throw new ArgumentException(
+                        "'" + jsonKey + "' is a list of scan configs: wrap the object in [ ] (ADR-0070).");
+
                 object converted = ConvertValue(rawValue, prop.PropertyType);
                 prop.SetValue(target, converted);
             }
@@ -434,7 +441,7 @@ namespace Flash
                 return new List<string>();
             }
 
-            // List<MS2Parameters> — from ArrayList of Dictionaries
+            // List<MS2Parameters> — from ArrayList of Dictionaries (a single object is refused in PopulateObject)
             if (targetType == typeof(List<MS2Parameters>))
             {
                 var list = rawValue as ArrayList;
@@ -452,7 +459,7 @@ namespace Flash
                 return new List<MS2Parameters>();
             }
 
-            // List<MS3Parameters> — from ArrayList of Dictionaries
+            // List<MS3Parameters> — from ArrayList of Dictionaries (a single object is refused in PopulateObject)
             if (targetType == typeof(List<MS3Parameters>))
             {
                 var list = rawValue as ArrayList;
@@ -671,7 +678,10 @@ namespace Flash
             if (valueType.IsGenericType && valueType.GetGenericTypeDefinition() == typeof(List<>))
             {
                 Type elemType = valueType.GetGenericArguments()[0];
-                if (elemType.GetCustomAttribute<JsonKeyAttribute>() != null)
+                // ADR-0070: a list of scan-config structs (ms_settings.ms2_rescue) -> array of their [JsonKey] fields,
+                // the same fall-through PascalCase trap as above for structs.
+                bool scanStruct = elemType == typeof(MS2Parameters) || elemType == typeof(MS3Parameters);
+                if (elemType.GetCustomAttribute<JsonKeyAttribute>() != null || scanStruct)
                 {
                     var outList = new List<object>();
                     foreach (object item in (IList)value)
