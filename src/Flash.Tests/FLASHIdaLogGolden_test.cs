@@ -371,6 +371,14 @@ namespace Flash.Tests
         public void Golden_RescueSet_CytC() =>
             RunCase("rescue_set_cytc", "method_rescue_set_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", minMs2Commands: 3);
 
+        // ADR-0071: the Window scan. method_window_cytc.json is method_closeout_cytc_strict.json without the threshold and
+        // with identification.window_scan: nothing closes cytC out, so every survey re-acquires it, and each identified
+        // HCD scan buys one Window scan: a full MS1 at priority 0 whose range is that scan's window, its parent the scan,
+        // answered with the survey cut to that range. It observes and decides nothing.
+        [Test, Category("Tier2")]
+        public void Golden_WindowScan_CytC() =>
+            RunCase("window_scan_cytc", "method_window_cytc.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt", minMs2Commands: 2);
+
         /// <summary>
         /// The strict close-out acceptance check: exactly one MS2 in the run, and its identification row closed cytC out.
         /// </summary>
