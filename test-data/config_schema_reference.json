@@ -97,6 +97,15 @@
       "min_target_mass": 617.5,
       "fragment_charges": "separate",
       "per_proteoform": true,
+      "yield_gate": {
+        "threshold": 0.75,
+        "intercept": -31,
+        "fragment_intensity": 1.5,
+        "precursor_intensity": 0.5,
+        "precursor_charge": -0.125,
+        "mass_ratio": -2.75,
+        "fragment_iso_cos": 21.5
+      },
       "exploration": {
         "metric": "kinetic_model",
         "ce_min": 16,
@@ -125,6 +134,15 @@
     "enabled": false,
     "scan": "both",
     "ms3_targets": 2,
+    "ms3_yield_gate": {
+      "threshold": 0.5,
+      "intercept": -30.5,
+      "fragment_intensity": 1.25,
+      "precursor_intensity": 0.375,
+      "precursor_charge": -0.0625,
+      "mass_ratio": -2.5,
+      "fragment_iso_cos": 20.5
+    },
     "labelling": "tmt10plex",
     "reporter_mz_tol": 0.0031,
     "fold_change_threshold": 1.7,
