@@ -2138,11 +2138,19 @@ namespace Flash.Tests
                 CompareStages(sent, "CollisionEnergy", row, header, "collision_energy", n, where, Cmp.Rounded);
                 CompareStages(sent, "ChargeStates", row, header, "charge", n, where, Cmp.ChargeClamped);
 
-                // Optional: an empty slot for a stage that does not use the parameter, key absent
-                // when NO stage uses it.
-                CompareStages(sent, "ReactionTime", row, header, "reaction_time", n, where, Cmp.Approx);
-                CompareStages(sent, "ReagentMaxIT", row, header, "reagent_max_it", n, where, Cmp.Approx);
-                CompareStages(sent, "ReagentAGCTarget", row, header, "reagent_agc_target", n, where, Cmp.Rounded);
+                // Optional: key absent when NO stage uses the parameter. In a sent array, a stage
+                // that does not use it carries ScanFactory's valid fill value while the engine
+                // logged its own value (0 = not used): a non-ETD-family stage for ReactionTime, a
+                // logged 0 for the reagent keys. The predicates restate ScanFactory's rule from the
+                // LOGGED row, so a fill on a stage that does use the parameter still fails.
+                var loggedActivation = Cell(row, header, "activation").Split(';');
+                CompareStages(sent, "ReactionTime", row, header, "reaction_time", n, where, Cmp.Approx,
+                    ScanFactory.UnusedStageReactionTimeMs,
+                    (i, logged) => !ScanFactory.NeedsReactionTime(loggedActivation[i]));
+                CompareStages(sent, "ReagentMaxIT", row, header, "reagent_max_it", n, where, Cmp.Approx,
+                    ScanFactory.UnusedStageReagentMaxItMs, (i, logged) => logged <= 0);
+                CompareStages(sent, "ReagentAGCTarget", row, header, "reagent_agc_target", n, where, Cmp.Rounded,
+                    ScanFactory.UnusedStageReagentAgcTarget, (i, logged) => logged <= 0);
 
                 // The defect-1 assertion: the logged energy mirror must equal the energy actually sent,
                 // for BOTH stages. This is what fails on 258 exploration_ms3 rows without the fix.
@@ -2194,9 +2202,12 @@ namespace Flash.Tests
         /// <summary>
         /// Compare one ';'-joined per-stage column against the corresponding request key. An absent key
         /// is only legal for the optional parameters and only when every stage logged zero.
+        /// <paramref name="stageUnused"/> (stage index, logged value) names the stages that do not use
+        /// an optional parameter: in a sent array those must carry <paramref name="unusedFill"/>.
         /// </summary>
         private static void CompareStages(IDictionary<string, string> sent, string key, string[] row,
-            string[] header, string col, int n, string where, Cmp mode)
+            string[] header, string col, int n, string where, Cmp mode,
+            double unusedFill = 0.0, Func<int, double, bool> stageUnused = null)
         {
             var logTok = Cell(row, header, col).Split(';');
             Assert.That(logTok.Length, Is.EqualTo(n),
@@ -2246,15 +2257,16 @@ namespace Flash.Tests
                         Assert.That(sentWin[w], Is.EqualTo(logWin[w]), ctx);
                         continue;
                     }
-                    // An empty sent slot = "this stage does not use the parameter": the engine must
-                    // have logged 0 for it, the same rule as the absent-key branch above.
-                    if (sentWin[w].Length == 0)
-                    {
-                        Assert.That(ParseLog(logWin[w]), Is.EqualTo(0.0).Within(1e-9), ctx);
-                        continue;
-                    }
                     double logged = ParseLog(logWin[w]);
                     double actual = ParseSent(sentWin[w]);
+                    // A stage that does not use the parameter: the request carries the valid fill
+                    // value, not the engine's "not used" 0 and not an empty slot.
+                    if (stageUnused != null && stageUnused(i, logged))
+                    {
+                        Assert.That(actual, Is.EqualTo(unusedFill).Within(1e-9),
+                            ctx + " — an unused stage must send the fill value");
+                        continue;
+                    }
                     if (mode == Cmp.ChargeClamped) logged = Math.Min(logged, 25);   // ScanFactory clamps
                     if (mode == Cmp.Rounded)
                     {

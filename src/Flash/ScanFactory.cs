@@ -55,11 +55,12 @@ namespace Flash
         public double[] SrcRFLens;
         public string IonisationMode;
         public double[] ActivationQ;
-        /// <summary>One element per stage, pre-formatted like <see cref="PrecursorMass"/>; "" for a
-        /// stage that does not use the parameter, e.g. "10;" for ETD -> HCD.</summary>
-        public string[] ReactionTime;
-        public string[] ReagentMaxIT;
-        public string[] ReagentAGCTarget;
+        /// <summary>One element per stage; a stage that does not use the parameter carries
+        /// <see cref="ScanFactory"/>'s <c>UnusedStage*</c> fill value, never a 0 or an empty
+        /// slot.</summary>
+        public double[] ReactionTime;
+        public double[] ReagentMaxIT;
+        public int[] ReagentAGCTarget;
         public double? FAIMS_CV;
         public string FAIMS_Voltages;
         public string ScanDescription;
@@ -214,6 +215,20 @@ namespace Flash
             return activation == "ETD" || activation == "EThcD" || activation == "ETciD";
         }
 
+        /// <summary>
+        /// What a stage that does NOT use a reagent parameter sends in that parameter's per-stage
+        /// array, when another stage of the cascade does use it. Every slot of an emitted array
+        /// must hold a value inside the parameter's valid range: neither a 0 ("10;0") nor an empty
+        /// slot ("10;") is one. The value is inert on such a stage (no ion-ion reaction happens
+        /// there); it only has to be valid. <c>public</c> for the tests, like
+        /// <see cref="NeedsReactionTime"/>.
+        /// </summary>
+        public const double UnusedStageReactionTimeMs = 10.0;
+        /// <summary>See <see cref="UnusedStageReactionTimeMs"/>.</summary>
+        public const double UnusedStageReagentMaxItMs = 100.0;
+        /// <summary>See <see cref="UnusedStageReactionTimeMs"/>.</summary>
+        public const int UnusedStageReagentAgcTarget = 30000;
+
         private static string Fmt(object value)
         {
             IFormattable formattable = value as IFormattable;
@@ -313,12 +328,16 @@ namespace Flash
                 // SPS example, which sends ActivationType "HCD;CID" against a three-notch MS3 stage).
                 var collisionEnergies = new List<int>();
                 var activationTypes = new List<string>();
-                var reactionTimes = new List<string>();
-                var reagentMaxIts = new List<string>();
-                var reagentAgcTargets = new List<string>();
+                var reactionTimes = new List<double>();
+                var reagentMaxIts = new List<double>();
+                var reagentAgcTargets = new List<int>();
                 // Whether the ReactionTime key is emitted at all is decided by the ACTIVATIONS
-                // present, not by the values collected -- see the emit site below.
+                // present, not by the values collected -- see the emit site below. The reagent keys
+                // are decided by the engine's values (> 0), tracked here because the arrays
+                // themselves carry a fill value for the stages that do not use them.
                 bool anyStageUsesReactionTime = false;
+                bool anyStageUsesReagentMaxIt = false;
+                bool anyStageUsesReagentAgcTarget = false;
 
                 // Array POSITION is the only thing binding a value to a stage: element i -> stage i.
                 // A stage must therefore contribute an element to EVERY array it appears in, or each
@@ -332,10 +351,11 @@ namespace Flash
                 // them is refused outright instead of being zero-filled.
                 // OPTIONAL (reaction_time, reagent_max_it, reagent_agc_target) are activation-coupled
                 // and 0 is their documented "not used" sentinel (ScanCommand.h:53-55). A stage that
-                // does not use one contributes an EMPTY element ("10;" for ETD -> HCD), so position
-                // still binds each value to its stage and the unused stage is not commanded a
-                // literal 0. The key is omitted entirely when NO stage uses one, so a wholly unused
-                // parameter still defers to the instrument method default (ADR-0009).
+                // does not use one contributes its UnusedStage* fill value ("7;10" for ETD -> HCD at
+                // 7 ms), so position still binds each value to its stage and every slot of the
+                // array is a valid value: neither a 0 nor an empty slot is. The key is omitted
+                // entirely when NO stage uses one, so a wholly unused parameter still defers to the
+                // instrument method default (ADR-0009).
                 for (int i = 0; i < n; i++)
                 {
                     var stage = cmd.Stages[i];
@@ -380,9 +400,13 @@ namespace Flash
                     activationTypes.Add(stage.ActivationType);
                     bool usesReactionTime = NeedsReactionTime(stage.ActivationType);
                     if (usesReactionTime) anyStageUsesReactionTime = true;
-                    reactionTimes.Add(usesReactionTime ? Fmt(stage.ReactionTime) : "");
-                    reagentMaxIts.Add(stage.ReagentMaxIt > 0 ? Fmt(stage.ReagentMaxIt) : "");
-                    reagentAgcTargets.Add(stage.ReagentAgcTarget > 0 ? Fmt(stage.ReagentAgcTarget) : "");
+                    reactionTimes.Add(usesReactionTime ? stage.ReactionTime : UnusedStageReactionTimeMs);
+                    bool usesReagentMaxIt = stage.ReagentMaxIt > 0;
+                    if (usesReagentMaxIt) anyStageUsesReagentMaxIt = true;
+                    reagentMaxIts.Add(usesReagentMaxIt ? stage.ReagentMaxIt : UnusedStageReagentMaxItMs);
+                    bool usesReagentAgcTarget = stage.ReagentAgcTarget > 0;
+                    if (usesReagentAgcTarget) anyStageUsesReagentAgcTarget = true;
+                    reagentAgcTargets.Add(usesReagentAgcTarget ? stage.ReagentAgcTarget : UnusedStageReagentAgcTarget);
                 }
 
                 p.PrecursorMass = precursorMasses.ToArray();
@@ -406,12 +430,12 @@ namespace Flash
                 // below deliberately keep their value gate: a zero reagent AGC target or max IT has
                 // no useful meaning, so 0 there really does mean "defer to the method".
                 //
-                // Within an emitted array, a stage that does not use the parameter is an empty
-                // element, never a 0: a non-ETD-family stage for ReactionTime, a zero value for the
-                // Reagent keys.
+                // Within an emitted array, a stage that does not use the parameter carries the
+                // UnusedStage* fill value, never a 0 or an empty slot: a non-ETD-family stage for
+                // ReactionTime, a zero value for the Reagent keys.
                 if (anyStageUsesReactionTime) p.ReactionTime = reactionTimes.ToArray();
-                if (reagentMaxIts.Any(v => v.Length > 0)) p.ReagentMaxIT = reagentMaxIts.ToArray();
-                if (reagentAgcTargets.Any(v => v.Length > 0)) p.ReagentAGCTarget = reagentAgcTargets.ToArray();
+                if (anyStageUsesReagentMaxIt) p.ReagentMaxIT = reagentMaxIts.ToArray();
+                if (anyStageUsesReagentAgcTarget) p.ReagentAGCTarget = reagentAgcTargets.ToArray();
             }
 
             // Scan description

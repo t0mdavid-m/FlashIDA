@@ -238,7 +238,9 @@ namespace Flash.Tests
             stages[1].PrecursorMz = 1050.9; stages[1].IsolationWidth = 2.0;
             stages[1].ChargeState = 9; stages[1].CollisionEnergy = 25;
             stages[1].ActivationType = "ETD";
-            stages[1].ReactionTime = 10; stages[1].ReagentMaxIt = 150; stages[1].ReagentAgcTarget = 500000;
+            // (12 ms, not 10: 10 is the fill value an unused stage carries, and the two must differ
+            // for the positional assertion below to tell the stages apart)
+            stages[1].ReactionTime = 12; stages[1].ReagentMaxIt = 150; stages[1].ReagentAgcTarget = 500000;
             cmd.Stages = stages;
 
             var scan = factory.BuildFromCommand(cmd);
@@ -247,16 +249,17 @@ namespace Flash.Tests
                 "activation is positional -- stage 0 HCD, stage 1 ETD");
             Assert.That(scan.Values["CollisionEnergy"], Is.EqualTo("30;25"));
             Assert.That(scan.Values["ChargeStates"], Is.EqualTo("15;9"));
-            Assert.That(scan.Values["ReagentAGCTarget"], Is.EqualTo(";500000"),
-                "stage 0 does not use a reagent AGC target: an empty slot, but still slot 0");
+            Assert.That(scan.Values["ReagentAGCTarget"], Is.EqualTo("30000;500000"),
+                "stage 0 does not use a reagent AGC target: the valid fill value, in slot 0");
 
             // Doubles are compared after parsing so the assertion is culture-independent
             // (the Values dictionary is built with the same culture via ToString()).
             AssertStageDoubles(scan.Values["PrecursorMass"], 824.97, 1050.9);
             AssertStageDoubles(scan.Values["IsolationWidth"], 1.86, 2.0);
-            // The HCD stage does not use these: an empty slot 0, never a 0 and never a shifted value.
-            Assert.That(scan.Values["ReactionTime"], Is.EqualTo(";10"));   // was "10" -> bound to stage 0
-            Assert.That(scan.Values["ReagentMaxIT"], Is.EqualTo(";150"));  // was "150" -> bound to stage 0
+            // The HCD stage does not use these: slot 0 carries ScanFactory's valid fill value (10 ms,
+            // 100 ms), never a 0, an empty slot or a shifted value.
+            AssertStageDoubles(scan.Values["ReactionTime"], 10.0, 12.0);    // was "12" -> bound to stage 0
+            AssertStageDoubles(scan.Values["ReagentMaxIT"], 100.0, 150.0);  // was "150" -> bound to stage 0
 
             // Arity invariant: an emitted per-stage array is either absent or exactly NumStages long.
             // This is what fails if the loop is ever widened past Math.Min(NumStages, 10).
