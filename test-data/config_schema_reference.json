@@ -106,8 +106,10 @@
         "precursor_intensity": 0.5,
         "precursor_charge": -0.125,
         "mass_ratio": -2.75,
-        "fragment_iso_cos": 21.5
+        "fragment_iso_cos": 21.5,
+        "rank_by": "intensity"
       },
+      "order": "random",
       "exploration": {
         "metric": "kinetic_model",
         "order": "random",
@@ -144,7 +146,8 @@
       "precursor_intensity": 0.375,
       "precursor_charge": -0.0625,
       "mass_ratio": -2.5,
-      "fragment_iso_cos": 20.5
+      "fragment_iso_cos": 20.5,
+      "rank_by": "intensity"
     },
     "labelling": "tmt10plex",
     "reporter_mz_tol": 0.0031,
