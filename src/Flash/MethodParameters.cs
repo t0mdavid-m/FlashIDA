@@ -346,6 +346,7 @@ namespace Flash
                     fragment_charges = cz.FragmentCharges,
                     per_proteoform = cz.PerProteoform,   // ADR-0066
                     yield_gate = ToJsonYieldGate(cz.YieldGate),   // ADR-0069
+                    order = cz.Order,
                     exploration = ToJsonExploration(cz.Exploration)
                 }
             };
@@ -370,7 +371,8 @@ namespace Flash
                 precursor_intensity = g.PrecursorIntensity,
                 precursor_charge = g.PrecursorCharge,
                 mass_ratio = g.MassRatio,
-                fragment_iso_cos = g.FragmentIsoCos
+                fragment_iso_cos = g.FragmentIsoCos,
+                rank_by = g.RankBy
             };
         }
 
@@ -732,7 +734,8 @@ namespace Flash
             c.Quantification.Ms3YieldGate = new YieldGateConfig
             {
                 Threshold = 0.5, Intercept = -30.5, FragmentIntensity = 1.25, PrecursorIntensity = 0.375,
-                PrecursorCharge = -0.0625, MassRatio = -2.5, FragmentIsoCos = 20.5
+                PrecursorCharge = -0.0625, MassRatio = -2.5, FragmentIsoCos = 20.5,
+                RankBy = "intensity"   // non-default: yield
             };
             // Channel names must be valid for the labelling above, or Config throws at load.
             // tmt10plex's N/C channels are used on purpose: they only exist in the 10-plex+ schemes,
@@ -907,8 +910,10 @@ namespace Flash
             c.Identification.Characterization.YieldGate = new YieldGateConfig
             {
                 Threshold = 0.75, Intercept = -31.0, FragmentIntensity = 1.5, PrecursorIntensity = 0.5,
-                PrecursorCharge = -0.125, MassRatio = -2.75, FragmentIsoCos = 21.5
+                PrecursorCharge = -0.125, MassRatio = -2.75, FragmentIsoCos = 21.5,
+                RankBy = "intensity"   // non-default: yield
             };
+            c.Identification.Characterization.Order = "random";   // non-default: ranked
             c.Identification.Characterization.Exploration = new ExplorationBlockConfig
             {
                 // ADR-0047. kinetic_model at level 3 (level 2 stays mass_count: a kinetic_model block

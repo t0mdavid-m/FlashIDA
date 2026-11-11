@@ -471,6 +471,9 @@ namespace Flash.Tests
             var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
             var cz = (Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"];
             Assert.IsTrue(!cz.ContainsKey("yield_gate") || cz["yield_gate"] == null, "an unauthored yield_gate must cross as absent");
+            // characterization.order: absent is "ranked" and crosses as "ranked" (C++'s default too).
+            Assert.AreEqual("ranked", mp.Config.Identification.Characterization.Order, "no committed config authors order");
+            Assert.AreEqual("ranked", cz["order"]);
 
             var empty = MethodConfigSerializer.Deserialize(
                 "{ \"identification\": { \"characterization\": { \"mode\": \"fragments\", \"yield_gate\": {} } } }");
@@ -478,6 +481,7 @@ namespace Flash.Tests
 
             mp.Config.Identification.Characterization.YieldGate = new YieldGateConfig { Threshold = 6, Intercept = -30.0 };
             var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual("yield", back.Identification.Characterization.YieldGate.RankBy);
             Assert.AreEqual(6.0, back.Identification.Characterization.YieldGate.Threshold);
             Assert.AreEqual(-30.0, back.Identification.Characterization.YieldGate.Intercept);
             Assert.AreEqual(21.747494, back.Identification.Characterization.YieldGate.FragmentIsoCos);
@@ -487,7 +491,19 @@ namespace Flash.Tests
             Assert.AreEqual(6.0, Convert.ToDouble(yg["threshold"]));
             Assert.AreEqual(-30.0, Convert.ToDouble(yg["intercept"]));
             Assert.AreEqual(1.529105, Convert.ToDouble(yg["fragment_intensity"]), 1e-12);
-            Assert.AreEqual(7, yg.Count, "all seven keys cross whenever the block does");
+            Assert.AreEqual("yield", yg["rank_by"]);
+            Assert.AreEqual(8, yg.Count, "all eight keys cross whenever the block does");
+
+            // An authored rank_by and order round-trip and cross.
+            mp.Config.Identification.Characterization.YieldGate.RankBy = "intensity";
+            mp.Config.Identification.Characterization.Order = "random";
+            back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual("intensity", back.Identification.Characterization.YieldGate.RankBy);
+            Assert.AreEqual("random", back.Identification.Characterization.Order);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            cz = (Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"];
+            Assert.AreEqual("random", cz["order"]);
+            Assert.AreEqual("intensity", ((Dictionary<string, object>)cz["yield_gate"])["rank_by"]);
         }
 
         // ADR-0069: quantification.ms3_yield_gate, the quantification MS3's own gate: the same block under its own key.
@@ -512,6 +528,14 @@ namespace Flash.Tests
             var yg = (Dictionary<string, object>)((Dictionary<string, object>)parsed["quantification"])["ms3_yield_gate"];
             Assert.AreEqual(0.5, Convert.ToDouble(yg["threshold"]));
             Assert.AreEqual(-2.0, Convert.ToDouble(yg["mass_ratio"]));
+            Assert.AreEqual("yield", yg["rank_by"]);
+
+            mp.Config.Quantification.Ms3YieldGate.RankBy = "intensity";
+            back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual("intensity", back.Quantification.Ms3YieldGate.RankBy);
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            yg = (Dictionary<string, object>)((Dictionary<string, object>)parsed["quantification"])["ms3_yield_gate"];
+            Assert.AreEqual("intensity", yg["rank_by"]);
         }
 
         // exploration.order: absent is "ascending" and crosses the bridge as "ascending" (C++'s default too); an authored
@@ -551,6 +575,7 @@ namespace Flash.Tests
             Assert.AreEqual(-0.105683, g.PrecursorCharge);
             Assert.AreEqual(-2.766660, g.MassRatio);
             Assert.AreEqual(21.747494, g.FragmentIsoCos);
+            Assert.AreEqual("yield", g.RankBy);
         }
 
         // ADR-0061 push 4c. Every identification.flashtnt key, its model value and the value an authored

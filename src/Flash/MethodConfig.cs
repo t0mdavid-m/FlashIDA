@@ -244,6 +244,11 @@ namespace Flash
         [JsonKey("fragment_iso_cos")]
         [Description("Coefficient of the fragment's isotope cosine (clipped to [0.85, 1.0005]).")]
         public double FragmentIsoCos { get; set; } = 21.747494;
+
+        // Always emitted as a real string; the C++ side refuses anything but the two values.
+        [JsonKey("rank_by")]
+        [Description("The order a gated plan walks its candidates in: yield (the default: by predicted bond yield, highest first; a target with no ion index after every tested one) or intensity (strongest first, the yield as a pass/fail test only: the setting for runs that collect training data).")]
+        public string RankBy { get; set; } = "yield";
     }
 
     [JsonKey("quantification")]
@@ -605,6 +610,11 @@ namespace Flash
         [JsonKey("yield_gate")]
         [Description("The MS3 yield gate (ADR-0069): present, every characterization MS3 target, in every mode and with or without per_proteoform, is admitted only at a charge whose predicted bond yield reaches the threshold; a refused target hands its place on. A target with no ion index (a raw mass that matches no ion) is admitted untested. Absent: no gate.")]
         public YieldGateConfig YieldGate { get; set; }
+
+        // Always emitted as a real string; the C++ side refuses anything but the two values.
+        [JsonKey("order")]
+        [Description("The order the MS3 of one plan are sent in: ranked (the default: the planner's order) or random (one reproducible random order per plan). It changes when each MS3 is acquired, never which MS3 the plan holds.")]
+        public string Order { get; set; } = "ranked";
 
         // The MS3 CE/RT sweep. Must stay separate from precursor_selection.exploration: a single
         // config legitimately sweeps different ranges at MS2 and MS3 (method_exploration_ms3_followup
@@ -1152,10 +1162,11 @@ namespace Flash
         public string fragment_charges { get; set; }
         public bool per_proteoform { get; set; }
         public JsonYieldGateConfig yield_gate { get; set; }   // ADR-0069; null when unauthored
+        public string order { get; set; }
         public JsonExplorationBlockConfig exploration { get; set; }
     }
 
-    // ADR-0069. Emit DTO for YieldGateConfig; all seven keys written whenever the block is.
+    // ADR-0069. Emit DTO for YieldGateConfig; all eight keys written whenever the block is.
     public class JsonYieldGateConfig
     {
         public double threshold { get; set; }
@@ -1165,6 +1176,7 @@ namespace Flash
         public double precursor_charge { get; set; }
         public double mass_ratio { get; set; }
         public double fragment_iso_cos { get; set; }
+        public string rank_by { get; set; }
     }
 
     public class JsonReferenceConfig
