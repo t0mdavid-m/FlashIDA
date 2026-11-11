@@ -506,6 +506,20 @@ namespace Flash.Tests
             Assert.AreEqual("intensity", ((Dictionary<string, object>)cz["yield_gate"])["rank_by"]);
         }
 
+        // ADR-0073: characterization.order "interleaved" is a third value of the same string: it round-trips through the
+        // serializer and crosses the bridge unchanged. Whether the mode takes it is the C++ side's refusal.
+        [Test, Category("Tier1")]
+        public void Characterization_Order_Interleaved_RoundTripsAndCrosses()
+        {
+            var mp = LoadJsonMethod("method_ms3_cytc_coverage.json");
+            mp.Config.Identification.Characterization.Order = "interleaved";
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.AreEqual("interleaved", back.Identification.Characterization.Order);
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var cz = (Dictionary<string, object>)((Dictionary<string, object>)parsed["identification"])["characterization"];
+            Assert.AreEqual("interleaved", cz["order"]);
+        }
+
         // ADR-0069: quantification.ms3_yield_gate, the quantification MS3's own gate: the same block under its own key.
         [Test, Category("Tier1")]
         public void Quantification_Ms3YieldGate_AbsentIsNull_EmptyTakesDefaults_AuthoredRoundTrips()
