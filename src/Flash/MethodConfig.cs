@@ -757,7 +757,7 @@ namespace Flash
     public class ExplorationBlockConfig
     {
         [JsonKey("metric")]
-        [Description("Exploration metric: none, mass_count, remaining_precursor, fragment_count, kinetic_model")]
+        [Description("Exploration metric: none, mass_count, remaining_precursor, fragment_count, kinetic_model, raw_score, bond_coverage, explained_signal")]
         public string Metric { get; set; } = "none";
 
         // Always emitted as a real string; the C++ side refuses anything but the two values.

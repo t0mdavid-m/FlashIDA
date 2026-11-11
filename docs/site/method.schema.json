@@ -294,7 +294,7 @@
                 "null"
               ],
               "minLength": 1,
-              "description": "One protein sequence, in one-letter code, that every MS2 is matched against: a reference of one entry. Exactly one of `fasta` and `sequence`; an empty sequence would match nothing, so it is refused (delete the `identification` section instead). `metric: fragment_count` needs a reference at either exploration level.",
+              "description": "One protein sequence, in one-letter code, that every MS2 is matched against: a reference of one entry. Exactly one of `fasta` and `sequence`; an empty sequence would match nothing, so it is refused (delete the `identification` section instead). `metric: fragment_count`, `raw_score`, `bond_coverage` and `explained_signal` need a reference at either exploration level.",
               "x-default-text": "absent",
               "x-adr": [
                 "0027",
@@ -1519,20 +1519,27 @@
             "mass_count",
             "remaining_precursor",
             "fragment_count",
-            "kinetic_model"
+            "kinetic_model",
+            "raw_score",
+            "bond_coverage",
+            "explained_signal"
           ],
           "enumDescriptions": [
             "No sweep. The level fires its scan config at its authored energy, and every other key of the block except `monitor_ms1` is discarded before it reaches the engine.",
             "Scores a pre-scan by the number of deconvolved masses and takes the highest. A measuring metric, so at level 3 a follow-up MS3 is acquired at the winning energy.",
             "Scores a pre-scan by how close its precursor share lies to `remaining_precursor_target` and takes the closest. A measuring metric, and with `kinetic_model` the only one that can decide an ion-trap sweep.",
             "Scores a pre-scan by the fragment ions it matches against `identification.reference`, which it therefore needs at either level. A reading metric: at level 3 the winning pre-scan is its own evidence and no follow-up is acquired unless `overrides` is set.",
-            "Fits a Gompertz curve to the precursor shares and acquires a follow-up at the modeled maximum, an integer energy between 1 and `ce_max` that need not be a grid point. Follows up at both levels, needs `kinetic_model.k2`, and sweeps exactly one activation, HCD or CID."
+            "Fits a Gompertz curve to the precursor shares and acquires a follow-up at the modeled maximum, an integer energy between 1 and `ce_max` that need not be a grid point. Follows up at both levels, needs `kinetic_model.k2`, and sweeps exactly one activation, HCD or CID.",
+            "Scores a pre-scan by the annotator's raw score of its identification in its own raw spectrum: how unlikely the matched terminal fragment envelopes are by chance, at the chance rate measured in that spectrum. At level 2 the identification is the pre-scan's own best match and the value is the one logged as `raw_score`; at level 3 it is the target fragment, read as a chain of its own, annotated when the sweep completes. A reading metric that needs `identification.reference`: a pre-scan with nothing identified is unscored and cannot win, and at level 3 no follow-up is acquired unless `overrides` is set.",
+            "Scores a pre-scan by the share of its identification's bonds that a terminal fragment envelope covers in the raw spectrum, a fraction logged as `bond_coverage`, from the same annotation as `raw_score` and under the same rules. At level 2 each pre-scan is measured against its own match, so one that matched a shorter proteoform divides by fewer bonds.",
+            "Scores a pre-scan by the share of its raw signal that the terminal fragment envelopes of its identification account for, each peak counted once, logged as `explained_signal`. Unfragmented precursor and unassignable fragments both lower it. Same rules as `raw_score`; at level 2 it costs one more annotation per pre-scan."
           ],
           "x-adr": [
             "0020",
             "0045",
             "0047",
-            "0048"
+            "0048",
+            "0074"
           ]
         },
         "order": {
@@ -1573,7 +1580,7 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Scan settings keys applied to every pre-scan of this level and to nothing else, each value written as a string, such as `{\"analyzer\": \"IonTrap\", \"max_it\": \"10\"}`. When the map is not empty the sweep is closed by a follow-up at the chosen energy, built from the level's own scan config without the overrides. `analyzer` takes `Orbitrap`, `IonTrap` or an empty string; an `IonTrap` pre-scan is measured and never identified, so the metric must be `remaining_precursor` or `kinetic_model`. `first_mass` and `last_mass` here set the pre-scan's readout range.",
+          "description": "Scan settings keys applied to every pre-scan of this level and to nothing else, each value written as a string, such as `{\"analyzer\": \"IonTrap\", \"max_it\": \"10\"}`. When the map is not empty the sweep is closed by a follow-up at the chosen energy, built from the level's own scan config without the overrides. `analyzer` takes `Orbitrap`, `IonTrap` or an empty string; an `IonTrap` pre-scan is measured and never identified, so the metric must be `remaining_precursor` or `kinetic_model`; a counting metric and the three annotator metrics are refused with it. `first_mass` and `last_mass` here set the pre-scan's readout range.",
           "x-default-text": "absent or null",
           "x-adr": [
             "0020",
@@ -1760,7 +1767,7 @@
       "slug": "exploration",
       "title": "Exploration",
       "subtitle": "JSON keys of `precursor_selection.exploration` and `identification.characterization.exploration`",
-      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `Exploration.cpp`, ADR-0020, ADR-0029, ADR-0030, ADR-0042, ADR-0044, ADR-0045, ADR-0047, ADR-0048",
+      "sources": "`MethodConfig.cs`, `MethodParameters.cs`, `Config.cpp`, `Exploration.cpp`, ADR-0020, ADR-0029, ADR-0030, ADR-0042, ADR-0044, ADR-0045, ADR-0047, ADR-0048, ADR-0074",
       "sections": [
         {
           "ref": "#/$defs/exploration",
