@@ -247,15 +247,16 @@ namespace Flash.Tests
                 "activation is positional -- stage 0 HCD, stage 1 ETD");
             Assert.That(scan.Values["CollisionEnergy"], Is.EqualTo("30;25"));
             Assert.That(scan.Values["ChargeStates"], Is.EqualTo("15;9"));
-            Assert.That(scan.Values["ReagentAGCTarget"], Is.EqualTo("0;500000"),
-                "stage 0 does not use a reagent AGC target, but must still occupy slot 0");
+            Assert.That(scan.Values["ReagentAGCTarget"], Is.EqualTo(";500000"),
+                "stage 0 does not use a reagent AGC target: an empty slot, but still slot 0");
 
             // Doubles are compared after parsing so the assertion is culture-independent
             // (the Values dictionary is built with the same culture via ToString()).
             AssertStageDoubles(scan.Values["PrecursorMass"], 824.97, 1050.9);
             AssertStageDoubles(scan.Values["IsolationWidth"], 1.86, 2.0);
-            AssertStageDoubles(scan.Values["ReactionTime"], 0.0, 10.0);   // was "10" -> bound to stage 0
-            AssertStageDoubles(scan.Values["ReagentMaxIT"], 0.0, 150.0);  // was "150" -> bound to stage 0
+            // The HCD stage does not use these: an empty slot 0, never a 0 and never a shifted value.
+            Assert.That(scan.Values["ReactionTime"], Is.EqualTo(";10"));   // was "10" -> bound to stage 0
+            Assert.That(scan.Values["ReagentMaxIT"], Is.EqualTo(";150"));  // was "150" -> bound to stage 0
 
             // Arity invariant: an emitted per-stage array is either absent or exactly NumStages long.
             // This is what fails if the loop is ever widened past Math.Min(NumStages, 10).

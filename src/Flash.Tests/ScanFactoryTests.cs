@@ -270,16 +270,16 @@ namespace Flash.Tests
             var v = Build(cmd);
 
             Assert.IsTrue(v.ContainsKey("ReactionTime"), "one ETD stage carries the key for the cascade");
-            Assert.AreEqual("0;5", v["ReactionTime"],
+            Assert.AreEqual(";5", v["ReactionTime"],
                 "one element per stage, in stage order -- position is the only thing binding a "
-                + "value to its stage");
+                + "value to its stage; the HCD stage's slot is empty, not a 0");
         }
 
         /// <summary>
         /// The mirror image, and the shape an ETD MS2 -> HCD MS3 actually sends (ADR-0054): stage 0
-        /// replays the ETD MS2, stage 1 is the HCD fragmentation, so the HCD stage carries a 0. Whether
-        /// the instrument accepts that 0 is a hardware question this test cannot answer -- it pins
-        /// only what we send.
+        /// replays the ETD MS2, stage 1 is the HCD fragmentation, so the HCD stage carries an empty
+        /// slot ("7;", not "7;0"). Whether the instrument accepts it is a hardware question this test
+        /// cannot answer -- it pins only what we send.
         /// </summary>
         [Test, Category("Tier1")]
         public void ReactionTime_IsPositional_ForEtdThenHcd()
@@ -290,8 +290,8 @@ namespace Flash.Tests
             var v = Build(cmd);
 
             Assert.AreEqual("ETD;HCD", v["ActivationType"]);
-            Assert.AreEqual("7;0", v["ReactionTime"],
-                "the ETD stage's value in position 0, the HCD stage's 0 in position 1");
+            Assert.AreEqual("7;", v["ReactionTime"],
+                "the ETD stage's value in position 0, an empty slot for the HCD stage in position 1");
         }
 
         /// <summary>

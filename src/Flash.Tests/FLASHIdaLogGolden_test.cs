@@ -2138,7 +2138,8 @@ namespace Flash.Tests
                 CompareStages(sent, "CollisionEnergy", row, header, "collision_energy", n, where, Cmp.Rounded);
                 CompareStages(sent, "ChargeStates", row, header, "charge", n, where, Cmp.ChargeClamped);
 
-                // Optional: zero-filled positionally, key absent when NO stage uses the parameter.
+                // Optional: an empty slot for a stage that does not use the parameter, key absent
+                // when NO stage uses it.
                 CompareStages(sent, "ReactionTime", row, header, "reaction_time", n, where, Cmp.Approx);
                 CompareStages(sent, "ReagentMaxIT", row, header, "reagent_max_it", n, where, Cmp.Approx);
                 CompareStages(sent, "ReagentAGCTarget", row, header, "reagent_agc_target", n, where, Cmp.Rounded);
@@ -2243,6 +2244,13 @@ namespace Flash.Tests
                     if (mode == Cmp.Text)
                     {
                         Assert.That(sentWin[w], Is.EqualTo(logWin[w]), ctx);
+                        continue;
+                    }
+                    // An empty sent slot = "this stage does not use the parameter": the engine must
+                    // have logged 0 for it, the same rule as the absent-key branch above.
+                    if (sentWin[w].Length == 0)
+                    {
+                        Assert.That(ParseLog(logWin[w]), Is.EqualTo(0.0).Within(1e-9), ctx);
                         continue;
                     }
                     double logged = ParseLog(logWin[w]);
