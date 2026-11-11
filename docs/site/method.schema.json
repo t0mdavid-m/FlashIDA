@@ -184,11 +184,12 @@
           "enumDescriptions": [
             "one MS2 isolating the anchor charge only.",
             "one MS2 per charge in the acquisition set, each recorded as its own precursor.",
-            "one MS2 that co-isolates the whole acquisition set as notches beside the anchor."
+            "one MS2 that co-isolates the whole acquisition set as notches beside the anchor. The scan's `max_it` is shared equally across its isolation windows."
           ],
           "x-adr": [
             "0016",
-            "0021"
+            "0021",
+            "0072"
           ]
         },
         "snr_threshold": {
@@ -1401,11 +1402,12 @@
         },
         "max_it": {
           "type": "number",
-          "description": "Maximum injection time, sent only when above 0.",
+          "description": "Maximum injection time of the whole scan, sent only when above 0. A scan that isolates several charge states of its precursor (`precursor_charges` `multiplexed`, and every MS3 of such a precursor) fills once per isolation window and the instrument applies its maximum to each fill, so each window is sent `max_it` divided by the number of windows. Left unset, the instrument method's own maximum applies to each window and is not shared.",
           "x-default-text": "instrument method default",
           "x-unit": "ms",
           "x-adr": [
-            "0009"
+            "0009",
+            "0072"
           ]
         },
         "first_mass": {

@@ -100,7 +100,7 @@ namespace Flash
         public string ChargeSelection { get; set; } = "snr";
 
         [JsonKey("precursor_charges")]
-        [Description("How many charge states of a selected precursor ONE MS2 acquires: \"single\" (the representative charge), \"separate\" (one MS2 per charge state, each its own precursor), or \"multiplexed\" (one MS2 co-isolating the whole SNR-positive set as notches). This is the only thing that decides acquisition geometry; exclusion is mass-keyed.")]
+        [Description("How many charge states of a selected precursor ONE MS2 acquires: \"single\" (the representative charge), \"separate\" (one MS2 per charge state, each its own precursor), or \"multiplexed\" (one MS2 co-isolating the whole SNR-positive set as notches). This is the only thing that decides acquisition geometry; exclusion is mass-keyed. Under \"multiplexed\" a scan's max_it is the budget of the whole scan: each of its isolation windows gets max_it divided by the number of windows (ADR-0072).")]
         public string PrecursorCharges { get; set; } = "single";
 
         [JsonKey("snr_threshold")]
