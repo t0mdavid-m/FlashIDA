@@ -80,6 +80,9 @@ MsScanArrived ─► ProcessSpectrum(IMsScan)                     [instrument ev
     emitted array, a stage that does not use the parameter carries a **valid fill value, never a `0`
     or an empty slot**: `UnusedStageReactionTimeMs` 10, `UnusedStageReagentMaxItMs` 100,
     `UnusedStageReagentAgcTarget` 30000 (`"7;10"` for ETD at 7 ms → HCD).
+  - `MaxIT` is sent as given, and only when above 0. For a multiplexed precursor the engine has already
+    divided the configured `max_it` by the stage-0 window count (ADR-0072), so the value is fractional and
+    below the method's; nothing here divides again.
   - This hop is **invisible to every golden**; only `ScanFactoryTests`-style assertions see it.
     `FillParameters` is `protected` so the mock calls production code.
 - **`DataPipe.cs`**: `MaxDegreeOfParallelism = 1` (stated, because `processScan` relies on it).
