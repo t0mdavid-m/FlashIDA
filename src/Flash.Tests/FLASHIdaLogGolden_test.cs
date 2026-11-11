@@ -1087,6 +1087,50 @@ namespace Flash.Tests
                     feedMs3: true, ms3FixtureFor: selector, minMs2Commands: 1, postDriveAssert: AssertKineticMs3Sweep);
         }
 
+        // ADR-0074: a sweep decided by the annotator. Three MS2 modes on the cytC 17+ sweep of 2026-09-06 -- five Orbitrap
+        // pre-scans at HCD 10/20/30/40/50, each fed its OWN real spectrum, searched, and scored on its own best PrSM: the
+        // annotator's raw score, its bond coverage (both the search's values), or its explained signal (the search worker's
+        // own annotation). A pre-scan that identified nothing is unscored. One MS3 mode on the real b32 CID sweep of
+        // 2026-07-08: thirteen pre-scans annotated against the b32 fragment as a chain of its own when the sweep completes.
+        // Reading metrics: no follow-up scan in any of the four.
+        private void RunAnnotatorMs2Case(string caseName, string config)
+        {
+            var ms2CeMap = BuildMs2CeMap(SpectraDir, "ms2_cytc_z17_ce");
+            foreach (int ce in new[] { 10, 20, 30, 40, 50 })
+                Assert.That(ms2CeMap.ContainsKey(ce), $"Requires ms2_cytc_z17_ce{ce}.txt (the 2026-09-06 cytC sweep).");
+
+            RunCase(caseName, config, "ms1_cytc_z17.txt", "ms2_cytc_z17_ce30.txt", ms2CeMap: ms2CeMap, minMs2Commands: 5);
+        }
+
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_RawScore_CytC()
+        {
+            RunAnnotatorMs2Case("exploration_raw_score", "method_exploration_raw_score.json");
+        }
+
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_BondCoverage_CytC()
+        {
+            RunAnnotatorMs2Case("exploration_bond_coverage", "method_exploration_bond_coverage.json");
+        }
+
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_ExplainedSignal_CytC()
+        {
+            RunAnnotatorMs2Case("exploration_explained_signal", "method_exploration_explained_signal.json");
+        }
+
+        [Test, Category("Tier2")]
+        public void Golden_Exploration_RawScore_MS3_CytC()
+        {
+            Assert.That(Directory.GetFiles(SpectraDir, "ms3_cytc3_b32_ce*_scan*.txt").Length, Is.EqualTo(14),
+                "Requires the 14 b32 CID fixtures of the 2026-07-08 cytC MS3 run (CE 0, 15, 17, ..., 39; test-data/spectra/FIXTURES.md).");
+            var selector = BuildMs3IonCeSelector(SpectraDir, "ms3_cytc3_");
+
+            RunCase("exploration_raw_score_ms3", "method_exploration_raw_score_ms3.json", "ms1_cytc2.txt", "ms2_cytc2_scan434.txt",
+                    feedMs3: true, ms3FixtureFor: selector, minMs2Commands: 1);
+        }
+
         // An MS3 fixture selector keyed on the command's ION (decoded from its scan_description) AND its STAGE-1
         // collision energy: `<prefix><ion>_ce<CE>_scan*.txt`. Null when no such file exists, which the harness turns
         // into [MS3-SKIP] -- it never fabricates an MS3 from MS2 peaks. BuildMs3MassMap's manifest lists no

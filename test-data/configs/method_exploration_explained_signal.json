@@ -1,0 +1,104 @@
+{
+  "global": {
+    "method_name": "ExplorationExplainedSignalMethod",
+    "method_description": "MS2 explained_signal CE sweep (ADR-0074): five Orbitrap pre-scans at HCD 10/20/30/40/50, each searched and scored by the share of its raw signal that the terminal fragment envelopes of its own best PrSM account for, each peak once (the search worker annotates the PrSM itself; the value logged as explained_signal); a pre-scan that identified nothing is unscored. The highest wins; no follow-up. Fixtures: the 2026-09-06 direct-infusion cytochrome c sweep, z=17 @ m/z 727.9, one real spectrum per energy.",
+    "duration": 120
+  },
+  "deconvolution": {
+    "score_threshold": 0.0,
+    "tqscore_threshold": 0.1,
+    "min_charge": 1,
+    "max_charge": 50,
+    "min_mass": 600,
+    "max_mass": 50000,
+    "tol": [
+      20,
+      10,
+      10
+    ]
+  },
+  "faims": {
+    "cv_values": [],
+    "max_cv_skip": 0,
+    "cv_precursor_threshold": 15
+  },
+  "scheduling": {
+    "cycle_time": {
+      "enabled": false,
+      "value_ms": 60000
+    },
+    "scan_timeout": {
+      "enabled": false,
+      "value_ms": 30000
+    },
+    "agc_interval_seconds": 9999999
+  },
+  "files": {
+    "target_logs": [],
+    "inclusion_list": "inclusion_cytc_z17.txt"
+  },
+  "precursor_selection": {
+    "rt_window": 180,
+    "targeting": "inclusion",
+    "consider_all_charges": false,
+    "strict_inclusion": true,
+    "tie_threshold": 0.1,
+    "rank_by": "qscore",
+    "max_precursors": 1,
+    "exploration": {
+      "metric": "explained_signal",
+      "ce_min": 10,
+      "ce_max": 50,
+      "ce_step": 10,
+      "activations": [
+        "HCD"
+      ]
+    }
+  },
+  "identification": {
+    "reference": {
+      "sequence": "MGDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
+    },
+    "flashtnt": {
+      "min_length": 3,
+      "max_length": 8,
+      "allow_gap": false,
+      "max_aa_in_gap": 2,
+      "fixed_mod": [],
+      "max_blind_mod_count": 2,
+      "max_mod_mass": 700
+    }
+  },
+  "ms_settings": {
+    "ms1": {
+      "analyzer": "Orbitrap",
+      "first_mass": 500,
+      "last_mass": 2000,
+      "resolution": 120000,
+      "agc_target": 800000,
+      "max_it": 246,
+      "microscans": 1,
+      "data_type": "Centroid",
+      "rf_lens": 30,
+      "source_cid_scaling": 0,
+      "source_cid": 15
+    },
+    "ms2": {
+      "analyzer": "Orbitrap",
+      "first_mass": 150,
+      "last_mass": 2000,
+      "resolution": 120000,
+      "agc_target": 500000,
+      "max_it": 100,
+      "microscans": 1,
+      "data_type": "Centroid",
+      "activation": "HCD",
+      "collision_energy": 29
+    }
+  },
+  "quantification": {
+    "enabled": false,
+    "reporter_mz_tol": 0.002,
+    "fold_change_threshold": 1.4
+  }
+}

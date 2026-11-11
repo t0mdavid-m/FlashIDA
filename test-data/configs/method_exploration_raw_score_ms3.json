@@ -1,0 +1,120 @@
+{
+  "global": {
+    "method_name": "ExplorationRawScoreMs3Method",
+    "method_description": "MS3 raw_score CE sweep (ADR-0074 at level 3): the inclusion-pinned cytC MS2 (method_exploration_kinetic_ms3.json's recipe) with characterization.max_targets 1, so the planner's first MS3 target (b32) is swept at CID 15..39 step 2 -- thirteen Orbitrap pre-scans fed their real b32 fixtures of the 2026-07-08 run. When the sweep completes, every pre-scan's raw peaks are annotated against the b32 fragment as a chain of its own (its water loss on the last residue) and the highest raw score wins; the three annotator values are logged on each pre-scan's identification row. A reading metric: the winner is its own evidence and no follow-up MS3 is acquired.",
+    "duration": 120
+  },
+  "deconvolution": {
+    "score_threshold": 0.0,
+    "tqscore_threshold": 0.0,
+    "min_charge": 4,
+    "max_charge": 50,
+    "min_mass": 500,
+    "max_mass": 50000,
+    "tol": [
+      10,
+      10,
+      10
+    ]
+  },
+  "faims": {
+    "cv_values": [],
+    "max_cv_skip": 0,
+    "cv_precursor_threshold": 15
+  },
+  "scheduling": {
+    "cycle_time": {
+      "enabled": false,
+      "value_ms": 60000
+    },
+    "scan_timeout": {
+      "enabled": false,
+      "value_ms": 30000
+    },
+    "agc_interval_seconds": 9999999
+  },
+  "files": {
+    "target_logs": [],
+    "inclusion_list": "inclusion_cytc_12307.txt"
+  },
+  "precursor_selection": {
+    "rt_window": 180,
+    "targeting": "inclusion",
+    "consider_all_charges": false,
+    "strict_inclusion": false,
+    "tie_threshold": 0.1,
+    "rank_by": "qscore",
+    "max_precursors": 1
+  },
+  "identification": {
+    "reference": {
+      "sequence": "GDVEKGKKIFVQKCAQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGFTYTDANKNKGITWKEETLMEYLENPKKYIPGTKMIFAGIKKKTEREDLIAYLKKATNE"
+    },
+    "flashtnt": {
+      "min_length": 3,
+      "max_length": 8,
+      "allow_gap": false,
+      "max_aa_in_gap": 2,
+      "fixed_mod": [],
+      "max_blind_mod_count": 2,
+      "max_mod_mass": 700
+    },
+    "characterization": {
+      "mode": "ambiguity",
+      "max_targets": 1,
+      "exploration": {
+        "metric": "raw_score",
+        "ce_min": 15,
+        "ce_max": 39,
+        "ce_step": 2,
+        "activations": [
+          "CID"
+        ]
+      }
+    }
+  },
+  "ms_settings": {
+    "ms1": {
+      "analyzer": "Orbitrap",
+      "first_mass": 500,
+      "last_mass": 2000,
+      "resolution": 120000,
+      "agc_target": 800000,
+      "max_it": 246,
+      "microscans": 1,
+      "data_type": "Centroid",
+      "rf_lens": 30,
+      "source_cid_scaling": 0,
+      "source_cid": 15
+    },
+    "ms2": {
+      "analyzer": "Orbitrap",
+      "first_mass": 100,
+      "last_mass": 2000,
+      "resolution": 120000,
+      "agc_target": 500000,
+      "max_it": 100,
+      "microscans": 4,
+      "data_type": "Centroid",
+      "activation": "HCD",
+      "collision_energy": 35
+    },
+    "ms3": {
+      "analyzer": "Orbitrap",
+      "first_mass": 200,
+      "last_mass": 2000,
+      "resolution": 240000,
+      "agc_target": 50000000,
+      "max_it": 500,
+      "microscans": 8,
+      "data_type": "Centroid",
+      "activation": "CID",
+      "collision_energy": 30
+    }
+  },
+  "quantification": {
+    "enabled": false,
+    "reporter_mz_tol": 0.002,
+    "fold_change_threshold": 1.4
+  }
+}
