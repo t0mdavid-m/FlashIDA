@@ -77,8 +77,9 @@ MsScanArrived ─► ProcessSpectrum(IMsScan)                     [instrument ev
     (ADR-0016/0019). `MaxNotchesPerStage + 1` and `MaxIsolationStages` are different tens.
   - **`ReactionTime` is gated on the activation, never on the value** (ADR-0030); reagent keys keep
     their `> 0` gate. `NeedsReactionTime` mirrors the engine's predicate as an exact set. Within an
-    emitted array, a stage that does not use the parameter is an **empty slot, never a `0`**
-    (`"10;"` for ETD → HCD), so all three are pre-formatted `string[]`.
+    emitted array, a stage that does not use the parameter carries a **valid fill value, never a `0`
+    or an empty slot**: `UnusedStageReactionTimeMs` 10, `UnusedStageReagentMaxItMs` 100,
+    `UnusedStageReagentAgcTarget` 30000 (`"7;10"` for ETD at 7 ms → HCD).
   - This hop is **invisible to every golden**; only `ScanFactoryTests`-style assertions see it.
     `FillParameters` is `protected` so the mock calls production code.
 - **`DataPipe.cs`**: `MaxDegreeOfParallelism = 1` (stated, because `processScan` relies on it).

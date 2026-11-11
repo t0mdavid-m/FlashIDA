@@ -238,13 +238,20 @@ test paths — `IdleSurveySentinelTests` (C#) ∥
     half of a mirrored pair with the engine's `needsReactionTime`; both are pinned as **exact sets**
     (`ScanFactoryTests` ∥ `Config_SchemaProjection_test`), because an over-broad predicate starts
     commanding a reaction time on scans that have none and no other assertion would see it.
-    **Within an emitted array, a stage that does not use the parameter is an empty slot, never a
-    `0`** (2026-11-11): `ReactionTime` is `"10;"` for ETD → HCD and `";10"` for HCD → ETD, and a
-    reagent key is empty for a stage whose value is 0. The slot is per stage for the same reason the
-    key is per scan: on a non-ETD-family stage a 0 is "not applicable", not a commanded zero. An
-    ETD-family stage still sends its value, a literal 0 included. The three fields are therefore
-    pre-formatted `string[]` on `ScanParameters`, like `PrecursorMass`. `scan_commands.tsv` is the
-    engine's log and still prints `10;0`.
+    **Within an emitted array, a stage that does not use the parameter carries a valid fill value,
+    never a `0` and never an empty slot** (2026-11-11): every slot of an emitted array has to hold a
+    value inside the parameter's valid range. The fill values are constants on `ScanFactory`:
+    `UnusedStageReactionTimeMs` = 10, `UnusedStageReagentMaxItMs` = 100,
+    `UnusedStageReagentAgcTarget` = 30000. So `ReactionTime` is `"7;10"` for ETD (7 ms) → HCD and
+    `"10;7"` for HCD → ETD, and a reagent key carries its fill for a stage whose value is 0
+    (`ReagentMaxIT "150;100"`, `ReagentAGCTarget "500000;30000"`). "Does not use" is decided per
+    stage by the same rule that decides the key per scan: a non-ETD-family activation for
+    `ReactionTime`, a value of 0 for the reagent keys. An ETD-family stage still sends its own
+    value, a literal 0 included. The key gates are unchanged, so a single-stage scan and a cascade
+    in which no stage uses the parameter send exactly what they did. `scan_commands.tsv` is the
+    engine's log and still prints the engine's `7;0`: for these three columns the logged value of an
+    unused stage is not the sent one, and `LogGoldenTests`' sent-vs-logged cross-check asserts the
+    fill there.
     ⚠️ This hop is **invisible to every golden**: the five log streams are written by the C++
     `IdaLogger`, so a defect between the `ScanCommand` struct and the `Values` dictionary can only be
     caught by a `ScanFactoryTests`-style assertion on the built scan.
