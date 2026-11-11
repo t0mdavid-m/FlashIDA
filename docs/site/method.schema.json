@@ -755,9 +755,10 @@
               "type": "string",
               "enum": [
                 "ranked",
-                "random"
+                "random",
+                "interleaved"
               ],
-              "description": "The order the MS3 of one plan are sent in. `ranked`: the planner's order (strongest first, or highest predicted yield first under a yield gate that ranks by yield). `random`: one random order per plan, reproducible from the run, so an MS3's rank is no longer confounded with how long it waited. The order changes when each MS3 is acquired, never which MS3 the plan holds. The quantification MS3 is not reordered.",
+              "description": "The order the MS3 of one plan are sent in. `ranked`: the planner's order (strongest first, or highest predicted yield first under a yield gate that ranks by yield). `random`: one random order per plan, reproducible from the run, so an MS3's rank is no longer confounded with how long it waited. `interleaved`: the plan's fragments take turns between groups (the two termini under `coverage` and `fragments`, the ambiguous modifications under `ambiguity`), each turn going to the group that has had the fewest fragments so far. Refused under `exhaustive` and `discriminating`. The order changes when each MS3 is acquired, never which MS3 the plan holds. The quantification MS3 is not reordered.",
               "default": "ranked"
             },
             "exploration": {

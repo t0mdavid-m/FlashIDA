@@ -611,9 +611,10 @@ namespace Flash
         [Description("The MS3 yield gate (ADR-0069): present, every characterization MS3 target, in every mode and with or without per_proteoform, is admitted only at a charge whose predicted bond yield reaches the threshold; a refused target hands its place on. A target with no ion index (a raw mass that matches no ion) is admitted untested. Absent: no gate.")]
         public YieldGateConfig YieldGate { get; set; }
 
-        // Always emitted as a real string; the C++ side refuses anything but the two values.
+        // Always emitted as a real string; the C++ side refuses anything but the three values, and
+        // "interleaved" under a mode without groups (ADR-0073).
         [JsonKey("order")]
-        [Description("The order the MS3 of one plan are sent in: ranked (the default: the planner's order) or random (one reproducible random order per plan). It changes when each MS3 is acquired, never which MS3 the plan holds.")]
+        [Description("The order the MS3 of one plan are sent in: ranked (the default: the planner's order), random (one reproducible random order per plan) or interleaved (ADR-0073: the plan's fragments take turns between groups -- the two termini under coverage and fragments, the ambiguous modifications under ambiguity -- each turn going to the group that has had the fewest fragments so far; refused under exhaustive and discriminating). It changes when each MS3 is acquired, never which MS3 the plan holds.")]
         public string Order { get; set; } = "ranked";
 
         // The MS3 CE/RT sweep. Must stay separate from precursor_selection.exploration: a single
