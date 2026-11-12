@@ -91,7 +91,9 @@
     },
     "search_threads": 3,
     "threshold": 42,
-    "window_scan": true,
+    "window_scan": {
+      "margin": 1.5
+    },
     "characterization": {
       "mode": "coverage",
       "max_targets": 4,
@@ -356,6 +358,18 @@
         "reagent_max_it": 202,
         "reagent_agc_target": 700002
       }
+    },
+    "window_scan": {
+      "analyzer": "Orbitrap",
+      "resolution": 60007,
+      "agc_target": 400007,
+      "max_it": 257,
+      "microscans": 7,
+      "rf_lens": 39,
+      "source_cid": 24,
+      "source_cid_scaling": 0.19,
+      "data_type": "Profile",
+      "scan_rate": "Normal"
     }
   },
   "scheduling": {

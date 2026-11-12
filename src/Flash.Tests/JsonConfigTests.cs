@@ -292,24 +292,90 @@ namespace Flash.Tests
             Assert.AreEqual(612.5, Convert.ToDouble(ident["threshold"], System.Globalization.CultureInfo.InvariantCulture));
         }
 
-        // ADR-0071: identification.window_scan. No corpus config authors it; the default false crosses the bridge as
-        // false (C++ treats it as absent), and an authored true round-trips and crosses as true.
+        // ADR-0071: identification.window_scan is true, false or a block. Unauthored it is null and crosses the bridge
+        // as false (C++ treats it as absent). An authored true is the block with margin 0, an authored false is null,
+        // and a block round-trips with its margin and crosses as the block.
         [Test, Category("Tier1")]
         public void Identification_WindowScan_DefaultFalse_AuthoredRoundTrips()
         {
             var mp = LoadJsonMethod("method_ms3_cytc_real.json");
             Assert.IsNotNull(mp.Config.Identification);
-            Assert.IsFalse(mp.Config.Identification.WindowScan, "method_ms3_cytc_real.json authors no window_scan");
+            Assert.IsNull(mp.Config.Identification.WindowScan, "method_ms3_cytc_real.json authors no window_scan");
             var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
             var ident = (Dictionary<string, object>)parsed["identification"];
             Assert.AreEqual(false, ident["window_scan"]);
 
-            mp.Config.Identification.WindowScan = true;
+            // The boolean forms, as a method file authors them (the committed window config writes true).
+            var on = LoadJsonMethod("method_window_cytc.json");
+            Assert.IsNotNull(on.Config.Identification.WindowScan, "window_scan: true is the block with its defaults");
+            Assert.AreEqual(0.0, on.Config.Identification.WindowScan.Margin);
+            string authoredTrue = MethodConfigSerializer.Serialize(on.Config);
+            StringAssert.Contains("\"window_scan\"", authoredTrue);
+            var raw = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(authoredTrue);
+            ((Dictionary<string, object>)raw["identification"])["window_scan"] = false;
+            Assert.IsNull(MethodConfigSerializer.Deserialize(new JavaScriptSerializer().Serialize(raw)).Identification.WindowScan,
+                "window_scan: false is off");
+            ((Dictionary<string, object>)raw["identification"])["window_scan"] = "yes";
+            Assert.Throws<ArgumentException>(
+                () => MethodConfigSerializer.Deserialize(new JavaScriptSerializer().Serialize(raw)),
+                "anything but true, false or a block is refused");
+            ((Dictionary<string, object>)raw["identification"])["window_scan"] =
+                new Dictionary<string, object> { { "padding", 2.0 } };
+            Assert.Throws<ArgumentException>(
+                () => MethodConfigSerializer.Deserialize(new JavaScriptSerializer().Serialize(raw)),
+                "an unknown key in the block is refused");
+
+            // The block.
+            mp.Config.Identification.WindowScan = new WindowScanConfig { Margin = 2.5 };
             var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
-            Assert.IsTrue(back.Identification.WindowScan);
+            Assert.IsNotNull(back.Identification.WindowScan);
+            Assert.AreEqual(2.5, back.Identification.WindowScan.Margin);
             parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
             ident = (Dictionary<string, object>)parsed["identification"];
-            Assert.AreEqual(true, ident["window_scan"]);
+            var block = (Dictionary<string, object>)ident["window_scan"];
+            Assert.AreEqual(2.5, Convert.ToDouble(block["margin"], System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        // ADR-0071 (amended): ms_settings.window_scan, the Window scan's own scan config. Unauthored it is null and
+        // the key is not emitted (a Window scan then takes ms1's parameters); authored it round-trips and crosses the
+        // bridge, a source-region key left at 0 taking the survey's value; it has no range keys.
+        [Test, Category("Tier1")]
+        public void MsSettings_WindowScan_AbsentStaysAbsent_AuthoredRoundTrips()
+        {
+            var mp = LoadJsonMethod("method_window_cytc.json");
+            Assert.IsFalse(mp.Config.MsSettings.WindowScan.HasValue, "method_window_cytc.json authors no ms_settings.window_scan");
+            var parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            var ms = (Dictionary<string, object>)parsed["ms_settings"];
+            object emitted;
+            Assert.IsTrue(!ms.TryGetValue("window_scan", out emitted) || emitted == null, "absent stays absent");
+
+            mp.Config.MsSettings.WindowScan = new WindowScanParameters
+            {
+                Analyzer = "Orbitrap", OrbitrapResolution = 60000, AGCTarget = 200000, MaxIT = 500, Microscans = 2,
+                DataType = "Centroid"
+            };
+            var back = MethodConfigSerializer.Deserialize(MethodConfigSerializer.Serialize(mp.Config));
+            Assert.IsTrue(back.MsSettings.WindowScan.HasValue);
+            Assert.AreEqual(60000, back.MsSettings.WindowScan.Value.OrbitrapResolution);
+            Assert.AreEqual(200000, back.MsSettings.WindowScan.Value.AGCTarget);
+            Assert.AreEqual(500.0, back.MsSettings.WindowScan.Value.MaxIT);
+            Assert.AreEqual(2, back.MsSettings.WindowScan.Value.Microscans);
+
+            parsed = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(mp.ToCppJson());
+            ms = (Dictionary<string, object>)parsed["ms_settings"];
+            var ws = (Dictionary<string, object>)ms["window_scan"];
+            Assert.AreEqual(60000, Convert.ToInt32(ws["resolution"]));
+            Assert.AreEqual(500.0, Convert.ToDouble(ws["max_it"], System.Globalization.CultureInfo.InvariantCulture));
+            Assert.IsFalse(ws.ContainsKey("first_mass") || ws.ContainsKey("last_mass"), "the window is the range");
+            Assert.AreEqual(mp.Config.MsSettings.MS1.RFLens,
+                Convert.ToDouble(ws["rf_lens"], System.Globalization.CultureInfo.InvariantCulture),
+                "a source-region key left at 0 takes the survey's value");
+
+            // A range key is not one of its keys: the strict reader refuses it.
+            var raw = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(MethodConfigSerializer.Serialize(mp.Config));
+            ((Dictionary<string, object>)((Dictionary<string, object>)raw["ms_settings"])["window_scan"])["first_mass"] = 500.0;
+            Assert.Throws<ArgumentException>(
+                () => MethodConfigSerializer.Deserialize(new JavaScriptSerializer().Serialize(raw)));
         }
 
         // ADR-0064: quantification.scan / ms3_targets / ms_settings.ms3_quant. Unauthored they are ms2, 1 and absent (the
