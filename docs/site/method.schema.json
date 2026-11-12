@@ -202,7 +202,7 @@
         },
         "max_charge_states": {
           "type": "integer",
-          "description": "Caps the acquisition charge set of one species, anchor included, keeping the charges `charge_selection` ranks first. `0` means no cap beyond the instrument's 10 isolation windows per fragmentation stage, which bounds `separate` as well, and larger values act as 10. Inert under `precursor_charges: single`.",
+          "description": "Caps the acquisition charge set of one species, anchor included, keeping the charges `charge_selection` ranks first. `0` means no cap beyond the instrument's 10 isolation windows per fragmentation stage, which bounds `separate` as well, and larger values act as 10. The same cap holds when a newer survey re-chooses the charges of a species that are still waiting. Inert under `precursor_charges: single`.",
           "default": 0,
           "x-adr": [
             "0040"
@@ -210,7 +210,7 @@
         },
         "min_charge_states": {
           "type": "integer",
-          "description": "Smallest acquisition charge set a species must reach to be selected. A species below it is skipped and spends no `max_precursors` slot. Under `precursor_charges: single` the set is always one charge, so any value above `1` selects nothing. A later peak group that completes a split inclusion target is exempt.",
+          "description": "Smallest number of charge states a species must have to be selected. A species below it is skipped and spends no `max_precursors` slot. Under `separate` and `multiplexed` it counts the acquisition charge set. Under `precursor_charges: single` one charge is acquired, and it counts the charges the species resolves: the anchor, plus every other charge that can be isolated, reaches `snr_threshold`, is at or above `min_precursor_charge` and, for an inclusion row with a charge set, is named by the row. `max_charge_states` does not cap that count. A later peak group that completes a split inclusion target is exempt.",
           "default": 1,
           "x-adr": [
             "0040",
@@ -243,7 +243,7 @@
         },
         "min_precursor_charge": {
           "type": "integer",
-          "description": "Lowest charge a species may be anchored on; a species whose anchor is below it is skipped. `0` means no floor. It also filters the charges an inclusion row names, but not the additional charges `separate` or `multiplexed` add to an unrestricted species.",
+          "description": "Lowest precursor charge that is isolated. A species whose anchor is below it is skipped, and no charge below it joins the set `separate` or `multiplexed` acquires, at selection or when a newer survey re-chooses the charges still waiting. `0` means no floor. It also filters the charges an inclusion row names.",
           "default": 0
         },
         "additional_scans": {
@@ -649,7 +649,7 @@
             },
             "min_fragment_charge": {
               "type": "integer",
-              "description": "Fragments below this charge are not MS3 targets, in every mode. 0 means no floor. Distinct from `precursor_selection.min_precursor_charge`, which filters precursors.",
+              "description": "Fragments below this charge are not MS3 targets, in every mode, and no charge below it is co-isolated under `fragment_charges: multiplexed` or acquired under `separate`. 0 means no floor. Distinct from `precursor_selection.min_precursor_charge`, which filters precursors.",
               "default": 0
             },
             "min_target_mass": {

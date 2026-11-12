@@ -112,7 +112,7 @@ namespace Flash
         public int MaxChargeStates { get; set; } = 0;
 
         [JsonKey("min_charge_states")]
-        [Description("Minimum acquisition charge set size for a species to be selected; 1 = no floor. Inert under precursor_charges \"single\", where the set is always size 1. A species below the floor costs no max_precursors slot.")]
+        [Description("Minimum number of charge states for a species to be selected; 1 = no floor. Under \"separate\" and \"multiplexed\" it counts the acquisition charge set; under precursor_charges \"single\" it counts the charges the species resolves, and one is acquired. A species below the floor costs no max_precursors slot.")]
         public int MinChargeStates { get; set; } = 1;
 
         [JsonKey("log_target_rt_window")]
@@ -134,7 +134,7 @@ namespace Flash
         public int MaxPrecursors { get; set; } = 10;
 
         [JsonKey("min_precursor_charge")]
-        [Description("Minimum precursor charge state for selection (0 = no filter)")]
+        [Description("Lowest precursor charge that is isolated (0 = no filter): the anchor, and every charge \"separate\" or \"multiplexed\" adds.")]
         public int MinPrecursorCharge { get; set; } = 0;
 
         [JsonKey("additional_scans")]
