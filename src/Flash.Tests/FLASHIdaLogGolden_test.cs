@@ -691,6 +691,22 @@ namespace Flash.Tests
                     feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
         }
 
+        // ADR-0073: characterization.order "interleaved" on the same cytC data. method_ms3_cytc_coverage_interleaved.json
+        // is method_ms3_cytc_coverage.json at a budget of six (a plan of three rarely holds both termini) sent
+        // interleaved: a plan's MS3 take turns between the two termini instead of going strongest first.
+        [Test, Category("Tier2")]
+        public void Golden_MS3_CoverageObjective_CytC_Interleaved()
+        {
+            var ms3Map = BuildMs3MassMap(SpectraDir);
+            if (ms3Map.Count == 0)
+            {
+                Assert.Pass("No ms3_cytc_*_scan*.txt fixtures present — interleaved coverage MS3 cytC golden skipped cleanly (no MS2-as-MS3 fabrication).");
+                return;
+            }
+            RunCase("ms3_coverage_cytc_interleaved", "method_ms3_cytc_coverage_interleaved.json", "ms1_cytc.txt", "ms2_cytc_fresh_scan57.txt",
+                    feedMs3: true, ms3Map: ms3Map, minMs2Commands: 1);
+        }
+
         // characterization.mode "fragments" (ADR-0052) on the same cytC data: every mapped fragment with a
         // bond inside it, strongest first, up to max_targets -- coverage without its uncovered-bond test.
         // method_ms3_cytc_fragments.json is method_ms3_cytc_coverage.json with only the mode changed, so
