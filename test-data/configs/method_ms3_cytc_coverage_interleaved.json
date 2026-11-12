@@ -61,7 +61,8 @@
     },
     "characterization": {
       "mode": "coverage",
-      "max_targets": 6
+      "max_targets": 6,
+      "order": "interleaved"
     }
   },
   "ms_settings": {
