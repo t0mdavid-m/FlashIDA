@@ -582,8 +582,24 @@
           ]
         },
         "window_scan": {
-          "type": "boolean",
-          "description": "Read out what each window of an identified MS2 held. Every identification scan whose search found a proteoform, at any score, buys one Window scan per window it isolated (one per notch). A Window scan is an ordinary full MS1 with the `ms_settings.ms1` parameters whose scan range is that window's bounds: the quadrupole transmits only that range, so the trap fills from the window alone and species hidden under the dominant one show up. It goes out next, at the MS2's FAIMS CV, and it observes and decides nothing: nothing is selected or excluded from it. Its `scan_commands.tsv` row names the MS2 as its parent, and the spectrum is read offline. It is uncapped: the same species identified again buys them again.",
+          "type": [
+            "object",
+            "boolean"
+          ],
+          "x-type-text": "boolean or object",
+          "additionalProperties": false,
+          "properties": {
+            "margin": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Th added to each side of the window's commanded bounds to give the Window scan's range. A window of 823.0 to 826.0 with margin 2 is read from 821.0 to 828.0. Negative values are refused.",
+              "default": 0,
+              "x-adr": [
+                "0071"
+              ]
+            }
+          },
+          "description": "Read out what each window of an identified MS2 held. `true`, `false`, or a block (its presence switches it on) holding `margin`. Every identification scan whose search found a proteoform, at any score, buys one Window scan per window it isolated (one per notch). A completed MS2 exploration sweep buys the same once, when its last pre-scan returns, if one of its pre-scans found a proteoform; a sweep that ends in a production scan buys through that scan instead. A Window scan is an ordinary full MS1 whose scan range is that window's bounds, widened by `margin`: the quadrupole transmits only that range, so the trap fills from the window alone and species hidden under the dominant one show up. Its parameters are `ms_settings.window_scan`'s when that is set, otherwise `ms_settings.ms1`'s. It goes out next, at the MS2's FAIMS CV, and it observes and decides nothing: nothing is selected or excluded from it. Its `scan_commands.tsv` row names the MS2 as its parent (for a sweep, the pre-scan that completed it), and the spectrum is read offline. It is uncapped: the same species identified again buys them again.",
           "default": false,
           "x-adr": [
             "0071"
@@ -1231,6 +1247,28 @@
           "x-default-text": "absent",
           "x-adr": [
             "0014"
+          ]
+        },
+        "window_scan": {
+          "$ref": "#/$defs/scan",
+          "propertyNames": {
+            "enum": [
+              "analyzer",
+              "resolution",
+              "agc_target",
+              "max_it",
+              "microscans",
+              "rf_lens",
+              "source_cid",
+              "source_cid_scaling",
+              "data_type",
+              "scan_rate"
+            ]
+          },
+          "description": "The Window scan's own scan config (`identification.window_scan`). Absent, a Window scan takes every parameter from `ms_settings.ms1`. Present, it is the whole config and nothing is inherited from `ms1`, except that a source-region key left at 0 takes the survey's value like every other scan. It has no `first_mass` / `last_mass`: the window the scan reads, widened by `identification.window_scan.margin`, is its range. Set while `identification.window_scan` is off, it is inert and the load prints a warning.",
+          "x-default-text": "absent: the Window scan uses ms_settings.ms1",
+          "x-adr": [
+            "0071"
           ]
         }
       },

@@ -14,6 +14,25 @@ namespace Flash
     /// <remarks>
     /// Naming of properties is alligned with Thermo instrument API and should not be changed
     /// </remarks>
+    /// <summary>
+    /// ms_settings.window_scan (ADR-0071, amended): the Window scan's own scan config. MS1Parameters without
+    /// first_mass / last_mass -- the window the scan reads, widened by identification.window_scan.margin, is its range.
+    /// </summary>
+    public struct WindowScanParameters
+    {
+        [JsonKey("analyzer")] public string Analyzer;
+        [JsonKey("resolution")] public int OrbitrapResolution;
+        [JsonKey("agc_target")] public int AGCTarget;
+        [JsonKey("max_it")] public double MaxIT;
+        [JsonKey("microscans")] public int Microscans;
+        [JsonKey("data_type")] public string DataType;
+        [JsonKey("scan_rate")] public string ScanRate;
+        // Source-region parameters (ADR-0011): 0 inherits the survey's, as for every MSn scan.
+        [JsonKey("rf_lens")] public double RFLens;
+        [JsonKey("source_cid")] public double SourceCID;
+        [JsonKey("source_cid_scaling")] public double SourceCIDScaling;
+    }
+
     public struct MS1Parameters
     {
         [JsonKey("analyzer")] public string Analyzer;
@@ -244,7 +263,10 @@ namespace Flash
                         ? null
                         : c.MsSettings.AdditionalMS2.ToDictionary(
                               kv => kv.Key,
-                              kv => ToJsonScanConfig(kv.Value, c.MsSettings.MS1))
+                              kv => ToJsonScanConfig(kv.Value, c.MsSettings.MS1)),
+                    // ADR-0071 (amended). Null when unset -> a Window scan takes ms1's parameters.
+                    window_scan = c.MsSettings.WindowScan.HasValue
+                        ? ToJsonWindowScan(c.MsSettings.WindowScan.Value, c.MsSettings.MS1) : null
                 },
                 scheduling = new JsonSchedulingConfig
                 {
@@ -333,8 +355,9 @@ namespace Flash
                 search_threads = id.SearchThreads,
                 // ADR-0061 d.6. Null when unauthored, so C++ never closes a species out.
                 threshold = id.Threshold,
-                // ADR-0071. Always emitted; the default false crosses as false, which C++ treats as absent.
-                window_scan = id.WindowScan,
+                // ADR-0071. Always emitted: off crosses as false, which C++ treats as absent; on crosses as the block.
+                window_scan = id.WindowScan == null
+                    ? (object)false : new JsonWindowScanConfig { margin = id.WindowScan.Margin },
                 // Null = no MS3. The mode is lower-cased as it always was; a missing one stays null
                 // and C++ refuses the block, which must name an objective.
                 characterization = cz == null ? null : new JsonCharacterizationConfig
@@ -561,6 +584,24 @@ namespace Flash
         /// fully determines its scan's instrument parameters and nothing downstream performs a
         /// cross-scan lookup. scan_rate is analyzer-side and deliberately does NOT inherit.</para>
         /// </remarks>
+        // The Window scan's own scan config (ADR-0071). Source-region zeros inherit the survey's, as in ToJsonScanConfig.
+        private static JsonWindowScanScanConfig ToJsonWindowScan(WindowScanParameters w, MS1Parameters ms1)
+        {
+            return new JsonWindowScanScanConfig
+            {
+                analyzer = w.Analyzer ?? "",
+                resolution = w.OrbitrapResolution,
+                agc_target = w.AGCTarget,
+                max_it = w.MaxIT,
+                microscans = w.Microscans,
+                rf_lens = w.RFLens != 0 ? w.RFLens : ms1.RFLens,
+                source_cid = w.SourceCID != 0 ? w.SourceCID : ms1.SourceCID,
+                source_cid_scaling = w.SourceCIDScaling != 0 ? w.SourceCIDScaling : ms1.SourceCIDScaling,
+                data_type = w.DataType ?? "",
+                scan_rate = w.ScanRate ?? ""
+            };
+        }
+
         private static JsonMs2Config ToJsonScanConfig(MS2Parameters m, MS1Parameters ms1)
         {
             return new JsonMs2Config
@@ -675,7 +716,7 @@ namespace Flash
                 Reference = new ReferenceConfig { Sequence = "MSENTINELPEPTIDESEQ" },
                 SearchThreads = 3,   // ADR-0062; unauthored means the core count minus two
                 Threshold = 42.0,    // ADR-0061 d.6; unauthored means never close out
-                WindowScan = true,   // ADR-0071; the default is false
+                WindowScan = new WindowScanConfig { Margin = 1.5 },   // ADR-0071; the default is off, and margin 0
                 Characterization = new CharacterizationConfig()
             };
             // ADR-0061 d.13. Every knob NON-default against FLASHTnT's own default, so the reference
@@ -852,6 +893,12 @@ namespace Flash
                 // "quant_reference" is gone (ADR-0038). Quantification no longer references
                 // additional_ms2 at all -- its two scans are the bare ms_settings.ms2_quant and
                 // ms_settings.ms2 slots.
+            };
+            // ADR-0071 (amended): the Window scan's own scan config, every key non-default and distinct from ms1's.
+            c.MsSettings.WindowScan = new WindowScanParameters
+            {
+                Analyzer = "Orbitrap", OrbitrapResolution = 60007, AGCTarget = 400007, MaxIT = 257, Microscans = 7,
+                DataType = "Profile", ScanRate = "Normal", RFLens = 39, SourceCID = 24, SourceCIDScaling = 0.19
             };
 
             c.Scheduling.CycleTime.Enabled = true;

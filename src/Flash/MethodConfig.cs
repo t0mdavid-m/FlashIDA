@@ -469,6 +469,11 @@ namespace Flash
         // the normal 17-key scan allowlist.
         [JsonKey("additional_ms2")]
         public Dictionary<string, MS2Parameters> AdditionalMS2 { get; set; }
+
+        // ADR-0071 (amended). The Window scan's own scan config. Null (absent): a Window scan takes ms1's parameters.
+        // Present: it is the whole config; it has no range keys, because the window it reads is its range.
+        [JsonKey("window_scan")]
+        public WindowScanParameters? WindowScan { get; set; }
     }
 
     [JsonKey("cycle_time")]
@@ -649,6 +654,17 @@ namespace Flash
         public string Sequence { get; set; }
     }
 
+    // ADR-0071 (amended). The Window scan's policy block. Authored as `true` (this block with its defaults), `false`
+    // (null) or the block itself; MethodConfigSerializer reads the two booleans. Declared above IdentificationConfig
+    // for the CS0579 reason MonitorMs1Config gives.
+    [JsonKey("window_scan")]
+    public class WindowScanConfig
+    {
+        [JsonKey("margin")]
+        [Description("Th added to each side of the window's commanded bounds to give the Window scan's range (ADR-0071). A number >= 0.")]
+        public double Margin { get; set; } = 0.0;
+    }
+
     /// <summary>
     /// The `identification` section (ADR-0061): WHICH protein every MS2 is matched against, and HOW.
     ///
@@ -689,10 +705,11 @@ namespace Flash
         [Description("Identification score at which an identified species is closed out of acquisition (ADR-0061). Unset: identify and log, never close out.")]
         public double? Threshold { get; set; }
 
-        // ADR-0071. Off (the default) keeps every committed method's behaviour.
+        // ADR-0071. Null (the default, and an authored false) is off and keeps every committed method's behaviour.
+        // An authored true is the block with its defaults.
         [JsonKey("window_scan")]
-        [Description("Read every window of an identified MS2 out in its own full MS1 whose scan range is that window (a Window scan, ADR-0071); observed, never acted upon.")]
-        public bool WindowScan { get; set; } = false;
+        [Description("Read every window of an identified MS2, or of a completed MS2 sweep one of whose pre-scans identified, out in its own full MS1 whose scan range is that window (a Window scan, ADR-0071); observed, never acted upon. true, false, or a block with a margin.")]
+        public WindowScanConfig WindowScan { get; set; }
 
         // Null = absent = no MS3.
         [JsonKey("characterization")]
@@ -1073,6 +1090,29 @@ namespace Flash
         // Omitted from the emitted JSON when there are no extras (SerializeValue skips nulls), so the
         // 30 configs with none stay exactly as short as they are today.
         public Dictionary<string, JsonMs2Config> additional_ms2 { get; set; }
+        // ADR-0071 (amended). Null when unset, like ms2_quant.
+        public JsonWindowScanScanConfig window_scan { get; set; }
+    }
+
+    // The Window scan's scan config: JsonMs1Config without the range, which the window sets (ADR-0071).
+    public class JsonWindowScanScanConfig
+    {
+        public string analyzer { get; set; }
+        public int resolution { get; set; }
+        public int agc_target { get; set; }
+        public double max_it { get; set; }
+        public int microscans { get; set; }
+        public double rf_lens { get; set; }
+        public double source_cid { get; set; }
+        public double source_cid_scaling { get; set; }
+        public string data_type { get; set; }
+        public string scan_rate { get; set; }
+    }
+
+    // identification.window_scan when on (ADR-0071); off crosses as the boolean false.
+    public class JsonWindowScanConfig
+    {
+        public double margin { get; set; }
     }
 
     public class JsonCycleTimeConfig
@@ -1196,7 +1236,8 @@ namespace Flash
         public JsonRefineBlockConfig refine { get; set; }
         public int? search_threads { get; set; }
         public double? threshold { get; set; }
-        public bool window_scan { get; set; }
+        // ADR-0071: false when off, a JsonWindowScanConfig when on.
+        public object window_scan { get; set; }
         public JsonCharacterizationConfig characterization { get; set; }
     }
 

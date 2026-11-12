@@ -534,6 +534,17 @@ namespace Flash
                 }
             }
 
+            // ADR-0071: identification.window_scan is true, false or a block -- the one key that takes a scalar or an
+            // object. true is the block with its defaults, false is off (null); anything else that is not an object
+            // is refused here, because the generic branch below would read it as an empty block, i.e. as on.
+            if (targetType == typeof(WindowScanConfig) && !(rawValue is Dictionary<string, object>))
+            {
+                if (rawValue is bool)
+                    return (bool)rawValue ? new WindowScanConfig() : null;
+                throw new ArgumentException(
+                    "identification.window_scan must be true, false or a block { \"margin\": <Th> } (ADR-0071).");
+            }
+
             // Nested config class (has [JsonKey] on the class)
             if (targetType.IsClass && !targetType.IsPrimitive
                 && targetType != typeof(string)
