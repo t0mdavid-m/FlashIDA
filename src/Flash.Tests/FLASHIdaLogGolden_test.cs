@@ -1815,7 +1815,7 @@ namespace Flash.Tests
         /// End-to-end anchor for the MS3 leaf flip/mislocalization regression (Change L). Reads the RAW
         /// identification.tsv the ms3_cytc drive produced and asserts the anchored per-event leaf `proteoform`
         /// EQUALS the externally-grounded ground truth in test-data/reference/ms3_leaf_expected.tsv (the
-        /// owner-validated proforma for (12321.2828, b49); 12351.3933's b80/b70 before FDmerge). This is
+        /// owner-validated proforma for (12278.2506, b43) since ADR-0075; (12321.2828, b49) before it, 12351.3933's b80/b70 before FDmerge). This is
         /// deliberately NOT a byte-golden re-capture: a golden compares the engine to its own last output (self-referential) and a future
         /// blanket recapture could silently re-bless a regression; this compares the real pipeline to a fixed
         /// external oracle, so the flip bug (-89 dragged off M1, ambiguity mislocalized) cannot come back
@@ -1853,6 +1853,11 @@ namespace Flash.Tests
             // Since the proteome search (ADR-0061 push 4c) the anchor's fragment is the FRAGMENT MASS
             // (ms2_precursor_mass on an MS3 row), not its label: once the search removes the Met the same
             // 5791.85 Da fragment is labelled b48, not b49. The fixture keeps precursor_ion as provenance.
+            //
+            // Since ADR-0075 (each ion calibrated without its own errors) the anchor is (12278.2506, b43, 5183.55 Da).
+            // The b48 MS3 had 5 true ions among 13 loose-pass errors at the fixture's ~-187 ppm offset; with any one
+            // of them left out, the median of the rest falls into the noise, so it now matches nothing. b43 has 16
+            // ions, keeps every one, and its leaf guards the same N-terminal acetyl and (CAQCHTV) bracket.
             int ionCol = Array.IndexOf(idHeader, "ms2_precursor_ion");
             int fragCol = Array.IndexOf(idHeader, "ms2_precursor_mass");
             int massCol = Array.IndexOf(idHeader, "ms1_precursor_mass");

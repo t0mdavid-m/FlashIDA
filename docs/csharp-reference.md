@@ -539,8 +539,9 @@ would need one.
 
 **Three cytC MS3 assertions are anchored on 12321.28's `b49`, not on 12351.39** (FlashIDA `bc41967`).
 FDmerge's FLASHTnT moves 12351.39's b70/b80 to −15.6/−13.4 ppm, outside the 10 ppm match, so that
-precursor's MS3 goes to b10/b12/b14, which have no fixture. `test-data/reference/ms3_leaf_expected.tsv` now
-holds one row (12321.2828, `b49`). `AssertExplorationMs3LeafMatchesPooled` requires leaf == pooled only
+precursor's MS3 goes to b10/b12/b14, which have no fixture. `test-data/reference/ms3_leaf_expected.tsv` held one
+row (12321.2828, `b49`) until ADR-0075, and now holds (12278.2506, `b43`): with each ion calibrated without its own
+errors, the b48 MS3 (5 true ions among 13 loose-pass errors) matches nothing. `AssertExplorationMs3LeafMatchesPooled` requires leaf == pooled only
 for the **b49** leaves of that precursor. Its b65 leaves carry one fused `+497.12` by design:
 `narrowFragmentPTMSites` merges mods that no ion of one MS3 scan separates (Change L, OpenMS `0394c97eda`),
 so do not "fix" that into a failure. `AssertMs3Stage0CeNotCollapsed`'s energy trend compares the
